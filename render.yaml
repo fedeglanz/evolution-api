@@ -16,6 +16,21 @@ services:
     plan: starter
     repo: https://github.com/fedeglanz/evolution-api
     dockerfilePath: ./Dockerfile
+    
+  - type: web
+    name: n8n-automation
+    env: docker
+    plan: starter
+    dockerCommand: n8n start
+    dockerContext: .
+    dockerfile: |
+      FROM docker.n8n.io/n8nio/n8n:latest
+      USER root
+      RUN apk add --no-cache tzdata
+      ENV TZ=America/Argentina/Buenos_Aires
+      USER node
+      EXPOSE 5678
+      CMD ["n8n", "start"]
     envVars:
       - key: SERVER_TYPE
         value: http
@@ -96,3 +111,61 @@ services:
         value: true
       - key: WEBHOOK_EVENTS_CONNECTION_UPDATE
         value: true
+      
+  - type: web
+    name: n8n-automation
+    env: docker
+    plan: starter
+    dockerCommand: n8n start
+    dockerContext: .
+    dockerfile: |
+      FROM docker.n8n.io/n8nio/n8n:latest
+      USER root
+      RUN apk add --no-cache tzdata
+      ENV TZ=America/Argentina/Buenos_Aires
+      USER node
+      EXPOSE 5678
+      CMD ["n8n", "start"]
+    envVars:
+      - key: DB_TYPE
+        value: postgresdb
+      - key: DB_POSTGRESDB_HOST
+        fromDatabase:
+          name: evolution-postgres
+          property: host
+      - key: DB_POSTGRESDB_PORT
+        fromDatabase:
+          name: evolution-postgres
+          property: port
+      - key: DB_POSTGRESDB_DATABASE
+        value: n8n
+      - key: DB_POSTGRESDB_USER
+        fromDatabase:
+          name: evolution-postgres
+          property: user
+      - key: DB_POSTGRESDB_PASSWORD
+        fromDatabase:
+          name: evolution-postgres
+          property: password
+      - key: N8N_PORT
+        value: 5678
+      - key: N8N_PROTOCOL
+        value: https
+      - key: N8N_HOST
+        generateValue: true
+      - key: WEBHOOK_URL
+        generateValue: true
+      - key: N8N_METRICS
+        value: true
+      - key: N8N_LOG_LEVEL
+        value: info
+      - key: N8N_BASIC_AUTH_ACTIVE
+        value: true
+      - key: N8N_BASIC_AUTH_USER
+        value: admin
+      - key: N8N_BASIC_AUTH_PASSWORD
+        value: tu_password_segura_aqui
+      - key: EXECUTIONS_DATA_PRUNE
+        value: true
+      - key: EXECUTIONS_DATA_MAX_AGE
+        value: 336
