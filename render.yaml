@@ -96,6 +96,12 @@ services:
         value: true
       - key: WEBHOOK_EVENTS_CONNECTION_UPDATE
         value: true
+      - key: WEBHOOK_GLOBAL_ENABLED
+        value: true
+      - key: WEBHOOK_GLOBAL_URL
+        value: https://n8n-automation-bhdl.onrender.com/webhook/whatsapp
+      - key: WEBHOOK_EVENTS_SEND_MESSAGE
+        value: true
 
   - type: web
     name: n8n-automation
