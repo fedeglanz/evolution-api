@@ -99,7 +99,7 @@ services:
       - key: WEBHOOK_GLOBAL_ENABLED
         value: true
       - key: WEBHOOK_GLOBAL_URL
-        value: https://n8n-automation-bhdl.onrender.com/webhook/whatsapp
+        value: https://n8n-automation-bhdl.onrender.com/webhook-test/whatsapp
       - key: WEBHOOK_EVENTS_SEND_MESSAGE
         value: true
 
@@ -152,3 +152,5 @@ services:
         value: true
       - key: EXECUTIONS_DATA_MAX_AGE
         value: 336
+      - key: N8N_ENCRYPTION_KEY
+        value: bfc29aca1b6c2d8df13a1a9367f388f6
