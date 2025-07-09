@@ -8,6 +8,7 @@ services:
   - type: redis
     name: evolution-redis
     plan: starter
+    ipAllowList: []
     
   - type: web
     name: evolution-api
