@@ -1,0 +1,20 @@
+FROM docker.n8n.io/n8nio/n8n:latest
+
+USER root
+
+# Instalar dependencias adicionales
+RUN apk add --no-cache \
+    tzdata \
+    curl
+
+# Configurar timezone
+ENV TZ=America/Argentina/Buenos_Aires
+
+# Volver a usuario node
+USER node
+
+# Exponer puerto
+EXPOSE 5678
+
+# Comando por defecto
+CMD ["n8n", "start"]
