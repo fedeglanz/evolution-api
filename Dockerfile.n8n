@@ -16,5 +16,5 @@ USER node
 # Exponer puerto
 EXPOSE 5678
 
-# Comando por defecto
-CMD ["n8n", "start"]
+# Usar npm para ejecutar n8n
+CMD ["npm", "start"]
