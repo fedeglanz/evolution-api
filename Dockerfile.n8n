@@ -16,5 +16,6 @@ USER node
 # Exponer puerto
 EXPOSE 5678
 
-# Usar npm para ejecutar n8n
-CMD ["npm", "start"]
+# Usar el entrypoint original de la imagen - no sobrescribir CMD
+# La imagen ya tiene configurado: ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
+# Y CMD por defecto que ejecuta n8n
