@@ -1,0 +1,97 @@
+databases:
+  - name: evolution-postgres
+    databaseName: evolution
+    user: evolution_user
+    plan: starter
+
+services:
+  - type: redis
+    name: evolution-redis
+    plan: starter
+    
+  - type: web
+    name: evolution-api
+    env: docker
+    plan: starter
+    repo: https://github.com/fedeglanz/evolution-api
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SERVER_TYPE
+        value: http
+      - key: SERVER_PORT
+        value: 8080
+      - key: SERVER_URL
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: CORS_METHODS
+        value: GET,POST,PUT,DELETE
+      - key: CORS_CREDENTIALS
+        value: true
+      - key: LOG_LEVEL
+        value: ERROR,WARN,INFO
+      - key: LOG_COLOR
+        value: true
+      - key: LOG_BAILEYS
+        value: error
+      - key: DEL_INSTANCE
+        value: false
+      - key: DATABASE_PROVIDER
+        value: postgresql
+      - key: DATABASE_CONNECTION_URI
+        fromDatabase:
+          name: evolution-postgres
+          property: connectionString
+      - key: DATABASE_CONNECTION_CLIENT_NAME
+        value: evolution_exchange
+      - key: DATABASE_SAVE_DATA_INSTANCE
+        value: true
+      - key: DATABASE_SAVE_DATA_NEW_MESSAGE
+        value: true
+      - key: DATABASE_SAVE_MESSAGE_UPDATE
+        value: true
+      - key: DATABASE_SAVE_DATA_CONTACTS
+        value: true
+      - key: DATABASE_SAVE_DATA_CHATS
+        value: true
+      - key: DATABASE_SAVE_DATA_LABELS
+        value: true
+      - key: DATABASE_SAVE_DATA_HISTORIC
+        value: true
+      - key: CACHE_REDIS_ENABLED
+        value: true
+      - key: CACHE_REDIS_URI
+        fromService:
+          name: evolution-redis
+          type: redis
+          property: connectionString
+      - key: CACHE_REDIS_TTL
+        value: 604800
+      - key: CACHE_REDIS_PREFIX_KEY
+        value: evolution
+      - key: CACHE_REDIS_SAVE_INSTANCES
+        value: false
+      - key: CACHE_LOCAL_ENABLED
+        value: false
+      - key: CONFIG_SESSION_PHONE_CLIENT
+        value: Evolution API
+      - key: CONFIG_SESSION_PHONE_NAME
+        value: Chrome
+      - key: QRCODE_LIMIT
+        value: 30
+      - key: QRCODE_COLOR
+        value: "#175197"
+      - key: AUTHENTICATION_API_KEY
+        value: F2BC57EB8FBCB89D7BD411D5FA9F5451
+      - key: AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES
+        value: true
+      - key: LANGUAGE
+        value: en
+      - key: WEBHOOK_EVENTS_QRCODE_UPDATED
+        value: true
+      - key: WEBHOOK_EVENTS_MESSAGES_SET
+        value: true
+      - key: WEBHOOK_EVENTS_MESSAGES_UPSERT
+        value: true
+      - key: WEBHOOK_EVENTS_CONNECTION_UPDATE
+        value: true
