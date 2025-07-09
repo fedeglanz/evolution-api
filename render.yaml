@@ -16,13 +16,6 @@ services:
     plan: starter
     repo: https://github.com/fedeglanz/evolution-api
     dockerfilePath: ./Dockerfile
-    
-  - type: web
-    name: n8n-automation
-    env: docker
-    plan: starter
-    repo: https://github.com/fedeglanz/evolution-api
-    dockerfilePath: ./Dockerfile.n8n
     envVars:
       - key: SERVER_TYPE
         value: http
@@ -148,7 +141,7 @@ services:
       - key: N8N_BASIC_AUTH_USER
         value: admin
       - key: N8N_BASIC_AUTH_PASSWORD
-        value: tu_password_segura_aqui
+        value: Reloj.Picachu@1290
       - key: EXECUTIONS_DATA_PRUNE
         value: true
       - key: EXECUTIONS_DATA_MAX_AGE
