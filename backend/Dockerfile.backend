@@ -16,7 +16,6 @@ RUN npm install --production
 
 # Copiar código fuente
 COPY src ./src
-COPY migrations ./migrations
 
 # Crear usuario no-root
 RUN addgroup -g 1001 -S nodejs
