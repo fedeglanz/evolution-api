@@ -1,0 +1,14 @@
+node_modules
+npm-debug.log
+.env
+.git
+.DS_Store
+*.log
+testing/
+tests/
+postman/
+docs/
+README.md
+*.md
+.gitignore
+server.log

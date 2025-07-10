@@ -9,14 +9,14 @@ RUN apk add --no-cache \
 # Configurar directorio de trabajo
 WORKDIR /app
 
-# Copiar package.json y package-lock.json
-COPY package*.json ./
+# Copiar archivos del backend específicamente
+COPY backend/package*.json ./
 
-# Instalar dependencias
-RUN npm install --omit=dev
+# Instalar SOLO las dependencias del backend (que están limpias)
+RUN npm install --omit=dev --legacy-peer-deps
 
-# Copiar código fuente
-COPY src ./src
+# Copiar código fuente del backend
+COPY backend/src ./src
 
 # Crear usuario no-root
 RUN addgroup -g 1001 -S nodejs
