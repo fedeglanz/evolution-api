@@ -48,3 +48,28 @@ lerna-debug.log*
 .tool-versions
 
 /prisma/migrations/*
+
+# Backend específico
+/backend/node_modules/
+/backend/dist/
+/backend/build/
+/backend/uploads/
+/backend/logs/
+/backend/.env
+/backend/.env.local
+/backend/.env.production
+/backend/.env.development
+/backend/npm-debug.log*
+/backend/yarn-debug.log*
+/backend/yarn-error.log*
+/backend/coverage/
+/backend/.nyc_output/
+
+# Frontend específico (para cuando lo tengas)
+/frontend/node_modules/
+/frontend/dist/
+/frontend/build/
+/frontend/.env
+/frontend/.env.local
+/frontend/.env.production
+/frontend/.env.development

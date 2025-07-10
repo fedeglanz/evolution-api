@@ -104,11 +104,123 @@ services:
         value: true
 
   - type: web
-    name: n8n-automation
+    name: whatsapp-bot-backend
     env: docker
     plan: starter
     repo: https://github.com/fedeglanz/evolution-api
-    dockerfilePath: ./Dockerfile.n8n
+    dockerfilePath: ./backend/Dockerfile.backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: evolution-postgres
+          property: connectionString
+      - key: DATABASE_CONNECTION_URI
+        fromDatabase:
+          name: evolution-postgres
+          property: connectionString
+      - key: JWT_SECRET
+        value: WhatsAppBot-SuperSecure-JWT-Key-2025-Change-In-Production
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: EVOLUTION_API_URL
+        value: https://evolution-api-jz3j.onrender.com
+      - key: EVOLUTION_API_KEY
+        value: F2BC57EB8FBCB89D7BD411D5FA9F5451
+      - key: AUTHENTICATION_API_KEY
+        value: F2BC57EB8FBCB89D7BD411D5FA9F5451
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4
+      - key: OPENAI_MAX_TOKENS
+        value: 150
+      - key: OPENAI_TEMPERATURE
+        value: 0.7
+      - key: N8N_WEBHOOK_URL
+        value: https://n8n-automation-bhdl.onrender.com/webhook-test/whatsapp
+      - key: N8N_API_URL
+        value: https://n8n-automation-bhdl.onrender.com
+      - key: FRONTEND_URL
+        generateValue: true
+      - key: ADMIN_URL
+        generateValue: true
+      - key: CORS_ORIGIN
+        generateValue: true
+      - key: RATE_LIMIT_WINDOW
+        value: 900000
+      - key: RATE_LIMIT_MAX
+        value: 100
+      - key: RATE_LIMIT_AUTH_MAX
+        value: 5
+      - key: MAX_FILE_SIZE
+        value: 10485760
+      - key: UPLOAD_PATH
+        value: ./uploads
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_FILE
+        value: ./logs/app.log
+      - key: REDIS_URL
+        fromService:
+          name: evolution-redis
+          type: redis
+          property: connectionString
+      - key: REDIS_TTL
+        value: 3600
+      - key: WEBHOOK_SECRET
+        value: n8n-webhook-secret-2025-change-in-production
+      - key: DEFAULT_PAGE_SIZE
+        value: 20
+      - key: MAX_PAGE_SIZE
+        value: 100
+      - key: ANALYTICS_ENABLED
+        value: true
+      - key: EMBEDDINGS_ENABLED
+        value: true
+      - key: CAMPAIGNS_ENABLED
+        value: true
+      - key: MULTI_INSTANCE_ENABLED
+        value: true
+      - key: STARTER_MAX_INSTANCES
+        value: 1
+      - key: STARTER_MAX_MESSAGES
+        value: 1000
+      - key: BUSINESS_MAX_INSTANCES
+        value: 3
+      - key: BUSINESS_MAX_MESSAGES
+        value: 5000
+      - key: ENTERPRISE_MAX_INSTANCES
+        value: -1
+      - key: ENTERPRISE_MAX_MESSAGES
+        value: -1
+      - key: BACKUP_ENABLED
+        value: false
+    
+  - type: web
+    name: whatsapp-bot-backend
+    env: docker
+    plan: starter
+    repo: https://github.com/fedeglanz/evolution-api
+    dockerfilePath: ./backend/Dockerfile.backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_CONNECTION_URI
+        fromDatabase:
+          name: evolution-postgres
+          property: connectionString
+      - key: EVOLUTION_API_URL
+        value: https://evolution-api-jz3j.onrender.com
+      - key: EVOLUTION_API_KEY
+        value: F2BC57EB8FBCB89D7BD411D5FA9F5451
+      - key: JWT_SECRET
+        value: tu-jwt-secret-super-seguro-cambiar-en-produccion
+      - key: OPENAI_API_KEY
+        value: tu-openai-api-key-aqui
     envVars:
       - key: DB_TYPE
         value: postgresdb
