@@ -1,0 +1,219 @@
+{
+  "name": "🤖 Configuración de Bots",
+  "description": "Endpoints para configurar bots de ChatGPT",
+  "item": [
+    {
+      "name": "Crear Configuración de Bot",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Configuración de bot creada exitosamente', function() {",
+              "    pm.response.to.have.status(201);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "if (pm.response.code === 201) {",
+              "    var responseJson = pm.response.json();",
+              "    if (responseJson.data && responseJson.data.bot_config && responseJson.data.bot_config.id) {",
+              "        pm.environment.set('bot_config_id', responseJson.data.bot_config.id);",
+              "        pm.test('Bot Config ID guardado', function() {",
+              "            pm.expect(responseJson.data.bot_config.id).to.be.a('string');",
+              "        });",
+              "    }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Bot Atención al Cliente\",\n  \"description\": \"Bot especializado en atención al cliente y soporte técnico\",\n  \"system_prompt\": \"Eres un asistente virtual especializado en atención al cliente. Tu trabajo es ayudar a los usuarios con sus consultas de manera amigable y profesional. Siempre mantén un tono cortés y busca resolver las dudas de la mejor manera posible.\",\n  \"model\": \"gpt-4\",\n  \"temperature\": 0.7,\n  \"max_tokens\": 1000,\n  \"enabled\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/bot-config",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "bot-config"]
+        },
+        "description": "Crea una configuración de bot para una instancia. Campos:\n- name: Nombre del bot (2-50 caracteres)\n- description: Descripción opcional (máximo 500 caracteres)\n- system_prompt: Prompt del sistema (10-4000 caracteres)\n- model: Modelo GPT (gpt-3.5-turbo, gpt-4, gpt-4-turbo, gpt-4o)\n- temperature: Temperatura (0-2, default 0.7)\n- max_tokens: Tokens máximos (1-4096, default 1000)\n- enabled: Habilitado (boolean, default true)"
+      }
+    },
+    {
+      "name": "Obtener Configuración de Bot",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Configuración de bot obtenida correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Datos de configuración completos', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.bot_config).to.have.property('id');",
+              "    pm.expect(responseJson.data.bot_config).to.have.property('name');",
+              "    pm.expect(responseJson.data.bot_config).to.have.property('system_prompt');",
+              "    pm.expect(responseJson.data.bot_config).to.have.property('model');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/bot-config",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "bot-config"]
+        },
+        "description": "Obtiene la configuración del bot para una instancia específica"
+      }
+    },
+    {
+      "name": "Actualizar Configuración de Bot",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Configuración actualizada exitosamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Datos actualizados correctamente', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.bot_config).to.have.property('updated_at');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Bot Actualizado\",\n  \"description\": \"Bot con configuración actualizada\",\n  \"system_prompt\": \"Eres un asistente virtual actualizado con nuevas capacidades. Mantén siempre un tono profesional y amigable en todas las interacciones.\",\n  \"model\": \"gpt-4-turbo\",\n  \"temperature\": 0.8,\n  \"max_tokens\": 1500,\n  \"enabled\": true\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/bot-config",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "bot-config"]
+        },
+        "description": "Actualiza la configuración del bot. Todos los campos son opcionales"
+      }
+    },
+    {
+      "name": "Probar Bot",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Bot probado exitosamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Respuesta del bot presente', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data).to.have.property('response');",
+              "    pm.expect(responseJson.data.response).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Hola, ¿cómo estás? Quería hacer una consulta sobre sus servicios.\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/bot-config/test",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "bot-config", "test"]
+        },
+        "description": "Prueba el bot enviando un mensaje y recibiendo una respuesta"
+      }
+    },
+    {
+      "name": "Resetear Configuración de Bot",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Configuración reseteada exitosamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Configuración por defecto aplicada', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.bot_config).to.have.property('system_prompt');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/bot-config/reset",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "bot-config", "reset"]
+        },
+        "description": "Resetea la configuración del bot a los valores por defecto"
+      }
+    }
+  ]
+} 

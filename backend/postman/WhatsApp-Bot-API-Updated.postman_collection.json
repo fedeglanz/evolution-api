@@ -1,0 +1,290 @@
+{
+  "info": {
+    "name": "WhatsApp Bot Platform API - Updated",
+    "description": "API completa para la plataforma SaaS de bots de WhatsApp con integración ChatGPT - Versión actualizada con campos correctos",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "instance_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "contact_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bot_config_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Autenticación",
+      "description": "Endpoints para registro, login y gestión de autenticación",
+      "item": [
+        {
+          "name": "Registro de Empresa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registro exitoso', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Respuesta contiene datos necesarios', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('token');",
+                  "    pm.expect(responseJson.data).to.have.property('user');",
+                  "    pm.expect(responseJson.data).to.have.property('company');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@miempresa.com\",\n  \"password\": \"MiPassword123!\",\n  \"full_name\": \"Juan Pérez\",\n  \"company_name\": \"Mi Empresa SRL\",\n  \"phone\": \"+5491234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Registra una nueva empresa en la plataforma con campos correctos:\n- email: Email válido\n- password: Mínimo 8 caracteres con mayúscula, minúscula, número y carácter especial\n- full_name: Nombre completo del usuario\n- company_name: Nombre de la empresa\n- phone: Teléfono (opcional)"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.data && responseJson.data.token) {",
+                  "        pm.environment.set('auth_token', responseJson.data.token);",
+                  "        pm.test('Token guardado correctamente', function() {",
+                  "            pm.expect(responseJson.data.token).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Login exitoso', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@miempresa.com\",\n  \"password\": \"MiPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Autenticación de usuario y obtención de JWT token"
+          }
+        },
+        {
+          "name": "Usuario Actual",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Usuario obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos del usuario completos', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.user).to.have.property('id');",
+                  "    pm.expect(responseJson.data.user).to.have.property('email');",
+                  "    pm.expect(responseJson.data.user).to.have.property('full_name');",
+                  "    pm.expect(responseJson.data.user).to.have.property('company_name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Obtiene información del usuario autenticado"
+          }
+        },
+        {
+          "name": "Cambiar Contraseña",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contraseña cambiada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"MiPassword123!\",\n  \"new_password\": \"NuevaPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Cambiar contraseña del usuario. Campos correctos:\n- current_password: Contraseña actual\n- new_password: Nueva contraseña (mínimo 8 caracteres con mayúscula, minúscula, número y carácter especial)"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.data && responseJson.data.token) {",
+                  "        pm.environment.set('auth_token', responseJson.data.token);",
+                  "        pm.test('Token renovado y guardado', function() {",
+                  "            pm.expect(responseJson.data.token).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Token renovado exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Renovar JWT token"
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout exitoso', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Cerrar sesión del usuario"
+          }
+        }
+      ]
+    }
+  ]
+} 

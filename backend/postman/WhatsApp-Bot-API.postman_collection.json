@@ -1,0 +1,1049 @@
+{
+  "info": {
+    "name": "WhatsApp Bot Platform API",
+    "description": "API completa para la plataforma SaaS de bots de WhatsApp con integración ChatGPT",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "instance_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "contact_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Autenticación",
+      "description": "Endpoints para registro, login y gestión de autenticación",
+      "item": [
+        {
+          "name": "Registro de Empresa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mi Empresa\",\n  \"email\": \"admin@miempresa.com\",\n  \"password\": \"MiPassword123!\",\n  \"plan\": \"business\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Registra una nueva empresa en la plataforma"
+          },
+          "response": [
+            {
+              "name": "Registro Exitoso",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Empresa registrada exitosamente\",\n  \"user\": {\n    \"id\": \"user-123\",\n    \"email\": \"admin@miempresa.com\",\n    \"role\": \"admin\"\n  },\n  \"company\": {\n    \"id\": \"company-123\",\n    \"name\": \"Mi Empresa\",\n    \"plan\": \"business\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Guardar token en variable de entorno",
+                  "if (pm.response.code === 200) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.token) {",
+                  "        pm.environment.set('auth_token', responseJson.token);",
+                  "        pm.test('Token guardado correctamente', function() {",
+                  "            pm.expect(responseJson.token).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Login exitoso', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@miempresa.com\",\n  \"password\": \"MiPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Autenticación de usuario y obtención de JWT token"
+          },
+          "response": [
+            {
+              "name": "Login Exitoso",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Login exitoso\",\n  \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"user\": {\n    \"id\": \"user-123\",\n    \"email\": \"admin@miempresa.com\",\n    \"role\": \"admin\",\n    \"company\": {\n      \"id\": \"company-123\",\n      \"name\": \"Mi Empresa\",\n      \"plan\": \"business\"\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Usuario Actual",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Obtiene información del usuario autenticado"
+          },
+          "response": [
+            {
+              "name": "Usuario Obtenido",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"user\": {\n    \"id\": \"user-123\",\n    \"email\": \"admin@miempresa.com\",\n    \"role\": \"admin\",\n    \"company\": {\n      \"id\": \"company-123\",\n      \"name\": \"Mi Empresa\",\n      \"plan\": \"business\",\n      \"max_instances\": 3,\n      \"max_messages\": 5000\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Cambiar Contraseña",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"MiPassword123!\",\n  \"newPassword\": \"NuevaPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Cambiar contraseña del usuario"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Cerrar sesión del usuario"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Instancias WhatsApp",
+      "description": "Gestión de instancias de WhatsApp",
+      "item": [
+        {
+          "name": "Listar Instancias",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["instances"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Obtiene lista de instancias de WhatsApp de la empresa"
+          },
+          "response": [
+            {
+              "name": "Lista de Instancias",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"instances\": [\n      {\n        \"id\": \"inst-123\",\n        \"name\": \"Ventas Principal\",\n        \"phone_number\": \"+1234567890\",\n        \"status\": \"connected\",\n        \"created_at\": \"2024-01-15T10:00:00Z\",\n        \"last_seen\": \"2024-01-15T15:30:00Z\"\n      }\n    ],\n    \"pagination\": {\n      \"page\": 1,\n      \"limit\": 10,\n      \"total\": 1,\n      \"pages\": 1\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Crear Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Guardar ID de instancia para pruebas posteriores",
+                  "if (pm.response.code === 201) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.instance) {",
+                  "        pm.environment.set('instance_id', responseJson.instance.id);",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Instancia creada exitosamente', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Instancia de Prueba\",\n  \"description\": \"Instancia para testing de la API\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instances",
+              "host": ["{{base_url}}"],
+              "path": ["instances"]
+            },
+            "description": "Crea una nueva instancia de WhatsApp"
+          },
+          "response": [
+            {
+              "name": "Instancia Creada",
+              "code": 201,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Instancia creada exitosamente\",\n  \"instance\": {\n    \"id\": \"inst-456\",\n    \"name\": \"Instancia de Prueba\",\n    \"description\": \"Instancia para testing de la API\",\n    \"status\": \"disconnected\",\n    \"created_at\": \"2024-01-15T16:00:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Detalle de Instancia",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}"]
+            },
+            "description": "Obtiene detalles de una instancia específica"
+          },
+          "response": [
+            {
+              "name": "Detalle de Instancia",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"instance\": {\n    \"id\": \"inst-456\",\n    \"name\": \"Instancia de Prueba\",\n    \"description\": \"Instancia para testing de la API\",\n    \"phone_number\": null,\n    \"status\": \"disconnected\",\n    \"created_at\": \"2024-01-15T16:00:00Z\",\n    \"last_seen\": null,\n    \"stats\": {\n      \"total_messages\": 0,\n      \"total_contacts\": 0\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Obtener QR Code",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/qr",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "qr"]
+            },
+            "description": "Obtiene el código QR para conectar WhatsApp"
+          },
+          "response": [
+            {
+              "name": "QR Code Obtenido",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"qrCode\": \"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...\",\n  \"message\": \"Escanea el código QR con WhatsApp\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Conectar Instancia",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/connect",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "connect"]
+            },
+            "description": "Inicia el proceso de conexión de la instancia"
+          }
+        },
+        {
+          "name": "Status de Instancia",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "status"]
+            },
+            "description": "Obtiene el estado actual de la instancia"
+          },
+          "response": [
+            {
+              "name": "Status Obtenido",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"status\": \"connected\",\n  \"phone_number\": \"+1234567890\",\n  \"last_seen\": \"2024-01-15T16:30:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Eliminar Instancia",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}"]
+            },
+            "description": "Elimina una instancia de WhatsApp"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🤖 Configuración de Bots",
+      "description": "Gestión de configuración de bots ChatGPT",
+      "item": [
+        {
+          "name": "Obtener Configuración",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bot-config/{{instance_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["bot-config", "{{instance_id}}"]
+            },
+            "description": "Obtiene la configuración del bot para una instancia"
+          },
+          "response": [
+            {
+              "name": "Configuración Obtenida",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"config\": {\n    \"id\": \"config-123\",\n    \"instance_id\": \"inst-456\",\n    \"system_prompt\": \"Eres un asistente virtual amigable y profesional.\",\n    \"max_tokens\": 150,\n    \"temperature\": 0.7,\n    \"auto_response\": true,\n    \"business_hours\": {\n      \"enabled\": false,\n      \"start\": \"09:00\",\n      \"end\": \"18:00\",\n      \"timezone\": \"America/Mexico_City\"\n    },\n    \"created_at\": \"2024-01-15T16:00:00Z\",\n    \"updated_at\": \"2024-01-15T16:00:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Actualizar Configuración",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system_prompt\": \"Eres un asistente virtual especializado en ventas. Responde de manera profesional y ayuda a los clientes con sus consultas.\",\n  \"max_tokens\": 200,\n  \"temperature\": 0.8,\n  \"auto_response\": true,\n  \"business_hours\": {\n    \"enabled\": true,\n    \"start\": \"09:00\",\n    \"end\": \"18:00\",\n    \"timezone\": \"America/Mexico_City\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/bot-config/{{instance_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["bot-config", "{{instance_id}}"]
+            },
+            "description": "Actualiza la configuración del bot"
+          },
+          "response": [
+            {
+              "name": "Configuración Actualizada",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Configuración actualizada exitosamente\",\n  \"config\": {\n    \"id\": \"config-123\",\n    \"instance_id\": \"inst-456\",\n    \"system_prompt\": \"Eres un asistente virtual especializado en ventas...\",\n    \"max_tokens\": 200,\n    \"temperature\": 0.8,\n    \"auto_response\": true,\n    \"business_hours\": {\n      \"enabled\": true,\n      \"start\": \"09:00\",\n      \"end\": \"18:00\",\n      \"timezone\": \"America/Mexico_City\"\n    },\n    \"updated_at\": \"2024-01-15T16:30:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Probar Bot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hola, me interesa conocer más sobre sus productos\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/bot-config/{{instance_id}}/test",
+              "host": ["{{base_url}}"],
+              "path": ["bot-config", "{{instance_id}}", "test"]
+            },
+            "description": "Prueba la respuesta del bot con un mensaje"
+          },
+          "response": [
+            {
+              "name": "Prueba Exitosa",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Prueba ejecutada exitosamente\",\n  \"test\": {\n    \"input\": \"Hola, me interesa conocer más sobre sus productos\",\n    \"response\": \"¡Hola! Me da mucho gusto saber de tu interés en nuestros productos. Estoy aquí para ayudarte con cualquier consulta que tengas. ¿Hay algún producto en particular que te interese o te gustaría que te platique sobre nuestra gama completa?\",\n    \"response_time\": 1.2,\n    \"tokens_used\": 45,\n    \"timestamp\": \"2024-01-15T16:45:00Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resetear Configuración",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bot-config/{{instance_id}}/reset",
+              "host": ["{{base_url}}"],
+              "path": ["bot-config", "{{instance_id}}", "reset"]
+            },
+            "description": "Resetea la configuración del bot a valores por defecto"
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Contactos",
+      "description": "Gestión de contactos de WhatsApp",
+      "item": [
+        {
+          "name": "Listar Contactos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts?page=1&limit=20&search=&tags=&blocked=false",
+              "host": ["{{base_url}}"],
+              "path": ["contacts"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                },
+                {
+                  "key": "tags",
+                  "value": ""
+                },
+                {
+                  "key": "blocked",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Obtiene lista de contactos con filtros opcionales"
+          },
+          "response": [
+            {
+              "name": "Lista de Contactos",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"contacts\": [\n      {\n        \"id\": \"contact-123\",\n        \"name\": \"Juan Pérez\",\n        \"phone\": \"+1234567890\",\n        \"profile_pic_url\": \"https://example.com/profile.jpg\",\n        \"tags\": [\"cliente\", \"vip\"],\n        \"is_blocked\": false,\n        \"notes\": \"Cliente frecuente, muy satisfecho con el servicio\",\n        \"total_messages\": 45,\n        \"last_message_at\": \"2024-01-15T15:30:00Z\",\n        \"created_at\": \"2024-01-01T10:00:00Z\"\n      }\n    ],\n    \"pagination\": {\n      \"page\": 1,\n      \"limit\": 20,\n      \"total\": 1,\n      \"pages\": 1\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Buscar Contactos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts?search=Juan&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["contacts"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "Juan"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Busca contactos por nombre o teléfono"
+          }
+        },
+        {
+          "name": "Detalle de Contacto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Guardar ID de contacto para pruebas posteriores",
+                  "if (pm.response.code === 200) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.contact) {",
+                  "        pm.environment.set('contact_id', responseJson.contact.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}"]
+            },
+            "description": "Obtiene detalles de un contacto específico"
+          }
+        },
+        {
+          "name": "Actualizar Contacto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Juan Pérez García\",\n  \"tags\": [\"cliente\", \"vip\", \"preferente\"],\n  \"notes\": \"Cliente VIP con historial de compras importantes. Requiere atención especializada.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}"]
+            },
+            "description": "Actualiza información de un contacto"
+          }
+        },
+        {
+          "name": "Bloquear Contacto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"blocked\": true,\n  \"reason\": \"Spam messages\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}/block",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}", "block"]
+            },
+            "description": "Bloquea o desbloquea un contacto"
+          }
+        },
+        {
+          "name": "Estadísticas de Contacto",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}/stats",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}", "stats"]
+            },
+            "description": "Obtiene estadísticas detalladas del contacto"
+          }
+        }
+      ]
+    },
+    {
+      "name": "💬 Conversaciones",
+      "description": "Gestión de conversaciones y mensajes",
+      "item": [
+        {
+          "name": "Historial de Conversación",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/conversations/{{contact_id}}?page=1&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["conversations", "{{contact_id}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "Obtiene el historial de conversación con un contacto"
+          },
+          "response": [
+            {
+              "name": "Historial Obtenido",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"messages\": [\n      {\n        \"id\": \"msg-123\",\n        \"message\": \"Hola, ¿cómo puedo ayudarte?\",\n        \"message_type\": \"text\",\n        \"is_from_bot\": true,\n        \"created_at\": \"2024-01-15T15:30:00Z\",\n        \"read\": true\n      },\n      {\n        \"id\": \"msg-124\",\n        \"message\": \"Me interesa el producto X\",\n        \"message_type\": \"text\",\n        \"is_from_bot\": false,\n        \"created_at\": \"2024-01-15T15:32:00Z\",\n        \"read\": true\n      }\n    ],\n    \"pagination\": {\n      \"page\": 1,\n      \"limit\": 50,\n      \"total\": 2,\n      \"pages\": 1\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Enviar Mensaje",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Gracias por tu interés. Te envío información sobre nuestros productos.\",\n  \"instance_id\": \"{{instance_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{contact_id}}/send",
+              "host": ["{{base_url}}"],
+              "path": ["conversations", "{{contact_id}}", "send"]
+            },
+            "description": "Envía un mensaje manual a un contacto"
+          },
+          "response": [
+            {
+              "name": "Mensaje Enviado",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"message\": \"Mensaje enviado exitosamente\",\n  \"data\": {\n    \"message_id\": \"msg-125\",\n    \"sent_at\": \"2024-01-15T16:00:00Z\",\n    \"status\": \"sent\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resumen de Conversación",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/conversations/{{contact_id}}/summary",
+              "host": ["{{base_url}}"],
+              "path": ["conversations", "{{contact_id}}", "summary"]
+            },
+            "description": "Obtiene un resumen de la conversación"
+          }
+        },
+        {
+          "name": "Estadísticas de Conversaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/conversations/stats",
+              "host": ["{{base_url}}"],
+              "path": ["conversations", "stats"]
+            },
+            "description": "Obtiene estadísticas generales de conversaciones"
+          }
+        },
+        {
+          "name": "Exportar Conversaciones",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/conversations/export?format=csv&date_from=2024-01-01&date_to=2024-01-31",
+              "host": ["{{base_url}}"],
+              "path": ["conversations", "export"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                },
+                {
+                  "key": "date_from",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "date_to",
+                  "value": "2024-01-31"
+                }
+              ]
+            },
+            "description": "Exporta conversaciones en formato CSV o JSON"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Dashboard",
+      "description": "Métricas y análisis del dashboard",
+      "item": [
+        {
+          "name": "Métricas Generales",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/overview?date_from=2024-01-01&date_to=2024-01-31",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "overview"],
+              "query": [
+                {
+                  "key": "date_from",
+                  "value": "2024-01-01"
+                },
+                {
+                  "key": "date_to",
+                  "value": "2024-01-31"
+                }
+              ]
+            },
+            "description": "Obtiene métricas generales del dashboard"
+          },
+          "response": [
+            {
+              "name": "Métricas Generales",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"company\": {\n      \"name\": \"Mi Empresa\",\n      \"plan\": \"business\",\n      \"memberSince\": \"2024-01-01T00:00:00Z\"\n    },\n    \"messages\": {\n      \"total\": 1500,\n      \"received\": 900,\n      \"sent\": 600,\n      \"today\": 25,\n      \"week\": 180,\n      \"month\": 750,\n      \"usage\": {\n        \"used\": 750,\n        \"limit\": 5000,\n        \"percentage\": \"15.0\"\n      }\n    },\n    \"contacts\": {\n      \"total\": 120,\n      \"active\": 115,\n      \"blocked\": 5,\n      \"newToday\": 2,\n      \"newWeek\": 15,\n      \"activeWeek\": 45\n    },\n    \"instances\": {\n      \"total\": 2,\n      \"connected\": 2,\n      \"disconnected\": 0,\n      \"usage\": {\n        \"used\": 2,\n        \"limit\": 3,\n        \"percentage\": \"66.7\"\n      }\n    },\n    \"bot\": {\n      \"responseRate\": \"85.2\",\n      \"avgResponseTime\": \"2.5\",\n      \"contactsServed\": 98\n    }\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Estadísticas de Mensajes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/messages?period=day&limit=30",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "messages"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "day"
+                },
+                {
+                  "key": "limit",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Obtiene estadísticas de mensajes por período"
+          }
+        },
+        {
+          "name": "Contactos Más Activos",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/contacts?limit=10&sort_by=messages",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "contacts"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "messages"
+                }
+              ]
+            },
+            "description": "Obtiene los contactos más activos"
+          }
+        },
+        {
+          "name": "Métricas de Rendimiento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/performance",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "performance"]
+            },
+            "description": "Obtiene métricas de rendimiento del bot"
+          }
+        },
+        {
+          "name": "Exportar Métricas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/export?format=json&include_details=true",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "export"],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json"
+                },
+                {
+                  "key": "include_details",
+                  "value": "true"
+                }
+              ]
+            },
+            "description": "Exporta métricas del dashboard"
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Script que se ejecuta antes de cada request",
+          "console.log('Ejecutando request a:', pm.request.url);",
+          "",
+          "// Verificar si tenemos token de autorización",
+          "if (!pm.environment.get('auth_token') && pm.request.url.path.join('/') !== 'auth/login' && pm.request.url.path.join('/') !== 'auth/register') {",
+          "    console.warn('⚠️ No hay token de autorización. Asegúrate de hacer login primero.');",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Script que se ejecuta después de cada request",
+          "console.log('Response status:', pm.response.code);",
+          "console.log('Response time:', pm.response.responseTime + 'ms');",
+          "",
+          "// Tests comunes para todas las respuestas",
+          "pm.test('Response time is reasonable', function() {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000); // 5 segundos",
+          "});",
+          "",
+          "pm.test('Response has correct content type', function() {",
+          "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "});",
+          "",
+          "// Test para respuestas exitosas",
+          "if (pm.response.code >= 200 && pm.response.code < 300) {",
+          "    pm.test('Success response has correct structure', function() {",
+          "        var jsonData = pm.response.json();",
+          "        pm.expect(jsonData).to.have.property('success');",
+          "        pm.expect(jsonData.success).to.be.true;",
+          "    });",
+          "}",
+          "",
+          "// Test para respuestas de error",
+          "if (pm.response.code >= 400) {",
+          "    pm.test('Error response has correct structure', function() {",
+          "        var jsonData = pm.response.json();",
+          "        pm.expect(jsonData).to.have.property('success');",
+          "        pm.expect(jsonData.success).to.be.false;",
+          "        pm.expect(jsonData).to.have.property('message');",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+} 

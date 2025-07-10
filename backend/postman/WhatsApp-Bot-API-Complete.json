@@ -1,0 +1,1488 @@
+{
+  "info": {
+    "name": "WhatsApp Bot Platform API - Complete & Updated",
+    "description": "Colección completa con todos los endpoints de la API: Autenticación, Instancias WhatsApp, Configuración de Bots, Mensajes, Contactos, Conversaciones y Dashboard",
+    "version": "2.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "instance_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "contact_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "bot_config_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🔐 Autenticación",
+      "description": "Endpoints para registro, login y gestión de autenticación",
+      "item": [
+        {
+          "name": "Registro de Empresa",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Registro exitoso', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Respuesta contiene datos necesarios', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('token');",
+                  "    pm.expect(responseJson.data).to.have.property('user');",
+                  "    pm.expect(responseJson.data).to.have.property('company');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@miempresa.com\",\n  \"password\": \"MiPassword123!\",\n  \"full_name\": \"Juan Pérez\",\n  \"company_name\": \"Mi Empresa SRL\",\n  \"phone\": \"+5491234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Registra una nueva empresa en la plataforma"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.data && responseJson.data.token) {",
+                  "        pm.environment.set('auth_token', responseJson.data.token);",
+                  "        pm.test('Token guardado correctamente', function() {",
+                  "            pm.expect(responseJson.data.token).to.be.a('string');",
+                  "        });",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Login exitoso', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@miempresa.com\",\n  \"password\": \"MiPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Autenticación de usuario y obtención de JWT token"
+          }
+        },
+        {
+          "name": "Usuario Actual",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Usuario obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Obtiene información del usuario autenticado"
+          }
+        },
+        {
+          "name": "Cambiar Contraseña",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contraseña cambiada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"MiPassword123!\",\n  \"new_password\": \"NuevaPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Cambiar contraseña del usuario"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.success && responseJson.data && responseJson.data.token) {",
+                  "        pm.environment.set('auth_token', responseJson.data.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Renovar JWT token"
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout exitoso', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Cerrar sesión del usuario"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📱 Instancias WhatsApp",
+      "description": "Endpoints para gestión de instancias de WhatsApp",
+      "item": [
+        {
+          "name": "Crear Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Instancia creada exitosamente', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.data && responseJson.data.instance && responseJson.data.instance.id) {",
+                  "        pm.environment.set('instance_id', responseJson.data.instance.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"InstanciaDemo\",\n  \"description\": \"Instancia de prueba para demostraciones\",\n  \"webhook_url\": \"https://mi-webhook.com/whatsapp\",\n  \"webhook_events\": [\"message\", \"status\", \"connection\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instances",
+              "host": ["{{base_url}}"],
+              "path": ["instances"]
+            },
+            "description": "Crea una nueva instancia de WhatsApp"
+          }
+        },
+        {
+          "name": "Listar Instancias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Instancias obtenidas correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances?page=1&limit=10&sort=desc",
+              "host": ["{{base_url}}"],
+              "path": ["instances"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "desc"
+                }
+              ]
+            },
+            "description": "Lista todas las instancias de la empresa"
+          }
+        },
+        {
+          "name": "Obtener Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Instancia obtenida correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}"]
+            },
+            "description": "Obtiene detalles de una instancia específica"
+          }
+        },
+        {
+          "name": "Actualizar Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Instancia actualizada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"InstanciaActualizada\",\n  \"description\": \"Instancia actualizada\",\n  \"webhook_url\": \"https://nuevo-webhook.com/whatsapp\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}"]
+            },
+            "description": "Actualiza una instancia existente"
+          }
+        },
+        {
+          "name": "Obtener Código QR",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Código QR obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/qr",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "qr"]
+            },
+            "description": "Obtiene el código QR para conectar WhatsApp"
+          }
+        },
+        {
+          "name": "Conectar Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Instancia conectada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/connect",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "connect"]
+            },
+            "description": "Conecta la instancia a WhatsApp"
+          }
+        },
+        {
+          "name": "Desconectar Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Instancia desconectada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/disconnect",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "disconnect"]
+            },
+            "description": "Desconecta la instancia de WhatsApp"
+          }
+        },
+        {
+          "name": "Estado de Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Estado obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "status"]
+            },
+            "description": "Obtiene el estado actual de la instancia"
+          }
+        },
+        {
+          "name": "Eliminar Instancia",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Instancia eliminada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}"]
+            },
+            "description": "Elimina una instancia permanentemente"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🤖 Configuración de Bots",
+      "description": "Endpoints para configurar bots de ChatGPT",
+      "item": [
+        {
+          "name": "Crear Configuración de Bot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Configuración de bot creada exitosamente', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "    var responseJson = pm.response.json();",
+                  "    if (responseJson.data && responseJson.data.bot_config && responseJson.data.bot_config.id) {",
+                  "        pm.environment.set('bot_config_id', responseJson.data.bot_config.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bot Atención al Cliente\",\n  \"description\": \"Bot especializado en atención al cliente\",\n  \"system_prompt\": \"Eres un asistente virtual especializado en atención al cliente. Mantén un tono cortés y profesional.\",\n  \"model\": \"gpt-4\",\n  \"temperature\": 0.7,\n  \"max_tokens\": 1000,\n  \"enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/bot-config",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "bot-config"]
+            },
+            "description": "Crea una configuración de bot para una instancia"
+          }
+        },
+        {
+          "name": "Obtener Configuración de Bot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Configuración de bot obtenida correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/bot-config",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "bot-config"]
+            },
+            "description": "Obtiene la configuración del bot para una instancia"
+          }
+        },
+        {
+          "name": "Actualizar Configuración de Bot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Configuración actualizada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bot Actualizado\",\n  \"system_prompt\": \"Eres un asistente virtual actualizado con nuevas capacidades.\",\n  \"model\": \"gpt-4-turbo\",\n  \"temperature\": 0.8,\n  \"max_tokens\": 1500\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/bot-config",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "bot-config"]
+            },
+            "description": "Actualiza la configuración del bot"
+          }
+        },
+        {
+          "name": "Probar Bot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Bot probado exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hola, ¿cómo estás? Quería hacer una consulta sobre sus servicios.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/bot-config/test",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "bot-config", "test"]
+            },
+            "description": "Prueba el bot enviando un mensaje"
+          }
+        },
+        {
+          "name": "Resetear Configuración de Bot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Configuración reseteada exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/bot-config/reset",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "bot-config", "reset"]
+            },
+            "description": "Resetea la configuración del bot a valores por defecto"
+          }
+        }
+      ]
+    },
+    {
+      "name": "💬 Mensajes",
+      "description": "Endpoints para envío y gestión de mensajes",
+      "item": [
+        {
+          "name": "Enviar Mensaje",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Mensaje enviado exitosamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"5491234567890\",\n  \"message\": \"Hola, este es un mensaje de prueba desde nuestra plataforma.\",\n  \"type\": \"text\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/messages/send",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "messages", "send"]
+            },
+            "description": "Envía un mensaje a través de WhatsApp"
+          }
+        },
+        {
+          "name": "Historial de Mensajes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Historial obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/instances/{{instance_id}}/messages?page=1&limit=50&sort=desc",
+              "host": ["{{base_url}}"],
+              "path": ["instances", "{{instance_id}}", "messages"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "sort",
+                  "value": "desc"
+                }
+              ]
+            },
+            "description": "Obtiene el historial de mensajes de una instancia"
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Contactos",
+      "description": "Endpoints para gestión de contactos",
+      "item": [
+        {
+          "name": "Listar Contactos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contactos obtenidos correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Lista de contactos presente', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.contacts).to.be.an('array');",
+                  "    pm.expect(responseJson.data).to.have.property('pagination');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts?page=1&limit=20&sort=desc&search=",
+              "host": ["{{base_url}}"],
+              "path": ["contacts"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": "desc"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Lista todos los contactos de la empresa con paginación"
+          }
+        },
+        {
+          "name": "Obtener Contacto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contacto obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos del contacto completos', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.contact).to.have.property('id');",
+                  "    pm.expect(responseJson.data.contact).to.have.property('phone');",
+                  "    pm.expect(responseJson.data.contact).to.have.property('name');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}"]
+            },
+            "description": "Obtiene detalles de un contacto específico"
+          }
+        },
+        {
+          "name": "Actualizar Contacto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contacto actualizado correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos actualizados', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.contact).to.have.property('updated_at');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cliente Actualizado\",\n  \"tags\": [\"cliente\", \"vip\", \"activo\"],\n  \"notes\": \"Cliente preferencial con historial de compras\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}"]
+            },
+            "description": "Actualiza información de un contacto"
+          }
+        },
+        {
+          "name": "Bloquear Contacto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contacto bloqueado correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Estado de bloqueo actualizado', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.contact.is_blocked).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}/block",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}", "block"]
+            },
+            "description": "Bloquea un contacto para evitar recibir mensajes"
+          }
+        },
+        {
+          "name": "Desbloquear Contacto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contacto desbloqueado correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Estado de bloqueo actualizado', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.contact.is_blocked).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts/{{contact_id}}/unblock",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "{{contact_id}}", "unblock"]
+            },
+            "description": "Desbloquea un contacto previamente bloqueado"
+          }
+        },
+        {
+          "name": "Estadísticas de Contactos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Estadísticas obtenidas correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos estadísticos presentes', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.stats).to.have.property('total_contacts');",
+                  "    pm.expect(responseJson.data.stats).to.have.property('active_contacts');",
+                  "    pm.expect(responseJson.data.stats).to.have.property('blocked_contacts');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contacts/stats",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "stats"]
+            },
+            "description": "Obtiene estadísticas generales de contactos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🗨️ Conversaciones",
+      "description": "Endpoints para gestión de conversaciones",
+      "item": [
+        {
+          "name": "Listar Conversaciones",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Conversaciones obtenidas correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Lista de conversaciones presente', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.conversations).to.be.an('array');",
+                  "    pm.expect(responseJson.data).to.have.property('pagination');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/conversations?page=1&limit=20&sort=desc&search=",
+              "host": ["{{base_url}}"],
+              "path": ["conversations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": "desc"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Lista todas las conversaciones de la empresa con paginación"
+          }
+        },
+        {
+          "name": "Obtener Conversación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Conversación obtenida correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos de conversación completos', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.conversation).to.have.property('id');",
+                  "    pm.expect(responseJson.data.conversation).to.have.property('contact_id');",
+                  "    pm.expect(responseJson.data.conversation).to.have.property('messages');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/conversations/{{contact_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["conversations", "{{contact_id}}"]
+            },
+            "description": "Obtiene el historial completo de una conversación"
+          }
+        },
+        {
+          "name": "Exportar Conversación",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Conversación exportada correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos de exportación presentes', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('export_url');",
+                  "    pm.expect(responseJson.data).to.have.property('format');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"csv\",\n  \"include_metadata\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{contact_id}}/export",
+              "host": ["{{base_url}}"],
+              "path": ["conversations", "{{contact_id}}", "export"]
+            },
+            "description": "Exporta una conversación en formato CSV o JSON"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Dashboard",
+      "description": "Endpoints para métricas y dashboard",
+      "item": [
+        {
+          "name": "Overview General",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Overview obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Métricas generales presentes', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.overview).to.have.property('total_instances');",
+                  "    pm.expect(responseJson.data.overview).to.have.property('active_instances');",
+                  "    pm.expect(responseJson.data.overview).to.have.property('total_messages');",
+                  "    pm.expect(responseJson.data.overview).to.have.property('total_contacts');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/overview",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "overview"]
+            },
+            "description": "Obtiene métricas generales del dashboard"
+          }
+        },
+        {
+          "name": "Estadísticas de Mensajes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Estadísticas obtenidas correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos estadísticos presentes', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.stats).to.have.property('messages_today');",
+                  "    pm.expect(responseJson.data.stats).to.have.property('messages_this_week');",
+                  "    pm.expect(responseJson.data.stats).to.have.property('messages_this_month');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/messages/stats?period=month",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "messages", "stats"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "month"
+                }
+              ]
+            },
+            "description": "Obtiene estadísticas de mensajes por período"
+          }
+        },
+        {
+          "name": "Contactos Activos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Contactos activos obtenidos correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos de contactos activos presentes', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.active_contacts).to.have.property('today');",
+                  "    pm.expect(responseJson.data.active_contacts).to.have.property('this_week');",
+                  "    pm.expect(responseJson.data.active_contacts).to.have.property('this_month');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/contacts/active",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "contacts", "active"]
+            },
+            "description": "Obtiene estadísticas de contactos activos"
+          }
+        },
+        {
+          "name": "Rendimiento de Instancias",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Rendimiento obtenido correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos de rendimiento presentes', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data.performance).to.be.an('array');",
+                  "    if (responseJson.data.performance.length > 0) {",
+                  "        pm.expect(responseJson.data.performance[0]).to.have.property('instance_id');",
+                  "        pm.expect(responseJson.data.performance[0]).to.have.property('messages_sent');",
+                  "        pm.expect(responseJson.data.performance[0]).to.have.property('response_time');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/dashboard/instances/performance",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "instances", "performance"]
+            },
+            "description": "Obtiene métricas de rendimiento de todas las instancias"
+          }
+        },
+        {
+          "name": "Exportar Métricas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Exportación iniciada correctamente', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().success).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test('Datos de exportación presentes', function() {",
+                  "    var responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.data).to.have.property('export_url');",
+                  "    pm.expect(responseJson.data).to.have.property('format');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"format\": \"xlsx\",\n  \"period\": \"month\",\n  \"include_charts\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/dashboard/export",
+              "host": ["{{base_url}}"],
+              "path": ["dashboard", "export"]
+            },
+            "description": "Exporta métricas del dashboard en formato Excel o PDF"
+          }
+        }
+      ]
+    }
+  ]
+} 

@@ -1,0 +1,375 @@
+{
+  "name": "📱 Instancias WhatsApp",
+  "description": "Endpoints para gestión de instancias de WhatsApp",
+  "item": [
+    {
+      "name": "Crear Instancia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Instancia creada exitosamente', function() {",
+              "    pm.response.to.have.status(201);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "if (pm.response.code === 201) {",
+              "    var responseJson = pm.response.json();",
+              "    if (responseJson.data && responseJson.data.instance && responseJson.data.instance.id) {",
+              "        pm.environment.set('instance_id', responseJson.data.instance.id);",
+              "        pm.test('Instance ID guardado', function() {",
+              "            pm.expect(responseJson.data.instance.id).to.be.a('string');",
+              "        });",
+              "    }",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"InstanciaDemo\",\n  \"description\": \"Instancia de prueba para demostraciones\",\n  \"webhook_url\": \"https://mi-webhook.com/whatsapp\",\n  \"webhook_events\": [\"message\", \"status\", \"connection\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/instances",
+          "host": ["{{base_url}}"],
+          "path": ["instances"]
+        },
+        "description": "Crea una nueva instancia de WhatsApp. Campos:\n- name: Nombre de la instancia (2-50 caracteres)\n- description: Descripción opcional (máximo 500 caracteres)\n- webhook_url: URL del webhook (opcional)\n- webhook_events: Array de eventos [\"message\", \"status\", \"connection\"]"
+      }
+    },
+    {
+      "name": "Listar Instancias",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Instancias obtenidas correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Respuesta contiene array de instancias', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.instances).to.be.an('array');",
+              "    pm.expect(responseJson.data).to.have.property('pagination');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances?page=1&limit=10&sort=desc&search=",
+          "host": ["{{base_url}}"],
+          "path": ["instances"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "sort",
+              "value": "desc"
+            },
+            {
+              "key": "search",
+              "value": ""
+            }
+          ]
+        },
+        "description": "Lista todas las instancias de la empresa con paginación:\n- page: Página (mínimo 1, default 1)\n- limit: Elementos por página (1-100, default 20)\n- sort: Orden (asc|desc, default desc)\n- search: Término de búsqueda (opcional)"
+      }
+    },
+    {
+      "name": "Obtener Instancia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Instancia obtenida correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Datos de instancia completos', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.instance).to.have.property('id');",
+              "    pm.expect(responseJson.data.instance).to.have.property('name');",
+              "    pm.expect(responseJson.data.instance).to.have.property('status');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}"]
+        },
+        "description": "Obtiene detalles de una instancia específica por ID"
+      }
+    },
+    {
+      "name": "Actualizar Instancia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Instancia actualizada exitosamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Datos actualizados correctamente', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.instance).to.have.property('id');",
+              "    pm.expect(responseJson.data.instance).to.have.property('updated_at');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"InstanciaActualizada\",\n  \"description\": \"Instancia actualizada con nueva configuración\",\n  \"webhook_url\": \"https://nuevo-webhook.com/whatsapp\",\n  \"webhook_events\": [\"message\", \"status\"]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}"]
+        },
+        "description": "Actualiza una instancia existente. Todos los campos son opcionales:\n- name: Nuevo nombre (2-50 caracteres)\n- description: Nueva descripción (máximo 500 caracteres)\n- webhook_url: Nueva URL del webhook (puede ser string vacío para eliminar)\n- webhook_events: Nuevos eventos del webhook"
+      }
+    },
+    {
+      "name": "Obtener Código QR",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Código QR obtenido correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('QR code presente en respuesta', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data).to.have.property('qr_code');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/qr",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "qr"]
+        },
+        "description": "Obtiene el código QR para conectar WhatsApp a la instancia"
+      }
+    },
+    {
+      "name": "Conectar Instancia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Conexión iniciada correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Estado de conexión actualizado', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.instance).to.have.property('status');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/connect",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "connect"]
+        },
+        "description": "Inicia el proceso de conexión de la instancia con WhatsApp"
+      }
+    },
+    {
+      "name": "Desconectar Instancia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Desconexión exitosa', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Estado actualizado a desconectado', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.instance.status).to.equal('disconnected');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/disconnect",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "disconnect"]
+        },
+        "description": "Desconecta la instancia de WhatsApp"
+      }
+    },
+    {
+      "name": "Estado de Instancia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Estado obtenido correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Información de estado completa', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data).to.have.property('status');",
+              "    pm.expect(responseJson.data).to.have.property('connected_at');",
+              "    pm.expect(responseJson.data).to.have.property('phone_number');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/status",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "status"]
+        },
+        "description": "Obtiene el estado actual de conexión de la instancia"
+      }
+    },
+    {
+      "name": "Eliminar Instancia",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Instancia eliminada correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Confirmación de eliminación', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.message).to.include('eliminada');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}"]
+        },
+        "description": "Elimina permanentemente una instancia y todos sus datos asociados"
+      }
+    }
+  ]
+} 

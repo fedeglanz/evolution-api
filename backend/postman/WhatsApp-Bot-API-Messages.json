@@ -1,0 +1,107 @@
+{
+  "name": "💬 Mensajes",
+  "description": "Endpoints para envío y gestión de mensajes",
+  "item": [
+    {
+      "name": "Enviar Mensaje",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Mensaje enviado exitosamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Datos del mensaje enviado', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data).to.have.property('message_id');",
+              "    pm.expect(responseJson.data).to.have.property('status');",
+              "    pm.expect(responseJson.data).to.have.property('sent_at');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"to\": \"5491234567890\",\n  \"message\": \"Hola, este es un mensaje de prueba desde nuestra plataforma de WhatsApp Bot.\",\n  \"type\": \"text\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/messages/send",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "messages", "send"]
+        },
+        "description": "Envía un mensaje a través de WhatsApp. Campos:\n- to: Número de teléfono (formato internacional sin +)\n- message: Texto del mensaje (1-4096 caracteres)\n- type: Tipo de mensaje (text, image, audio, video, document)"
+      }
+    },
+    {
+      "name": "Historial de Mensajes",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Historial obtenido correctamente', function() {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().success).to.be.true;",
+              "});",
+              "",
+              "pm.test('Datos de historial completos', function() {",
+              "    var responseJson = pm.response.json();",
+              "    pm.expect(responseJson.data.messages).to.be.an('array');",
+              "    pm.expect(responseJson.data).to.have.property('pagination');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/instances/{{instance_id}}/messages?page=1&limit=50&sort=desc&search=",
+          "host": ["{{base_url}}"],
+          "path": ["instances", "{{instance_id}}", "messages"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "50"
+            },
+            {
+              "key": "sort",
+              "value": "desc"
+            },
+            {
+              "key": "search",
+              "value": ""
+            }
+          ]
+        },
+        "description": "Obtiene el historial de mensajes de una instancia con paginación"
+      }
+    }
+  ]
+} 
