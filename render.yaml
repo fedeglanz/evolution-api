@@ -104,6 +104,58 @@ services:
         value: true
 
   - type: web
+    name: n8n-automation
+    env: docker
+    plan: starter
+    repo: https://github.com/fedeglanz/evolution-api
+    dockerfilePath: ./Dockerfile.n8n
+    envVars:
+      - key: DB_TYPE
+        value: postgresdb
+      - key: DB_POSTGRESDB_HOST
+        fromDatabase:
+          name: evolution-postgres
+          property: host
+      - key: DB_POSTGRESDB_PORT
+        fromDatabase:
+          name: evolution-postgres
+          property: port
+      - key: DB_POSTGRESDB_DATABASE
+        value: n8n
+      - key: DB_POSTGRESDB_USER
+        fromDatabase:
+          name: evolution-postgres
+          property: user
+      - key: DB_POSTGRESDB_PASSWORD
+        fromDatabase:
+          name: evolution-postgres
+          property: password
+      - key: N8N_PORT
+        value: 5678
+      - key: N8N_PROTOCOL
+        value: https
+      - key: N8N_HOST
+        generateValue: true
+      - key: WEBHOOK_URL
+        generateValue: true
+      - key: N8N_METRICS
+        value: true
+      - key: N8N_LOG_LEVEL
+        value: info
+      - key: N8N_BASIC_AUTH_ACTIVE
+        value: true
+      - key: N8N_BASIC_AUTH_USER
+        value: admin
+      - key: N8N_BASIC_AUTH_PASSWORD
+        value: Reloj.Picachu@1290
+      - key: EXECUTIONS_DATA_PRUNE
+        value: true
+      - key: EXECUTIONS_DATA_MAX_AGE
+        value: 336
+      - key: N8N_ENCRYPTION_KEY
+        value: bfc29aca1b6c2d8df13a1a9367f388f6
+
+  - type: web
     name: whatsapp-bot-backend
     env: docker
     plan: starter
@@ -199,70 +251,3 @@ services:
         value: -1
       - key: BACKUP_ENABLED
         value: false
-    
-  - type: web
-    name: whatsapp-bot-backend
-    env: docker
-    plan: starter
-    repo: https://github.com/fedeglanz/evolution-api
-    dockerfilePath: ./backend/Dockerfile.backend
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_CONNECTION_URI
-        fromDatabase:
-          name: evolution-postgres
-          property: connectionString
-      - key: EVOLUTION_API_URL
-        value: https://evolution-api-jz3j.onrender.com
-      - key: EVOLUTION_API_KEY
-        value: F2BC57EB8FBCB89D7BD411D5FA9F5451
-      - key: JWT_SECRET
-        value: tu-jwt-secret-super-seguro-cambiar-en-produccion
-      - key: OPENAI_API_KEY
-        value: tu-openai-api-key-aqui
-    envVars:
-      - key: DB_TYPE
-        value: postgresdb
-      - key: DB_POSTGRESDB_HOST
-        fromDatabase:
-          name: evolution-postgres
-          property: host
-      - key: DB_POSTGRESDB_PORT
-        fromDatabase:
-          name: evolution-postgres
-          property: port
-      - key: DB_POSTGRESDB_DATABASE
-        value: n8n
-      - key: DB_POSTGRESDB_USER
-        fromDatabase:
-          name: evolution-postgres
-          property: user
-      - key: DB_POSTGRESDB_PASSWORD
-        fromDatabase:
-          name: evolution-postgres
-          property: password
-      - key: N8N_PORT
-        value: 5678
-      - key: N8N_PROTOCOL
-        value: https
-      - key: N8N_HOST
-        generateValue: true
-      - key: WEBHOOK_URL
-        generateValue: true
-      - key: N8N_METRICS
-        value: true
-      - key: N8N_LOG_LEVEL
-        value: info
-      - key: N8N_BASIC_AUTH_ACTIVE
-        value: true
-      - key: N8N_BASIC_AUTH_USER
-        value: admin
-      - key: N8N_BASIC_AUTH_PASSWORD
-        value: Reloj.Picachu@1290
-      - key: EXECUTIONS_DATA_PRUNE
-        value: true
-      - key: EXECUTIONS_DATA_MAX_AGE
-        value: 336
-      - key: N8N_ENCRYPTION_KEY
-        value: bfc29aca1b6c2d8df13a1a9367f388f6
