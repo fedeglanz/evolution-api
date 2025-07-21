@@ -11,6 +11,7 @@ const dashboardRoutes = require('./dashboard');
 const planRoutes = require('./plans');
 const migrationRoutes = require('./migrations');
 const botRouter = require('./bot'); // Nueva ruta
+const webhookRoutes = require('./webhooks'); // Nuevo
 
 // Middleware de autenticación
 const { authenticateToken } = require('../middleware/auth');
@@ -240,6 +241,7 @@ router.use('/conversations', conversationRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/plans', planRoutes);
 router.use('/migrations', migrationRoutes);
+router.use('/webhooks', webhookRoutes); // Nuevo - con auth
 router.use('/bot', botRouter); // Sin auth para n8n - usará API key propia
 
 module.exports = router;

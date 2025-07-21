@@ -491,6 +491,87 @@ class EvolutionService {
       };
     }
   }
+
+  /**
+   * Actualizar webhook de una instancia
+   * @param {string} instanceName - Nombre de la instancia
+   * @param {string} webhookUrl - URL del webhook
+   * @returns {Promise<Object>} Resultado de la actualización
+   */
+  async updateInstanceWebhook(instanceName, webhookUrl) {
+    try {
+      console.log(`[Evolution API] Updating webhook for instance: ${instanceName}`);
+      console.log(`[Evolution API] New webhook URL: ${webhookUrl}`);
+
+      const response = await this.client.put(`/webhook/set/${instanceName}`, {
+        webhook: webhookUrl,
+        webhook_by_events: false,
+        events: [
+          "APPLICATION_STARTUP",
+          "QRCODE_UPDATED", 
+          "MESSAGES_UPSERT",
+          "MESSAGES_UPDATE",
+          "CONNECTION_UPDATE"
+        ]
+      });
+
+      console.log(`[Evolution API] Webhook updated successfully for: ${instanceName}`);
+      
+      return {
+        success: true,
+        instanceName,
+        webhookUrl,
+        evolutionResponse: response.data
+      };
+
+    } catch (error) {
+      console.error(`[Evolution API] Error updating webhook for ${instanceName}:`, {
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw new Error(`Failed to update webhook: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener información detallada de una instancia
+   * @param {string} instanceName - Nombre de la instancia
+   * @returns {Promise<Object>} Información de la instancia
+   */
+  async getInstanceInfo(instanceName) {
+    try {
+      console.log(`[Evolution API] Getting info for instance: ${instanceName}`);
+
+      const response = await this.client.get(`/instance/fetchInstances?instanceName=${instanceName}`);
+
+      if (response.data && response.data.length > 0) {
+        const instance = response.data[0];
+        
+        return {
+          instanceName: instance.instanceName || instance.name,
+          status: instance.connectionStatus || instance.status,
+          profileName: instance.profileName,
+          phone: instance.number,
+          webhook_url: instance.webhook?.webhook_url || instance.webhook,
+          webhook_events: instance.webhook?.events || [],
+          created_at: instance.createdAt,
+          updated_at: instance.updatedAt,
+          _rawData: instance
+        };
+      } else {
+        throw new Error(`Instance ${instanceName} not found`);
+      }
+
+    } catch (error) {
+      console.error(`[Evolution API] Error getting instance info for ${instanceName}:`, {
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw new Error(`Failed to get instance info: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new EvolutionService();
