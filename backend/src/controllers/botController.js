@@ -1,6 +1,124 @@
 const pool = require('../database');
 const openaiService = require('../services/openaiService');
 
+// === FUNCIONES HELPER PARA EVITAR PROBLEMAS DE CONTEXTO ===
+
+/**
+ * Obtener o crear contacto
+ */
+async function getOrCreateContactHelper(companyId, phone, senderName) {
+  // Buscar contacto existente
+  let contactQuery = await pool.query(`
+    SELECT * FROM whatsapp_bot.contacts 
+    WHERE company_id = $1 AND phone = $2
+  `, [companyId, phone]);
+
+  if (contactQuery.rows.length > 0) {
+    // Actualizar nombre si es diferente
+    if (senderName && contactQuery.rows[0].name !== senderName) {
+      await pool.query(`
+        UPDATE whatsapp_bot.contacts 
+        SET name = $1, updated_at = NOW()
+        WHERE id = $2
+      `, [senderName, contactQuery.rows[0].id]);
+    }
+    return contactQuery.rows[0];
+  }
+
+  // Crear nuevo contacto
+  const newContactQuery = await pool.query(`
+    INSERT INTO whatsapp_bot.contacts (
+      company_id, phone, name, created_at, updated_at
+    ) VALUES ($1, $2, $3, NOW(), NOW())
+    RETURNING *
+  `, [companyId, phone, senderName || 'Usuario']);
+
+  return newContactQuery.rows[0];
+}
+
+/**
+ * Obtener historial de conversación
+ */
+async function getConversationHistoryHelper(contactId, instanceId, limit = 10) {
+  const historyQuery = await pool.query(`
+    SELECT message_text, is_from_bot, created_at
+    FROM whatsapp_bot.conversations
+    WHERE contact_id = $1 AND instance_id = $2
+    ORDER BY created_at DESC
+    LIMIT $3
+  `, [contactId, instanceId, limit]);
+
+  return historyQuery.rows.reverse(); // Orden cronológico
+}
+
+/**
+ * Guardar mensaje en la BD
+ */
+async function saveMessageHelper(companyId, contactId, instanceId, content, messageId, isFromBot, messageType = 'text', metadata = {}) {
+  await pool.query(`
+    INSERT INTO whatsapp_bot.conversations (
+      company_id, contact_id, instance_id, message_text, 
+      is_from_bot, message_id, message_type, metadata
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+  `, [
+    companyId,
+    contactId,
+    instanceId,
+    content,
+    isFromBot,
+    messageId,
+    messageType,
+    JSON.stringify(metadata)
+  ]);
+}
+
+/**
+ * Verificar si estamos dentro del horario de negocio
+ */
+function checkBusinessHoursHelper(businessHoursConfig) {
+  try {
+    const config = typeof businessHoursConfig === 'string' 
+      ? JSON.parse(businessHoursConfig) 
+      : businessHoursConfig;
+
+    if (!config.enabled) {
+      return { isOpen: true };
+    }
+
+    const now = new Date();
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const currentTime = now.toTimeString().substr(0, 5); // HH:MM
+
+    const dayConfig = config.hours[dayName];
+    if (!dayConfig || !dayConfig.open || !dayConfig.close) {
+      return { isOpen: false };
+    }
+
+    const isOpen = currentTime >= dayConfig.open && currentTime <= dayConfig.close;
+    return { isOpen };
+
+  } catch (error) {
+    console.error('[Bot] Error checking business hours:', error);
+    return { isOpen: true }; // Default to open if error
+  }
+}
+
+/**
+ * Verificar palabras clave de escalation
+ */
+function checkEscalationKeywordsHelper(message, keywords) {
+  if (!keywords || !Array.isArray(keywords)) {
+    return { shouldEscalate: false };
+  }
+
+  const messageLower = message.toLowerCase();
+  const shouldEscalate = keywords.some(keyword => 
+    messageLower.includes(keyword.toLowerCase())
+  );
+
+  return { shouldEscalate };
+}
+
 class BotController {
 
   /**
@@ -44,14 +162,14 @@ class BotController {
         });
       }
 
-      // 3. Obtener o crear contacto
-      const contact = await this.getOrCreateContact(botConfig.company_id, phone, senderName);
+      // 3. Obtener o crear contacto - USANDO HELPER
+      const contact = await getOrCreateContactHelper(botConfig.company_id, phone, senderName);
 
-      // 4. Guardar mensaje del usuario
-      await this.saveMessage(botConfig.company_id, contact.id, botConfig.instance_id, message, messageId, false, messageType);
+      // 4. Guardar mensaje del usuario - USANDO HELPER
+      await saveMessageHelper(botConfig.company_id, contact.id, botConfig.instance_id, message, messageId, false, messageType);
 
-      // 5. Obtener contexto de mensajes previos
-      const conversationHistory = await this.getConversationHistory(contact.id, botConfig.instance_id, 10);
+      // 5. Obtener contexto de mensajes previos - USANDO HELPER
+      const conversationHistory = await getConversationHistoryHelper(contact.id, botConfig.instance_id, 10);
 
       // 6. Generar respuesta con OpenAI
       const startTime = Date.now();
@@ -69,8 +187,8 @@ class BotController {
 
       const responseTime = Date.now() - startTime;
 
-      // 7. Guardar respuesta del bot
-      await this.saveMessage(
+      // 7. Guardar respuesta del bot - USANDO HELPER
+      await saveMessageHelper(
         botConfig.company_id, 
         contact.id, 
         botConfig.instance_id, 
@@ -165,122 +283,41 @@ class BotController {
     }
   }
 
-  // === MÉTODOS AUXILIARES ===
+  // === MÉTODOS DEPRECADOS (mantenidos por compatibilidad pero usando helpers) ===
 
   /**
    * Verificar si estamos dentro del horario de negocio
    */
   checkBusinessHours(businessHoursConfig) {
-    try {
-      const config = typeof businessHoursConfig === 'string' 
-        ? JSON.parse(businessHoursConfig) 
-        : businessHoursConfig;
-
-      if (!config.enabled) {
-        return { isOpen: true };
-      }
-
-      const now = new Date();
-      const dayName = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      const currentTime = now.toTimeString().substr(0, 5); // HH:MM
-
-      const dayConfig = config.hours[dayName];
-      if (!dayConfig || !dayConfig.open || !dayConfig.close) {
-        return { isOpen: false };
-      }
-
-      const isOpen = currentTime >= dayConfig.open && currentTime <= dayConfig.close;
-      return { isOpen };
-
-    } catch (error) {
-      console.error('[Bot] Error checking business hours:', error);
-      return { isOpen: true }; // Default to open if error
-    }
+    return checkBusinessHoursHelper(businessHoursConfig);
   }
 
   /**
    * Verificar palabras clave de escalation
    */
   checkEscalationKeywords(message, keywords) {
-    if (!keywords || !Array.isArray(keywords)) {
-      return { shouldEscalate: false };
-    }
-
-    const messageLower = message.toLowerCase();
-    const shouldEscalate = keywords.some(keyword => 
-      messageLower.includes(keyword.toLowerCase())
-    );
-
-    return { shouldEscalate };
+    return checkEscalationKeywordsHelper(message, keywords);
   }
 
   /**
    * Obtener o crear contacto
    */
   async getOrCreateContact(companyId, phone, senderName) {
-    // Buscar contacto existente
-    let contactQuery = await pool.query(`
-      SELECT * FROM whatsapp_bot.contacts 
-      WHERE company_id = $1 AND phone = $2
-    `, [companyId, phone]);
-
-    if (contactQuery.rows.length > 0) {
-      // Actualizar nombre si es diferente
-      if (senderName && contactQuery.rows[0].name !== senderName) {
-        await pool.query(`
-          UPDATE whatsapp_bot.contacts 
-          SET name = $1, updated_at = NOW()
-          WHERE id = $2
-        `, [senderName, contactQuery.rows[0].id]);
-      }
-      return contactQuery.rows[0];
-    }
-
-    // Crear nuevo contacto
-    const newContactQuery = await pool.query(`
-      INSERT INTO whatsapp_bot.contacts (
-        company_id, phone, name, created_at, updated_at
-      ) VALUES ($1, $2, $3, NOW(), NOW())
-      RETURNING *
-    `, [companyId, phone, senderName || 'Usuario']);
-
-    return newContactQuery.rows[0];
+    return getOrCreateContactHelper(companyId, phone, senderName);
   }
 
   /**
    * Obtener historial de conversación
    */
   async getConversationHistory(contactId, instanceId, limit = 10) {
-    const historyQuery = await pool.query(`
-      SELECT message_text, is_from_bot, created_at
-      FROM whatsapp_bot.conversations
-      WHERE contact_id = $1 AND instance_id = $2
-      ORDER BY created_at DESC
-      LIMIT $3
-    `, [contactId, instanceId, limit]);
-
-    return historyQuery.rows.reverse(); // Orden cronológico
+    return getConversationHistoryHelper(contactId, instanceId, limit);
   }
 
   /**
    * Guardar mensaje en la BD
    */
   async saveMessage(companyId, contactId, instanceId, content, messageId, isFromBot, messageType = 'text', metadata = {}) {
-    await pool.query(`
-      INSERT INTO whatsapp_bot.conversations (
-        company_id, contact_id, instance_id, message_text, 
-        is_from_bot, message_id, message_type, metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, [
-      companyId,
-      contactId,
-      instanceId,
-      content,
-      isFromBot,
-      messageId,
-      messageType,
-      JSON.stringify(metadata)
-    ]);
+    return saveMessageHelper(companyId, contactId, instanceId, content, messageId, isFromBot, messageType, metadata);
   }
 }
 
