@@ -72,6 +72,59 @@ router.post('/debug/test-instance', async (req, res) => {
   }
 });
 
+// Endpoint temporal para debugging (SIN autenticación)
+router.post('/debug/test-body', async (req, res) => {
+  try {
+    console.log('[DEBUG ENDPOINT] Full req.body received:', JSON.stringify(req.body, null, 2));
+    console.log('[DEBUG ENDPOINT] Request headers content-type:', req.headers['content-type']);
+    console.log('[DEBUG ENDPOINT] Raw body keys:', Object.keys(req.body || {}));
+    
+    const { name, description, webhook_url, webhook_events, phone_number } = req.body;
+    
+    console.log('[DEBUG ENDPOINT] Extracted fields:', {
+      name: name || 'undefined',
+      description: description || 'undefined', 
+      webhook_url: webhook_url || 'undefined',
+      webhook_events: webhook_events || 'undefined',
+      phone_number: phone_number || 'undefined',
+      phone_number_type: typeof phone_number,
+      phone_number_value: phone_number
+    });
+
+    res.json({
+      success: true,
+      message: 'Debug endpoint - body parsing test',
+      received: {
+        fullBody: req.body,
+        extractedFields: {
+          name,
+          description, 
+          webhook_url,
+          webhook_events,
+          phone_number
+        },
+        phoneNumberDebug: {
+          value: phone_number,
+          type: typeof phone_number,
+          isUndefined: phone_number === undefined,
+          isNull: phone_number === null,
+          isEmpty: phone_number === '',
+          length: phone_number ? phone_number.length : 'N/A'
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('[DEBUG ENDPOINT] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug endpoint error',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // API info route
 router.get('/info', (req, res) => {
   res.json({
