@@ -116,21 +116,63 @@ class BotsController {
       } = req.body;
 
       // Verificar ownership de la instancia
-      const instanceCheck = await this.verifyInstanceOwnership(companyId, instance_id);
-      if (!instanceCheck.valid) {
-        return res.status(instanceCheck.statusCode).json({
+      const instanceOwnershipResult = await pool.query(
+        'SELECT id FROM whatsapp_bot.whatsapp_instances WHERE id = $1 AND company_id = $2',
+        [instance_id, companyId]
+      );
+      
+      if (instanceOwnershipResult.rows.length === 0) {
+        return res.status(404).json({
           success: false,
-          message: instanceCheck.message
+          message: 'Instancia no encontrada o no tienes acceso a ella'
         });
       }
 
       // Verificar límites del plan
-      const limitsCheck = await this.checkBotLimits(companyId);
-      if (!limitsCheck.canCreate) {
+      const companyQuery = await pool.query(
+        'SELECT plan FROM whatsapp_bot.companies WHERE id = $1',
+        [companyId]
+      );
+
+      if (companyQuery.rows.length === 0) {
         return res.status(400).json({
           success: false,
-          message: limitsCheck.message,
-          planInfo: limitsCheck.planInfo
+          message: 'Empresa no encontrada'
+        });
+      }
+
+      const plan = companyQuery.rows[0].plan;
+      
+      // Definir límites por plan
+      const limits = {
+        free_trial: { max_bots: 1 },
+        trial: { max_bots: 1 },
+        starter: { max_bots: 3 },
+        business: { max_bots: 10 },
+        pro: { max_bots: 25 },
+        enterprise: { max_bots: -1 } // ilimitado
+      };
+      const planLimits = limits[plan] || limits.starter;
+
+      // Contar bots actuales
+      const botCountQuery = await pool.query(`
+        SELECT COUNT(*) as current_bots
+        FROM whatsapp_bot.bots b
+        JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
+        WHERE wi.company_id = $1
+      `, [companyId]);
+
+      const currentBots = parseInt(botCountQuery.rows[0].current_bots);
+
+      if (planLimits.max_bots !== -1 && currentBots >= planLimits.max_bots) {
+        return res.status(400).json({
+          success: false,
+          message: `Has alcanzado el límite de bots para tu plan ${plan} (${planLimits.max_bots} bots)`,
+          planInfo: {
+            plan,
+            current: currentBots,
+            limit: planLimits.max_bots
+          }
         });
       }
 
