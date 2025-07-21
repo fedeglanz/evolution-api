@@ -2,8 +2,8 @@ const crypto = require('crypto');
 
 class N8NAuthMiddleware {
   constructor() {
-    // API Key estático para n8n (en producción debería estar en .env)
-    this.N8N_API_KEY = process.env.N8N_API_KEY || 'n8n-whatsapp-bot-2024-secure-key-' + crypto.randomBytes(16).toString('hex');
+    // API Key estático y fijo para n8n
+    this.N8N_API_KEY = process.env.N8N_API_KEY || 'n8n-whatsapp-bot-2024-secure-key-4e334562d4843d15908669c2b6e6a879';
     
     console.log('🔑 N8N API Key configurado:', this.N8N_API_KEY.substring(0, 20) + '...');
   }
