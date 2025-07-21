@@ -53,15 +53,19 @@ router.post('/003-plans', async (req, res) => {
     // 3. Verificar columna phone_number en whatsapp_instances
     console.log('📱 Verificando soporte para pairing codes...');
     
-    const checkPhoneColumn = await client.query(`
+    const checkInstanceColumns = await client.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_schema = 'whatsapp_bot' 
         AND table_name = 'whatsapp_instances' 
-        AND column_name = 'phone_number'
+        AND column_name IN ('phone_number', 'pairing_code')
     `);
     
-    if (checkPhoneColumn.rows.length === 0) {
+    const existingInstanceColumns = checkInstanceColumns.rows.map(row => row.column_name);
+    console.log('📋 Columnas existentes (whatsapp_instances):', existingInstanceColumns);
+    
+    // Agregar phone_number si no existe
+    if (!existingInstanceColumns.includes('phone_number')) {
       console.log('➕ Agregando columna phone_number a whatsapp_instances...');
       await client.query(`
         ALTER TABLE whatsapp_bot.whatsapp_instances 
@@ -73,15 +77,39 @@ router.post('/003-plans', async (req, res) => {
         IS 'Número de teléfono para generar pairing code (formato: +5491123456789)'
       `);
       
-      await client.query(`
-        CREATE INDEX IF NOT EXISTS idx_whatsapp_instances_phone 
-        ON whatsapp_bot.whatsapp_instances(phone_number)
-      `);
-      
       console.log('✅ Columna phone_number agregada exitosamente');
     } else {
       console.log('✅ Columna phone_number ya existe');
     }
+    
+    // Agregar pairing_code si no existe
+    if (!existingInstanceColumns.includes('pairing_code')) {
+      console.log('➕ Agregando columna pairing_code a whatsapp_instances...');
+      await client.query(`
+        ALTER TABLE whatsapp_bot.whatsapp_instances 
+        ADD COLUMN pairing_code VARCHAR(20) NULL
+      `);
+      
+      await client.query(`
+        COMMENT ON COLUMN whatsapp_bot.whatsapp_instances.pairing_code 
+        IS 'Código numérico de 8 dígitos para conectar sin QR (formato: 12345678)'
+      `);
+      
+      console.log('✅ Columna pairing_code agregada exitosamente');
+    } else {
+      console.log('✅ Columna pairing_code ya existe');
+    }
+    
+    // Crear índices
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_instances_phone 
+      ON whatsapp_bot.whatsapp_instances(phone_number)
+    `);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_whatsapp_instances_pairing_code 
+      ON whatsapp_bot.whatsapp_instances(pairing_code)
+    `);
     
     // 4. Actualizar valores por defecto según planes existentes
     console.log('🔄 Actualizando valores por defecto...');
@@ -190,8 +218,8 @@ router.post('/003-plans', async (req, res) => {
       success: true,
       message: 'Migración 003 ejecutada exitosamente (Planes + Pairing Codes)',
       data: {
-        columnsAdded: columnsToAdd.length + 1, // +1 por phone_number
-        indexesCreated: indexes.length + 1,    // +1 por idx_whatsapp_instances_phone
+        columnsAdded: columnsToAdd.length + 2, // +2 por phone_number y pairing_code
+        indexesCreated: indexes.length + 2,    // +2 por idx_whatsapp_instances_phone y idx_whatsapp_instances_pairing_code
         tablesCreated: ['plan_history'],
         functionsCreated: ['cleanup_expired_plans'],
         sampleCompanies: finalCheck.rows,

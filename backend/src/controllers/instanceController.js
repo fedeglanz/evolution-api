@@ -131,11 +131,47 @@ class InstanceController {
         phone_number // Pasar el número de teléfono
       );
       
+      // Extraer datos correctamente de la respuesta de Evolution API
+      console.log('[CreateInstance] Evolution API response:', JSON.stringify(evolutionInstance, null, 2));
+      
+      let qrCodeBase64 = null;
+      let pairingCode = null;
+      
+      // Manejar diferentes formatos de respuesta de Evolution API
+      if (evolutionInstance.qrCode) {
+        if (typeof evolutionInstance.qrCode === 'string') {
+          // Si es string, puede ser JSON serializado o base64 directo
+          try {
+            const qrData = JSON.parse(evolutionInstance.qrCode);
+            qrCodeBase64 = qrData.base64;
+            pairingCode = qrData.pairingCode;
+          } catch (e) {
+            // Si no se puede parsear, asumir que es base64 directo
+            qrCodeBase64 = evolutionInstance.qrCode;
+          }
+        } else if (typeof evolutionInstance.qrCode === 'object') {
+          qrCodeBase64 = evolutionInstance.qrCode.base64;
+          pairingCode = evolutionInstance.qrCode.pairingCode;
+        }
+      }
+      
+      // Si no se obtuvo pairing code de qrCode, usar el campo directo
+      if (!pairingCode && evolutionInstance.pairingCode) {
+        pairingCode = evolutionInstance.pairingCode;
+      }
+      
+      console.log('[CreateInstance] Extracted data:', {
+        hasQR: !!qrCodeBase64,
+        hasPairingCode: !!pairingCode,
+        phoneNumber: phone_number,
+        pairingCode: pairingCode ? `${pairingCode.substring(0, 4)}...` : null
+      });
+      
       // Guardar en base de datos
       const dbQuery = `
         INSERT INTO whatsapp_bot.whatsapp_instances 
-        (company_id, instance_name, evolution_instance_name, status, qr_code, description, webhook_url, webhook_events, phone_number, created_at, updated_at) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
+        (company_id, instance_name, evolution_instance_name, status, qr_code, pairing_code, description, webhook_url, webhook_events, phone_number, created_at, updated_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()) 
         RETURNING *
       `;
       
@@ -144,7 +180,8 @@ class InstanceController {
         name,
         evolutionInstanceName,
         evolutionInstance.status || 'connecting',
-        evolutionInstance.qrCode,
+        qrCodeBase64, // Solo guardar el base64 limpio
+        pairingCode,  // Guardar pairing code por separado
         description,
         webhook_url,
         webhook_events ? JSON.stringify(webhook_events) : null,
@@ -160,15 +197,16 @@ class InstanceController {
           instance: {
             id: instance.id,
             name: instance.instance_name,
-            phoneNumber: instance.phone_number,
+            phoneNumber: instance.phone_number, // Ahora debería tener el número
             status: instance.status,
-            qrCode: instance.qr_code,
+            qrCode: instance.qr_code, // Base64 limpio
+            pairingCode: instance.pairing_code, // Código numérico
             description: instance.description,
             webhookUrl: instance.webhook_url,
             webhookEvents: instance.webhook_events || null,
             createdAt: instance.created_at,
             evolutionInstanceName: evolutionInstanceName,
-            supportsPairingCode: !!phone_number // Indicar si soporta pairing code
+            supportsPairingCode: !!instance.phone_number // Basado en si tiene número guardado
           }
         }
       });
