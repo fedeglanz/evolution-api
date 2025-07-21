@@ -2,6 +2,31 @@ const { pool } = require('../database');
 const config = require('../config');
 const openaiService = require('../services/openaiService');
 
+// Función auxiliar para obtener bot con detalles (evita problemas de contexto)
+async function getBotWithDetailsHelper(botId) {
+  const query = `
+    SELECT 
+      b.*,
+      wi.instance_name,
+      wi.status as instance_status,
+      wi.phone_number as instance_phone,
+      wi.evolution_instance_name,
+      (SELECT COUNT(*) FROM whatsapp_bot.bot_conversations WHERE bot_id = b.id) as total_conversations,
+      (SELECT COUNT(*) FROM whatsapp_bot.bot_messages bm 
+       JOIN whatsapp_bot.bot_conversations bc ON bm.conversation_id = bc.id 
+       WHERE bc.bot_id = b.id) as total_messages,
+      (SELECT COUNT(*) FROM whatsapp_bot.bot_messages bm 
+       JOIN whatsapp_bot.bot_conversations bc ON bm.conversation_id = bc.id 
+       WHERE bc.bot_id = b.id AND bm.created_at >= CURRENT_DATE) as messages_today
+    FROM whatsapp_bot.bots b
+    JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
+    WHERE b.id = $1
+  `;
+
+  const result = await pool.query(query, [botId]);
+  return result.rows[0] || null;
+}
+
 class BotsController {
 
   /**
@@ -221,7 +246,7 @@ class BotsController {
       ]);
 
       // Obtener datos completos del bot creado
-      const botWithDetails = await this.getBotWithDetails(result.rows[0].id);
+      const botWithDetails = await getBotWithDetailsHelper(result.rows[0].id);
 
       res.status(201).json({
         success: true,
@@ -248,7 +273,7 @@ class BotsController {
       const companyId = req.user.companyId;
       const { id } = req.params;
 
-      const bot = await this.getBotWithDetails(id);
+      const bot = await getBotWithDetailsHelper(id);
 
       if (!bot) {
         return res.status(404).json({
@@ -292,7 +317,7 @@ class BotsController {
       const updates = req.body;
 
       // Verificar que el bot existe y pertenece a la empresa
-      const existingBot = await this.getBotWithDetails(id);
+      const existingBot = await getBotWithDetailsHelper(id);
       if (!existingBot) {
         return res.status(404).json({
           success: false,
@@ -375,7 +400,7 @@ class BotsController {
       await pool.query(updateQuery, values);
 
       // Obtener bot actualizado con todos los detalles
-      const updatedBot = await this.getBotWithDetails(id);
+      const updatedBot = await getBotWithDetailsHelper(id);
 
       res.json({
         success: true,
@@ -403,7 +428,7 @@ class BotsController {
       const { id } = req.params;
 
       // Verificar que el bot existe y pertenece a la empresa
-      const existingBot = await this.getBotWithDetails(id);
+      const existingBot = await getBotWithDetailsHelper(id);
       if (!existingBot) {
         return res.status(404).json({
           success: false,
@@ -448,7 +473,7 @@ class BotsController {
       const { is_active } = req.body;
 
       // Verificar que el bot existe y pertenece a la empresa
-      const existingBot = await this.getBotWithDetails(id);
+      const existingBot = await getBotWithDetailsHelper(id);
       if (!existingBot) {
         return res.status(404).json({
           success: false,
@@ -478,7 +503,7 @@ class BotsController {
         [Boolean(is_active), id]
       );
 
-      const updatedBot = await this.getBotWithDetails(id);
+      const updatedBot = await getBotWithDetailsHelper(id);
 
       res.json({
         success: true,
