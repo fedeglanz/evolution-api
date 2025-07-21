@@ -809,7 +809,22 @@ class InstanceController {
       // Sincronizar cada instancia
       for (const instance of instances) {
         try {
+          console.log(`[SYNC] Processing instance:`, {
+            id: instance.id,
+            name: instance.instance_name,
+            currentStatus: instance.status,
+            evolutionInstanceName: instance.evolution_instance_name
+          });
+          
           const evolutionState = await evolutionService.getInstanceState(instance.evolution_instance_name);
+
+          console.log(`[SYNC] Evolution API response for ${instance.instance_name}:`, {
+            evolutionStatus: evolutionState.status,
+            isConnected: evolutionState.isConnected,
+            profileName: evolutionState.profileName,
+            phone: evolutionState.phone,
+            rawDataKeys: evolutionState._rawData ? Object.keys(evolutionState._rawData) : 'null'
+          });
 
           let ourStatus = 'connecting';
           let connectedAt = instance.connected_at;
@@ -824,6 +839,14 @@ class InstanceController {
           } else if (evolutionState.status === 'not_found' || evolutionState.status === 'error') {
             ourStatus = 'disconnected';
           }
+
+          console.log(`[SYNC] Status mapping for ${instance.instance_name}:`, {
+            oldStatus: instance.status,
+            newStatus: ourStatus,
+            evolutionStatus: evolutionState.status,
+            evolutionIsConnected: evolutionState.isConnected,
+            willUpdate: ourStatus !== instance.status || (!instance.last_seen && lastSeen)
+          });
 
           // Actualizar solo si hay cambios
           if (ourStatus !== instance.status || (!instance.last_seen && lastSeen)) {
@@ -841,6 +864,8 @@ class InstanceController {
               newStatus: ourStatus,
               updated: true
             });
+            
+            console.log(`[SYNC] Updated instance ${instance.instance_name}: ${instance.status} → ${ourStatus}`);
           } else {
             syncResults.push({
               instanceId: instance.id,
@@ -848,6 +873,8 @@ class InstanceController {
               status: ourStatus,
               updated: false
             });
+            
+            console.log(`[SYNC] No changes for instance ${instance.instance_name}: ${instance.status}`);
           }
         } catch (error) {
           console.error(`Error syncing instance ${instance.instance_name}:`, error.message);

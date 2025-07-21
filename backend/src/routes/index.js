@@ -22,58 +22,71 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Endpoint temporal para debugging (SIN autenticación)
-router.post('/debug/test-instance', async (req, res) => {
+// Debug endpoints (TEMPORAL - remover en producción)
+router.get('/debug/test-instance', async (req, res) => {
   try {
-    const { name, phone_number } = req.body;
+    const { instanceName } = req.query;
     
-    console.log('[DEBUG] Test instance creation:', {
-      name,
-      phone_number,
-      body: req.body
-    });
-    
-    // Test básico con evolutionService
-    const EvolutionService = require('../services/evolutionService');
-    const service = new EvolutionService();
-    
-    const testInstanceName = `debug_test_${Date.now()}`;
-    
-    console.log('[DEBUG] Creating test instance:', testInstanceName);
-    
-    const result = await service.createInstance(
-      testInstanceName,
-      null, // sin webhook
-      phone_number
-    );
-    
-    console.log('[DEBUG] Result:', result);
+    if (!instanceName) {
+      return res.status(400).json({
+        error: 'Falta parámetro instanceName'
+      });
+    }
+
+    const evolutionService = require('../services/evolutionService');
+    const result = await evolutionService.createInstance(instanceName, null, '+5491123456789');
     
     res.json({
       success: true,
-      message: 'Test instance creation',
-      data: {
-        testInstanceName,
-        result,
-        phoneProvided: !!phone_number,
-        hasQrCode: !!result.qrCode,
-        hasPairingCode: !!result.pairingCode
-      }
+      data: result
     });
-    
   } catch (error) {
-    console.error('[DEBUG] Error:', error);
     res.status(500).json({
       success: false,
-      message: 'Debug error',
+      error: error.message
+    });
+  }
+});
+
+// Nuevo endpoint para debuggear estados de instancias
+router.get('/debug/evolution-state', async (req, res) => {
+  try {
+    const { instanceName } = req.query;
+    
+    if (!instanceName) {
+      return res.status(400).json({
+        error: 'Falta parámetro instanceName (ej: ?instanceName=company_instance)'
+      });
+    }
+
+    const evolutionService = require('../services/evolutionService');
+    
+    console.log(`[DEBUG] Fetching Evolution API state for: ${instanceName}`);
+    
+    // Llamar directamente al método de Evolution API
+    const result = await evolutionService.getInstanceState(instanceName);
+    
+    res.json({
+      success: true,
+      instanceName,
+      evolutionResponse: result,
+      debug: {
+        expectedStatesForConnected: ['open', 'connected'],
+        actualStatus: result.status,
+        isConnectedLogic: `status === 'open' || status === 'connected'`,
+        calculatedIsConnected: result.isConnected
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
       error: error.message,
       stack: error.stack
     });
   }
 });
 
-// Endpoint temporal para debugging (SIN autenticación)
-router.post('/debug/test-body', async (req, res) => {
+router.get('/debug/test-body', async (req, res) => {
   try {
     console.log('[DEBUG ENDPOINT] Full req.body received:', JSON.stringify(req.body, null, 2));
     console.log('[DEBUG ENDPOINT] Request headers content-type:', req.headers['content-type']);
