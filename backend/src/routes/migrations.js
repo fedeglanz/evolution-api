@@ -17,7 +17,7 @@ router.post('/003-plans', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    console.log('🚀 Iniciando migración 003: Sistema de Planes');
+    console.log('🚀 Iniciando migración 003: Sistema de Planes y Pairing Codes');
     
     // 1. Verificar si las columnas ya existen
     const checkColumns = await client.query(`
@@ -29,7 +29,7 @@ router.post('/003-plans', async (req, res) => {
     `);
     
     const existingColumns = checkColumns.rows.map(row => row.column_name);
-    console.log('📋 Columnas existentes:', existingColumns);
+    console.log('📋 Columnas existentes (companies):', existingColumns);
     
     // 2. Agregar columnas faltantes una por una
     const columnsToAdd = [
@@ -50,7 +50,40 @@ router.post('/003-plans', async (req, res) => {
       }
     }
     
-    // 3. Actualizar valores por defecto según planes existentes
+    // 3. Verificar columna phone_number en whatsapp_instances
+    console.log('📱 Verificando soporte para pairing codes...');
+    
+    const checkPhoneColumn = await client.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_schema = 'whatsapp_bot' 
+        AND table_name = 'whatsapp_instances' 
+        AND column_name = 'phone_number'
+    `);
+    
+    if (checkPhoneColumn.rows.length === 0) {
+      console.log('➕ Agregando columna phone_number a whatsapp_instances...');
+      await client.query(`
+        ALTER TABLE whatsapp_bot.whatsapp_instances 
+        ADD COLUMN phone_number VARCHAR(20) NULL
+      `);
+      
+      await client.query(`
+        COMMENT ON COLUMN whatsapp_bot.whatsapp_instances.phone_number 
+        IS 'Número de teléfono para generar pairing code (formato: +5491123456789)'
+      `);
+      
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_whatsapp_instances_phone 
+        ON whatsapp_bot.whatsapp_instances(phone_number)
+      `);
+      
+      console.log('✅ Columna phone_number agregada exitosamente');
+    } else {
+      console.log('✅ Columna phone_number ya existe');
+    }
+    
+    // 4. Actualizar valores por defecto según planes existentes
     console.log('🔄 Actualizando valores por defecto...');
     
     await client.query(`
@@ -64,7 +97,7 @@ router.post('/003-plans', async (req, res) => {
       WHERE max_contacts IS NULL OR max_contacts = 500
     `);
     
-    // 4. Crear índices si no existen
+    // 5. Crear índices si no existen
     console.log('📊 Creando índices...');
     
     const indexes = [
@@ -77,7 +110,7 @@ router.post('/003-plans', async (req, res) => {
       await client.query(indexSQL);
     }
     
-    // 5. Crear tabla de historial si no existe
+    // 6. Crear tabla de historial si no existe
     console.log('📚 Creando tabla plan_history...');
     
     await client.query(`
@@ -97,11 +130,56 @@ router.post('/003-plans', async (req, res) => {
     await client.query('CREATE INDEX IF NOT EXISTS idx_plan_history_company ON whatsapp_bot.plan_history(company_id)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_plan_history_created ON whatsapp_bot.plan_history(created_at)');
     
-    // 6. Verificar estado final
+    // 7. Crear función de limpieza automática
+    console.log('🔧 Creando función cleanup_expired_plans...');
+    
+    await client.query(`
+      CREATE OR REPLACE FUNCTION whatsapp_bot.cleanup_expired_plans()
+      RETURNS void AS $$
+      BEGIN
+        -- Actualizar empresas con planes expirados a plan básico
+        UPDATE whatsapp_bot.companies 
+        SET plan = 'starter',
+            max_instances = 1,
+            max_messages = 1000,
+            max_contacts = 500
+        WHERE plan_expires_at IS NOT NULL 
+          AND plan_expires_at < NOW() 
+          AND plan != 'starter';
+          
+        -- Log de la operación
+        INSERT INTO whatsapp_bot.plan_history (company_id, new_plan, change_reason, created_at)
+        SELECT id, 'starter', 'Plan expired - auto downgrade', NOW()
+        FROM whatsapp_bot.companies
+        WHERE plan_expires_at IS NOT NULL 
+          AND plan_expires_at < NOW() - INTERVAL '1 day'
+          AND NOT EXISTS (
+            SELECT 1 FROM whatsapp_bot.plan_history ph 
+            WHERE ph.company_id = companies.id 
+              AND ph.change_reason = 'Plan expired - auto downgrade'
+              AND ph.created_at > NOW() - INTERVAL '1 day'
+          );
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+    
+    await client.query(`
+      COMMENT ON FUNCTION whatsapp_bot.cleanup_expired_plans() 
+      IS 'Función para limpieza automática de planes expirados - ejecutar con pg_cron'
+    `);
+    
+    // 8. Verificar estado final
     const finalCheck = await client.query(`
       SELECT c.id, c.name, c.plan, c.max_instances, c.max_messages, c.max_contacts, c.trial_used
       FROM whatsapp_bot.companies c
       LIMIT 5
+    `);
+    
+    // Verificar instancias con soporte pairing code
+    const instancesCheck = await client.query(`
+      SELECT COUNT(*) as total_instances, 
+             COUNT(phone_number) as instances_with_pairing
+      FROM whatsapp_bot.whatsapp_instances
     `);
     
     await client.query('COMMIT');
@@ -110,12 +188,19 @@ router.post('/003-plans', async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Migración 003 ejecutada exitosamente',
+      message: 'Migración 003 ejecutada exitosamente (Planes + Pairing Codes)',
       data: {
-        columnsAdded: columnsToAdd.length,
-        indexesCreated: indexes.length,
+        columnsAdded: columnsToAdd.length + 1, // +1 por phone_number
+        indexesCreated: indexes.length + 1,    // +1 por idx_whatsapp_instances_phone
         tablesCreated: ['plan_history'],
-        sampleCompanies: finalCheck.rows
+        functionsCreated: ['cleanup_expired_plans'],
+        sampleCompanies: finalCheck.rows,
+        instanceStats: instancesCheck.rows[0],
+        features: {
+          planManagement: true,
+          pairingCodeSupport: true,
+          autoCleanup: true
+        }
       }
     });
     
@@ -149,6 +234,15 @@ router.get('/status', async (req, res) => {
       ORDER BY ordinal_position
     `);
     
+    // Verificar columnas de whatsapp_instances (especialmente phone_number)
+    const instanceColumns = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns 
+      WHERE table_schema = 'whatsapp_bot' 
+        AND table_name = 'whatsapp_instances'
+        AND column_name = 'phone_number'
+    `);
+    
     // Verificar si existe tabla plan_history
     const planHistoryExists = await pool.query(`
       SELECT EXISTS (
@@ -158,12 +252,23 @@ router.get('/status', async (req, res) => {
       )
     `);
     
+    // Verificar función cleanup_expired_plans
+    const cleanupFunctionExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.routines 
+        WHERE routine_schema = 'whatsapp_bot' 
+          AND routine_name = 'cleanup_expired_plans'
+          AND routine_type = 'FUNCTION'
+      )
+    `);
+    
     // Verificar índices
     const indexes = await pool.query(`
       SELECT indexname, tablename 
       FROM pg_indexes 
       WHERE schemaname = 'whatsapp_bot' 
-        AND tablename IN ('companies', 'plan_history')
+        AND tablename IN ('companies', 'plan_history', 'whatsapp_instances')
+      ORDER BY tablename, indexname
     `);
     
     // Estado de las empresas
@@ -176,17 +281,48 @@ router.get('/status', async (req, res) => {
       GROUP BY plan
     `);
     
+    // Estado de instancias con pairing code
+    const instancesStatus = await pool.query(`
+      SELECT COUNT(*) as total_instances,
+             COUNT(phone_number) as instances_with_pairing_support,
+             COUNT(CASE WHEN phone_number IS NOT NULL THEN 1 END) as instances_with_phone_number
+      FROM whatsapp_bot.whatsapp_instances
+    `);
+    
+    // Verificar completitud de migración 003
+    const requiredCompanyColumns = ['max_contacts', 'plan_expires_at', 'trial_started_at', 'trial_used', 'stripe_customer_id', 'subscription_status'];
+    const existingCompanyColumns = companyColumns.rows.map(col => col.column_name);
+    const companyMigrationComplete = requiredCompanyColumns.every(col => existingCompanyColumns.includes(col));
+    
+    const pairingCodeSupport = instanceColumns.rows.length > 0;
+    
     res.json({
       success: true,
       message: 'Estado de migraciones obtenido',
       data: {
-        companyColumns: companyColumns.rows,
-        planHistoryExists: planHistoryExists.rows[0].exists,
-        indexes: indexes.rows,
-        companiesStatus: companiesStatus.rows,
         migration003: {
-          required_columns: ['max_contacts', 'plan_expires_at', 'trial_started_at', 'trial_used', 'stripe_customer_id', 'subscription_status'],
-          completed: companyColumns.rows.some(col => col.column_name === 'max_contacts')
+          planManagement: {
+            completed: companyMigrationComplete,
+            requiredColumns: requiredCompanyColumns,
+            existingColumns: existingCompanyColumns,
+            missingColumns: requiredCompanyColumns.filter(col => !existingCompanyColumns.includes(col))
+          },
+          pairingCodeSupport: {
+            completed: pairingCodeSupport,
+            phoneNumberColumn: pairingCodeSupport ? instanceColumns.rows[0] : null
+          },
+          infrastructure: {
+            planHistoryTable: planHistoryExists.rows[0].exists,
+            cleanupFunction: cleanupFunctionExists.rows[0].exists
+          },
+          overall: companyMigrationComplete && pairingCodeSupport && planHistoryExists.rows[0].exists
+        },
+        companyColumns: companyColumns.rows,
+        instanceColumns: instanceColumns.rows,
+        indexes: indexes.rows,
+        statistics: {
+          companies: companiesStatus.rows,
+          instances: instancesStatus.rows[0]
         }
       }
     });
