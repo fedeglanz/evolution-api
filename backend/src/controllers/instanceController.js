@@ -53,7 +53,7 @@ async function checkPlanLimitsHelper(companyId) {
     planKey: company.plan,
     maxInstances: company.max_instances,
     currentInstances,
-    canCreate: currentInstances < effectiveMaxInstances,
+    canCreateInstance: currentInstances < effectiveMaxInstances,
     planExpired,
     planExpiresAt: company.plan_expires_at
   };
@@ -74,69 +74,68 @@ class InstanceController {
    */
   async createInstance(req, res) {
     try {
-      const { name, description, webhook_url, webhook_events } = req.body;
+      const { name, description, webhook_url, webhook_events, phone_number } = req.body;
       const companyId = req.user.companyId;
-      
-      // Validaciones básicas
-      if (!name || name.trim().length === 0) {
+
+      // Validar datos requeridos
+      if (!name || !name.trim()) {
         return res.status(400).json({
           success: false,
           message: 'El nombre de la instancia es requerido'
         });
       }
 
-      if (name.length > 50) {
+      // Validar formato de número de teléfono si se proporciona
+      if (phone_number) {
+        const phoneRegex = /^\+[1-9]\d{9,14}$/;
+        if (!phoneRegex.test(phone_number)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Formato de número de teléfono inválido. Debe incluir código de país (ej: +5491123456789)'
+          });
+        }
+      }
+
+      // Validar límites del plan antes de crear la instancia
+      const limitCheck = await this.checkPlanLimitsHelper(companyId);
+      
+      if (!limitCheck.canCreateInstance) {
         return res.status(400).json({
           success: false,
-          message: 'El nombre de la instancia no puede exceder 50 caracteres'
+          message: limitCheck.message,
+          code: limitCheck.code || 'INSTANCE_LIMIT_REACHED',
+          details: limitCheck.details
         });
       }
 
-      // Verificar límites del plan
-      console.log('Verificando límites del plan para companyId:', companyId);
-      const planLimits = await checkPlanLimitsHelper(companyId);
-      
-      if (planLimits.planExpired) {
-        return res.status(403).json({
-          success: false,
-          message: `Tu plan ${planLimits.planName} ha expirado. Actualiza tu plan para continuar creando instancias.`,
-          error_code: 'PLAN_EXPIRED'
-        });
-      }
-      
-      if (!planLimits.canCreate) {
-        return res.status(403).json({
-          success: false,
-          message: `Has alcanzado el límite de instancias para tu plan ${planLimits.planName} (${planLimits.maxInstances} instancias)`,
-          error_code: 'INSTANCE_LIMIT_REACHED',
-          details: {
-            current_instances: planLimits.currentInstances,
-            max_instances: planLimits.maxInstances,
-            plan: planLimits.planKey
-          }
-        });
-      }
+      // Verificar que el nombre no esté en uso
+      const existingInstance = await pool.query(
+        'SELECT id FROM whatsapp_bot.whatsapp_instances WHERE company_id = $1 AND instance_name = $2',
+        [companyId, name.trim()]
+      );
 
-      // Verificar si ya existe una instancia con ese nombre
-      const existingInstance = await getInstanceByNameHelper(companyId, name);
-      if (existingInstance) {
-        return res.status(409).json({
+      if (existingInstance.rows.length > 0) {
+        return res.status(400).json({
           success: false,
-          message: 'Ya existe una instancia con este nombre en tu empresa'
+          message: 'Ya existe una instancia con este nombre'
         });
       }
 
       // Crear nombre único para Evolution API (empresa_instancia)
       const evolutionInstanceName = `${companyId}_${name}`.replace(/[^a-zA-Z0-9_]/g, '_');
       
-      // Crear instancia en Evolution API
-      const evolutionInstance = await evolutionService.createInstance(evolutionInstanceName, webhook_url);
+      // Crear instancia en Evolution API con número de teléfono si se proporciona
+      const evolutionInstance = await evolutionService.createInstance(
+        evolutionInstanceName, 
+        webhook_url,
+        phone_number // Pasar el número de teléfono
+      );
       
       // Guardar en base de datos
       const dbQuery = `
         INSERT INTO whatsapp_bot.whatsapp_instances 
-        (company_id, instance_name, evolution_instance_name, status, qr_code, description, webhook_url, webhook_events, created_at, updated_at) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) 
+        (company_id, instance_name, evolution_instance_name, status, qr_code, description, webhook_url, webhook_events, phone_number, created_at, updated_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
         RETURNING *
       `;
       
@@ -148,7 +147,8 @@ class InstanceController {
         evolutionInstance.qrCode,
         description,
         webhook_url,
-        webhook_events ? JSON.stringify(webhook_events) : null
+        webhook_events ? JSON.stringify(webhook_events) : null,
+        phone_number || null // Guardar número de teléfono en BD
       ]);
       
       const instance = result.rows[0];
@@ -167,7 +167,8 @@ class InstanceController {
             webhookUrl: instance.webhook_url,
             webhookEvents: instance.webhook_events || null,
             createdAt: instance.created_at,
-            evolutionInstanceName: evolutionInstanceName
+            evolutionInstanceName: evolutionInstanceName,
+            supportsPairingCode: !!phone_number // Indicar si soporta pairing code
           }
         }
       });

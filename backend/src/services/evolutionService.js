@@ -75,13 +75,16 @@ class EvolutionService {
    * Crear una nueva instancia en Evolution API
    * @param {string} instanceName - Nombre único de la instancia
    * @param {string} webhookUrl - URL del webhook para recibir eventos
+   * @param {string} phoneNumber - Número de teléfono para pairing code (opcional)
    * @returns {Promise<Object>} Datos de la instancia creada
    */
-  async createInstance(instanceName, webhookUrl = null) {
+  async createInstance(instanceName, webhookUrl = null, phoneNumber = null) {
     try {
       const payload = {
         instanceName: instanceName,
         integration: 'WHATSAPP-BAILEYS',
+        qrcode: true, // Siempre habilitar QR code
+        ...(phoneNumber && { number: phoneNumber }), // Agregar número si se proporciona
         ...(webhookUrl && {
           webhook: {
             url: webhookUrl,
@@ -106,12 +109,20 @@ class EvolutionService {
         })
       };
 
+      console.log(`[Evolution API] Creating instance with payload:`, {
+        instanceName,
+        hasWebhook: !!webhookUrl,
+        hasPhoneNumber: !!phoneNumber,
+        phoneNumber: phoneNumber ? `${phoneNumber.substring(0, 4)}...` : null
+      });
+
       const response = await this.client.post('/instance/create', payload);
       
       return {
         instanceName: response.data.instance.instanceName,
         status: response.data.instance.status || 'created',
         qrCode: response.data.qrcode || null,
+        pairingCode: response.data.pairingCode || null, // Pairing code si está disponible
         hash: response.data.hash || null,
         webhook: response.data.instance.webhook || null
       };
