@@ -97,7 +97,7 @@ class InstanceController {
       }
 
       // Validar límites del plan antes de crear la instancia
-      const limitCheck = await this.checkPlanLimitsHelper(companyId);
+      const limitCheck = await checkPlanLimitsHelper(companyId);
       
       if (!limitCheck.canCreateInstance) {
         return res.status(400).json({
