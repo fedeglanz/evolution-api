@@ -424,6 +424,21 @@ const validateBotCreation = (req, res, next) => {
   next();
 };
 
+// Validación para parámetros UUID en URLs
+const validateUUID = (paramName = 'id') => {
+  return (req, res, next) => {
+    const { error } = commonSchemas.uuid.validate(req.params[paramName]);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: `El parámetro '${paramName}' debe ser un UUID válido`,
+        error: error.details[0].message
+      });
+    }
+    next();
+  };
+};
+
 module.exports = {
   validate,
   validateRegister,
@@ -437,6 +452,7 @@ module.exports = {
   validateSendMessage,
   validatePagination,
   validateBotCreation,
+  validateUUID,
   schemas: {
     auth: authSchemas,
     instance: instanceSchemas,
