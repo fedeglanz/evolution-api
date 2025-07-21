@@ -8,6 +8,8 @@ const botConfigRoutes = require('./botConfig');
 const contactRoutes = require('./contacts');
 const conversationRoutes = require('./conversations');
 const dashboardRoutes = require('./dashboard');
+const planRoutes = require('./plans');
+const migrationRoutes = require('./migrations');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -34,7 +36,9 @@ router.get('/info', (req, res) => {
         instances: '/api/instances (incluye bot-config como sub-rutas)',
         contacts: '/api/contacts',
         conversations: '/api/conversations',
-        dashboard: '/api/dashboard'
+        dashboard: '/api/dashboard',
+        plans: '/api/plans',
+        migrations: '/api/migrations (solo admin)'
       }
     }
   });
@@ -46,5 +50,7 @@ router.use('/instances', instanceRoutes);
 router.use('/contacts', contactRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/plans', planRoutes);
+router.use('/migrations', migrationRoutes);
 
 module.exports = router;

@@ -1,10 +1,21 @@
 const evolutionService = require('../services/evolutionService');
 const { pool } = require('../database');
 const config = require('../config');
+const planService = require('../services/planService');
 
 // Helper function para verificar límites del plan
 async function checkPlanLimitsHelper(companyId) {
-  const companyQuery = 'SELECT plan, max_instances FROM whatsapp_bot.companies WHERE id = $1';
+  const companyQuery = `
+    SELECT 
+      c.plan, 
+      c.max_instances, 
+      c.max_messages,
+      c.max_contacts,
+      c.created_at,
+      c.plan_expires_at
+    FROM whatsapp_bot.companies c 
+    WHERE c.id = $1
+  `;
   const companyResult = await pool.query(companyQuery, [companyId]);
   
   if (companyResult.rows.length === 0) {
@@ -12,24 +23,39 @@ async function checkPlanLimitsHelper(companyId) {
   }
   
   const company = companyResult.rows[0];
-  const planLimits = config.PLANS[company.plan];
+  const planConfig = config.PLANS[company.plan];
   
-  if (!planLimits) {
+  if (!planConfig) {
     throw new Error('Plan no válido');
   }
+
+  // Verificar si el plan ha expirado (para planes temporales)
+  const now = new Date();
+  let planExpired = false;
   
+  if (company.plan_expires_at && new Date(company.plan_expires_at) < now) {
+    planExpired = true;
+  }
+
   // Contar instancias actuales
   const countQuery = 'SELECT COUNT(*) as total FROM whatsapp_bot.whatsapp_instances WHERE company_id = $1';
   const countResult = await pool.query(countQuery, [companyId]);
   const currentInstances = parseInt(countResult.rows[0].total);
   
-  const maxInstances = planLimits.max_instances === -1 ? Infinity : planLimits.max_instances;
+  // Usar los límites de la base de datos (no del config)
+  const maxInstances = company.max_instances === -1 ? Infinity : company.max_instances;
+  
+  // Si el plan expiró, usar límites del free_trial
+  const effectiveMaxInstances = planExpired ? config.PLANS.free_trial.max_instances : maxInstances;
   
   return {
-    planName: company.plan,
-    maxInstances: planLimits.max_instances,
+    planName: planConfig.name || company.plan,
+    planKey: company.plan,
+    maxInstances: company.max_instances,
     currentInstances,
-    canCreate: currentInstances < maxInstances
+    canCreate: currentInstances < effectiveMaxInstances,
+    planExpired,
+    planExpiresAt: company.plan_expires_at
   };
 }
 
@@ -69,10 +95,25 @@ class InstanceController {
       // Verificar límites del plan
       console.log('Verificando límites del plan para companyId:', companyId);
       const planLimits = await checkPlanLimitsHelper(companyId);
+      
+      if (planLimits.planExpired) {
+        return res.status(403).json({
+          success: false,
+          message: `Tu plan ${planLimits.planName} ha expirado. Actualiza tu plan para continuar creando instancias.`,
+          error_code: 'PLAN_EXPIRED'
+        });
+      }
+      
       if (!planLimits.canCreate) {
         return res.status(403).json({
           success: false,
-          message: `Has alcanzado el límite de instancias para tu plan ${planLimits.planName} (${planLimits.maxInstances} instancias)`
+          message: `Has alcanzado el límite de instancias para tu plan ${planLimits.planName} (${planLimits.maxInstances} instancias)`,
+          error_code: 'INSTANCE_LIMIT_REACHED',
+          details: {
+            current_instances: planLimits.currentInstances,
+            max_instances: planLimits.maxInstances,
+            plan: planLimits.planKey
+          }
         });
       }
 
@@ -632,33 +673,7 @@ class InstanceController {
    * Verificar límites del plan
    */
   async checkPlanLimits(companyId) {
-    const companyQuery = 'SELECT plan, max_instances FROM whatsapp_bot.companies WHERE id = $1';
-    const companyResult = await pool.query(companyQuery, [companyId]);
-    
-    if (companyResult.rows.length === 0) {
-      throw new Error('Empresa no encontrada');
-    }
-    
-    const company = companyResult.rows[0];
-    const planLimits = config.PLANS[company.plan];
-    
-    if (!planLimits) {
-      throw new Error('Plan no válido');
-    }
-    
-    // Contar instancias actuales
-    const countQuery = 'SELECT COUNT(*) as total FROM whatsapp_bot.whatsapp_instances WHERE company_id = $1';
-    const countResult = await pool.query(countQuery, [companyId]);
-    const currentInstances = parseInt(countResult.rows[0].total);
-    
-    const maxInstances = planLimits.max_instances === -1 ? Infinity : planLimits.max_instances;
-    
-    return {
-      planName: company.plan,
-      maxInstances: planLimits.max_instances,
-      currentInstances,
-      canCreate: currentInstances < maxInstances
-    };
+    return await checkPlanLimitsHelper(companyId);
   }
 
   /**

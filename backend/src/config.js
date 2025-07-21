@@ -32,25 +32,79 @@ const config = {
   // File upload
   MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
   
-  // Business rules
+  // Business rules - Sistema de Planes Mejorado
   PLANS: {
+    free_trial: {
+      name: 'Free Trial',
+      max_instances: 1,
+      max_messages: 50,
+      max_contacts: 25,
+      duration_hours: 48, // 48 horas
+      embeddings: false,
+      campaigns: false,
+      priority_support: false,
+      analytics: false,
+      price: 0
+    },
+    trial: {
+      name: 'Trial',
+      max_instances: 1,
+      max_messages: 200,
+      max_contacts: 100,
+      duration_days: 7, // 7 días
+      embeddings: true,
+      campaigns: false,
+      priority_support: false,
+      analytics: true,
+      price: 0
+    },
     starter: {
+      name: 'Starter',
       max_instances: 1,
       max_messages: 1000,
-      embeddings: false,
-      campaigns: false
+      max_contacts: 500,
+      duration_days: -1, // ilimitado
+      embeddings: true,
+      campaigns: true,
+      priority_support: false,
+      analytics: true,
+      price: 15 // USD por mes
     },
     business: {
-      max_instances: 3,
+      name: 'Business',
+      max_instances: 5,
       max_messages: 5000,
+      max_contacts: 2500,
+      duration_days: -1, // ilimitado
       embeddings: true,
-      campaigns: true
+      campaigns: true,
+      priority_support: true,
+      analytics: true,
+      price: 49 // USD por mes
+    },
+    pro: {
+      name: 'Professional',
+      max_instances: 15,
+      max_messages: 15000,
+      max_contacts: 7500,
+      duration_days: -1, // ilimitado
+      embeddings: true,
+      campaigns: true,
+      priority_support: true,
+      analytics: true,
+      price: 99 // USD por mes
     },
     enterprise: {
-      max_instances: -1, // unlimited
-      max_messages: -1, // unlimited
+      name: 'Enterprise',
+      max_instances: -1, // ilimitado
+      max_messages: -1, // ilimitado
+      max_contacts: -1, // ilimitado
+      duration_days: -1, // ilimitado
       embeddings: true,
-      campaigns: true
+      campaigns: true,
+      priority_support: true,
+      analytics: true,
+      price: 299 // USD por mes
     }
   }
 };
