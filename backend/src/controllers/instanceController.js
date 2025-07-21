@@ -74,8 +74,24 @@ class InstanceController {
    */
   async createInstance(req, res) {
     try {
+      // DEBUGGING: Log completo del request
+      console.log('[DEBUG] Full req.body received:', JSON.stringify(req.body, null, 2));
+      console.log('[DEBUG] Request headers:', req.headers['content-type']);
+      console.log('[DEBUG] Raw body keys:', Object.keys(req.body || {}));
+      
       const { name, description, webhook_url, webhook_events, phone_number } = req.body;
       const companyId = req.user.companyId;
+
+      // DEBUGGING: Log específico de campos extraídos
+      console.log('[DEBUG] Extracted fields:', {
+        name: name || 'undefined',
+        description: description || 'undefined', 
+        webhook_url: webhook_url || 'undefined',
+        webhook_events: webhook_events || 'undefined',
+        phone_number: phone_number || 'undefined',
+        phone_number_type: typeof phone_number,
+        phone_number_value: phone_number
+      });
 
       // Validar datos requeridos
       if (!name || !name.trim()) {
