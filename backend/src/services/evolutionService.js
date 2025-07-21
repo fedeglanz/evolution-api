@@ -166,6 +166,57 @@ class EvolutionService {
   }
 
   /**
+   * Obtener tanto QR code como pairing code para una instancia
+   * @param {string} instanceName - Nombre de la instancia
+   * @returns {Promise<Object>} Ambos códigos disponibles
+   */
+  async getConnectionCodes(instanceName) {
+    try {
+      // Intentar obtener QR code
+      const qrResponse = await this.client.get(`/instance/connect/${instanceName}`);
+      
+      let pairingCode = null;
+      
+      // Intentar obtener pairing code (método alternativo)
+      try {
+        const pairingResponse = await this.client.post(`/instance/code/${instanceName}`, {});
+        pairingCode = pairingResponse.data.code || pairingResponse.data.pairingCode || null;
+      } catch (pairingError) {
+        console.warn(`No se pudo obtener pairing code para ${instanceName}:`, pairingError.message);
+        // No es un error crítico, continúa sin pairing code
+      }
+      
+      return {
+        qrCode: qrResponse.data.qrcode || qrResponse.data.base64 || null,
+        pairingCode: pairingCode,
+        status: qrResponse.data.status || 'connecting',
+        message: 'Códigos de conexión obtenidos'
+      };
+    } catch (error) {
+      throw new Error(`Error al obtener códigos de conexión: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener solo el pairing code
+   * @param {string} instanceName - Nombre de la instancia
+   * @returns {Promise<Object>} Pairing code alfanumérico
+   */
+  async getPairingCode(instanceName) {
+    try {
+      const response = await this.client.post(`/instance/code/${instanceName}`, {});
+      
+      return {
+        pairingCode: response.data.code || response.data.pairingCode || null,
+        status: response.data.status || 'connecting',
+        expiresIn: response.data.expiresIn || 120 // segundos
+      };
+    } catch (error) {
+      throw new Error(`Error al obtener pairing code: ${error.message}`);
+    }
+  }
+
+  /**
    * Conectar/reconectar una instancia
    * @param {string} instanceName - Nombre de la instancia
    * @returns {Promise<Object>} Estado de la conexión

@@ -471,19 +471,22 @@ class InstanceController {
       }
 
       try {
-        const qrData = await evolutionService.getQRCode(instance.evolution_instance_name);
+        // Usar el nuevo método que obtiene ambos códigos
+        const connectionData = await evolutionService.getConnectionCodes(instance.evolution_instance_name);
         
-        // Actualizar QR en base de datos
-        if (qrData.qrCode) {
-          await this.updateInstanceQR(companyId, id, qrData.qrCode);
+        // Actualizar QR en base de datos si existe
+        if (connectionData.qrCode) {
+          await this.updateInstanceQR(companyId, id, connectionData.qrCode);
         }
         
         res.json({
           success: true,
           data: {
             instanceId: id,
-            qrCode: qrData.qrCode,
-            status: qrData.status
+            qrCode: connectionData.qrCode,
+            pairingCode: connectionData.pairingCode,
+            status: connectionData.status,
+            message: connectionData.message || 'Códigos de conexión obtenidos'
           }
         });
         
@@ -499,7 +502,7 @@ class InstanceController {
       }
       
     } catch (error) {
-      console.error('Error al obtener QR:', error);
+      console.error('Error al obtener códigos de conexión:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor',
