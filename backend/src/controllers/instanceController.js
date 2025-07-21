@@ -74,24 +74,8 @@ class InstanceController {
    */
   async createInstance(req, res) {
     try {
-      // DEBUGGING: Log completo del request
-      console.log('[DEBUG] Full req.body received:', JSON.stringify(req.body, null, 2));
-      console.log('[DEBUG] Request headers:', req.headers['content-type']);
-      console.log('[DEBUG] Raw body keys:', Object.keys(req.body || {}));
-      
       const { name, description, webhook_url, webhook_events, phone_number } = req.body;
       const companyId = req.user.companyId;
-
-      // DEBUGGING: Log específico de campos extraídos
-      console.log('[DEBUG] Extracted fields:', {
-        name: name || 'undefined',
-        description: description || 'undefined', 
-        webhook_url: webhook_url || 'undefined',
-        webhook_events: webhook_events || 'undefined',
-        phone_number: phone_number || 'undefined',
-        phone_number_type: typeof phone_number,
-        phone_number_value: phone_number
-      });
 
       // Validar datos requeridos
       if (!name || !name.trim()) {
@@ -137,42 +121,33 @@ class InstanceController {
         });
       }
 
-      // Crear nombre único para Evolution API (empresa_instancia)
-      const evolutionInstanceName = `${companyId}_${name}`.replace(/[^a-zA-Z0-9_]/g, '_');
+      // Crear nombre único para Evolution API (empresa_instancia) con mejor manejo de caracteres especiales
+      const cleanName = name.trim()
+        .normalize('NFD') // Descomponer caracteres acentuados
+        .replace(/[\u0300-\u036f]/g, '') // Remover acentos/tildes
+        .replace(/ñ/gi, 'n') // Reemplazar ñ por n específicamente
+        .replace(/[^a-zA-Z0-9\s]/g, '') // Remover caracteres especiales excepto espacios
+        .replace(/\s+/g, '_') // Reemplazar espacios por guiones bajos
+        .toLowerCase(); // Convertir a minúsculas para consistencia
+        
+      const evolutionInstanceName = `${companyId}_${cleanName}`;
       
-      // Crear instancia en Evolution API con número de teléfono si se proporciona
-      console.log(`[Controller] Creating Evolution instance with:`, {
-        evolutionInstanceName,
-        hasWebhook: !!webhook_url,
-        hasPhoneNumber: !!phone_number,
-        phoneNumber: phone_number ? `${phone_number.substring(0, 4)}...${phone_number.substring(-4)}` : null
+      console.log(`[Controller] Instance name transformation:`, {
+        originalName: name.trim(),
+        cleanedName: cleanName,
+        evolutionInstanceName: evolutionInstanceName
       });
       
+      // Crear instancia en Evolution API con número de teléfono si se proporciona
       const evolutionInstance = await evolutionService.createInstance(
         evolutionInstanceName, 
         webhook_url,
         phone_number // Pasar el número de teléfono
       );
       
-      console.log(`[Controller] Evolution API response received:`, {
-        hasEvolutionInstance: !!evolutionInstance,
-        hasQR: !!evolutionInstance.qrCode,
-        hasPairingCode: !!evolutionInstance.pairingCode,
-        pairingCode: evolutionInstance.pairingCode ? `${evolutionInstance.pairingCode.substring(0, 4)}...` : null
-      });
-      
       // Extraer datos ya parseados del evolutionService
-      console.log('[CreateInstance] Evolution API response:', JSON.stringify(evolutionInstance, null, 2));
-      
       const qrCodeBase64 = evolutionInstance.qrCode;
       const pairingCode = evolutionInstance.pairingCode;
-      
-      console.log('[CreateInstance] Extracted data:', {
-        hasQR: !!qrCodeBase64,
-        hasPairingCode: !!pairingCode,
-        phoneNumber: phone_number,
-        pairingCode: pairingCode ? `${pairingCode.substring(0, 4)}...` : null
-      });
       
       // Guardar en base de datos
       const dbQuery = `
@@ -716,6 +691,197 @@ class InstanceController {
     }
   }
 
+  /**
+   * Sincronizar estado de una instancia con Evolution API
+   * PUT /api/instances/:id/sync-state
+   */
+  async syncInstanceState(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+
+      // Buscar la instancia en nuestra BD
+      const instanceQuery = await pool.query(
+        'SELECT * FROM whatsapp_bot.whatsapp_instances WHERE id = $1 AND company_id = $2',
+        [id, companyId]
+      );
+
+      if (instanceQuery.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Instancia no encontrada'
+        });
+      }
+
+      const instance = instanceQuery.rows[0];
+      const evolutionInstanceName = instance.evolution_instance_name;
+
+      console.log(`[Controller] Syncing state for instance: ${evolutionInstanceName}`);
+
+      // Obtener estado actual desde Evolution API
+      const evolutionState = await evolutionService.getInstanceState(evolutionInstanceName);
+
+      // Mapear estados de Evolution API a nuestros estados
+      let ourStatus = 'connecting';
+      let connectedAt = instance.connected_at;
+      let lastSeen = instance.last_seen;
+
+      if (evolutionState.isConnected) {
+        ourStatus = 'connected';
+        // Si no tenía connected_at y ahora está conectado, establecer timestamp
+        if (!instance.connected_at) {
+          connectedAt = new Date().toISOString();
+        }
+        lastSeen = new Date().toISOString();
+      } else if (evolutionState.status === 'not_found' || evolutionState.status === 'error') {
+        ourStatus = 'disconnected';
+      }
+
+      // Actualizar en nuestra BD
+      const updateQuery = await pool.query(
+        `UPDATE whatsapp_bot.whatsapp_instances 
+         SET status = $1, connected_at = $2, last_seen = $3, updated_at = NOW()
+         WHERE id = $4 AND company_id = $5
+         RETURNING *`,
+        [ourStatus, connectedAt, lastSeen, id, companyId]
+      );
+
+      const updatedInstance = updateQuery.rows[0];
+
+      console.log(`[Controller] Instance state updated:`, {
+        instanceName: updatedInstance.instance_name,
+        oldStatus: instance.status,
+        newStatus: ourStatus,
+        evolutionStatus: evolutionState.status,
+        isConnected: evolutionState.isConnected
+      });
+
+      res.json({
+        success: true,
+        message: 'Estado sincronizado exitosamente',
+        data: {
+          instance: {
+            id: updatedInstance.id,
+            name: updatedInstance.instance_name,
+            phoneNumber: updatedInstance.phone_number,
+            status: updatedInstance.status,
+            connectedAt: updatedInstance.connected_at,
+            lastSeen: updatedInstance.last_seen,
+            evolutionStatus: evolutionState.status,
+            evolutionData: evolutionState.profileName ? {
+              profileName: evolutionState.profileName,
+              profilePictureUrl: evolutionState.profilePictureUrl,
+              phone: evolutionState.phone
+            } : null
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al sincronizar estado de instancia:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Sincronizar estado de todas las instancias de una empresa
+   * PUT /api/instances/sync-all
+   */
+  async syncAllInstancesState(req, res) {
+    try {
+      const companyId = req.user.companyId;
+
+      // Obtener todas las instancias de la empresa
+      const instancesQuery = await pool.query(
+        'SELECT * FROM whatsapp_bot.whatsapp_instances WHERE company_id = $1',
+        [companyId]
+      );
+
+      const instances = instancesQuery.rows;
+      const syncResults = [];
+
+      console.log(`[Controller] Syncing ${instances.length} instances for company: ${companyId}`);
+
+      // Sincronizar cada instancia
+      for (const instance of instances) {
+        try {
+          const evolutionState = await evolutionService.getInstanceState(instance.evolution_instance_name);
+
+          let ourStatus = 'connecting';
+          let connectedAt = instance.connected_at;
+          let lastSeen = instance.last_seen;
+
+          if (evolutionState.isConnected) {
+            ourStatus = 'connected';
+            if (!instance.connected_at) {
+              connectedAt = new Date().toISOString();
+            }
+            lastSeen = new Date().toISOString();
+          } else if (evolutionState.status === 'not_found' || evolutionState.status === 'error') {
+            ourStatus = 'disconnected';
+          }
+
+          // Actualizar solo si hay cambios
+          if (ourStatus !== instance.status || (!instance.last_seen && lastSeen)) {
+            await pool.query(
+              `UPDATE whatsapp_bot.whatsapp_instances 
+               SET status = $1, connected_at = $2, last_seen = $3, updated_at = NOW()
+               WHERE id = $4`,
+              [ourStatus, connectedAt, lastSeen, instance.id]
+            );
+
+            syncResults.push({
+              instanceId: instance.id,
+              instanceName: instance.instance_name,
+              oldStatus: instance.status,
+              newStatus: ourStatus,
+              updated: true
+            });
+          } else {
+            syncResults.push({
+              instanceId: instance.id,
+              instanceName: instance.instance_name,
+              status: ourStatus,
+              updated: false
+            });
+          }
+        } catch (error) {
+          console.error(`Error syncing instance ${instance.instance_name}:`, error.message);
+          syncResults.push({
+            instanceId: instance.id,
+            instanceName: instance.instance_name,
+            error: error.message,
+            updated: false
+          });
+        }
+      }
+
+      const updatedCount = syncResults.filter(r => r.updated).length;
+
+      res.json({
+        success: true,
+        message: `Sincronización completada: ${updatedCount} instancias actualizadas de ${instances.length} total`,
+        data: {
+          totalInstances: instances.length,
+          updatedInstances: updatedCount,
+          results: syncResults
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al sincronizar todas las instancias:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
   // Métodos auxiliares
 
   /**
@@ -795,5 +961,7 @@ module.exports = {
   getQRCode: instanceController.getQRCode.bind(instanceController),
   connectInstance: instanceController.connectInstance.bind(instanceController),
   getInstanceStatus: instanceController.getInstanceStatus.bind(instanceController),
-  deleteInstance: instanceController.deleteInstance.bind(instanceController)
+  deleteInstance: instanceController.deleteInstance.bind(instanceController),
+  syncInstanceState: instanceController.syncInstanceState.bind(instanceController),
+  syncAllInstancesState: instanceController.syncAllInstancesState.bind(instanceController)
 };

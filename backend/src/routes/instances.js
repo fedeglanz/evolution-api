@@ -101,6 +101,10 @@ router.post('/:id/connect', instanceController.connectInstance);
  */
 router.get('/:id/status', instanceController.getInstanceStatus);
 
+// Sincronización de estados con Evolution API
+router.put('/sync-all', instanceController.syncAllInstancesState);
+router.put('/:id/sync-state', instanceController.syncInstanceState);
+
 /**
  * DELETE /api/instances/:id
  * Eliminar instancia

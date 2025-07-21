@@ -435,6 +435,59 @@ class EvolutionService {
       throw new Error(`Error al obtener instancias: ${error.message}`);
     }
   }
+
+  /**
+   * Obtener el estado actual de una instancia desde Evolution API
+   * @param {string} instanceName - Nombre de la instancia en Evolution API
+   * @returns {Promise<Object>} Estado actual de la instancia
+   */
+  async getInstanceState(instanceName) {
+    try {
+      console.log(`[Evolution API] Getting instance state for: ${instanceName}`);
+      
+      const response = await this.client.get(`/instance/fetchInstances?instanceName=${instanceName}`);
+      
+      console.log(`[Evolution API] Instance state response:`, JSON.stringify(response.data, null, 2));
+      
+      if (response.data && response.data.length > 0) {
+        const instance = response.data[0];
+        
+        return {
+          instanceName: instance.instanceName,
+          status: instance.status || 'unknown',
+          profileName: instance.profileName || null,
+          profilePictureUrl: instance.profilePictureUrl || null,
+          phone: instance.phone || null,
+          isConnected: instance.status === 'open' || instance.status === 'connected',
+          lastSeen: instance.lastSeen || null,
+          _rawData: instance
+        };
+      } else {
+        console.warn(`[Evolution API] No data found for instance: ${instanceName}`);
+        return {
+          instanceName,
+          status: 'not_found',
+          isConnected: false,
+          _rawData: null
+        };
+      }
+    } catch (error) {
+      console.error(`[Evolution API] Error getting instance state:`, {
+        instanceName,
+        error: error.message,
+        responseStatus: error.response?.status,
+        responseData: error.response?.data
+      });
+      
+      return {
+        instanceName,
+        status: 'error',
+        isConnected: false,
+        error: error.message,
+        _rawData: null
+      };
+    }
+  }
 }
 
 module.exports = new EvolutionService();
