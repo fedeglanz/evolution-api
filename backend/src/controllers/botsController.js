@@ -27,6 +27,38 @@ async function getBotWithDetailsHelper(botId) {
   return result.rows[0] || null;
 }
 
+// Función auxiliar para verificar ownership de instancia
+async function verifyInstanceOwnershipHelper(companyId, instanceId) {
+  const result = await pool.query(
+    'SELECT id FROM whatsapp_bot.whatsapp_instances WHERE id = $1 AND company_id = $2',
+    [instanceId, companyId]
+  );
+
+  if (result.rows.length === 0) {
+    return {
+      valid: false,
+      statusCode: 404,
+      message: 'Instancia no encontrada o no tienes acceso a ella'
+    };
+  }
+
+  return { valid: true };
+}
+
+// Función auxiliar para obtener límites de bots por plan
+function getBotLimitsForPlanHelper(plan) {
+  const limits = {
+    free_trial: { max_bots: 1 },
+    trial: { max_bots: 1 },
+    starter: { max_bots: 3 },
+    business: { max_bots: 10 },
+    pro: { max_bots: 25 },
+    enterprise: { max_bots: -1 } // ilimitado
+  };
+
+  return limits[plan] || limits.starter;
+}
+
 class BotsController {
 
   /**
@@ -283,7 +315,7 @@ class BotsController {
       }
 
       // Verificar ownership
-      const instanceCheck = await this.verifyInstanceOwnership(companyId, bot.instance_id);
+      const instanceCheck = await verifyInstanceOwnershipHelper(companyId, bot.instance_id);
       if (!instanceCheck.valid) {
         return res.status(403).json({
           success: false,
@@ -325,7 +357,7 @@ class BotsController {
         });
       }
 
-      const instanceCheck = await this.verifyInstanceOwnership(companyId, existingBot.instance_id);
+      const instanceCheck = await verifyInstanceOwnershipHelper(companyId, existingBot.instance_id);
       if (!instanceCheck.valid) {
         return res.status(403).json({
           success: false,
@@ -436,7 +468,7 @@ class BotsController {
         });
       }
 
-      const instanceCheck = await this.verifyInstanceOwnership(companyId, existingBot.instance_id);
+      const instanceCheck = await verifyInstanceOwnershipHelper(companyId, existingBot.instance_id);
       if (!instanceCheck.valid) {
         return res.status(403).json({
           success: false,
@@ -481,7 +513,7 @@ class BotsController {
         });
       }
 
-      const instanceCheck = await this.verifyInstanceOwnership(companyId, existingBot.instance_id);
+      const instanceCheck = await verifyInstanceOwnershipHelper(companyId, existingBot.instance_id);
       if (!instanceCheck.valid) {
         return res.status(403).json({
           success: false,
@@ -531,7 +563,7 @@ class BotsController {
       const { instanceId } = req.params;
 
       // Verificar ownership de la instancia
-      const instanceCheck = await this.verifyInstanceOwnership(companyId, instanceId);
+      const instanceCheck = await verifyInstanceOwnershipHelper(companyId, instanceId);
       if (!instanceCheck.valid) {
         return res.status(instanceCheck.statusCode).json({
           success: false,
@@ -697,7 +729,7 @@ class BotsController {
     }
 
     const plan = companyQuery.rows[0].plan;
-    const planLimits = this.getBotLimitsForPlan(plan);
+    const planLimits = getBotLimitsForPlanHelper(plan);
 
     // Contar bots actuales
     const botCountQuery = await pool.query(`
@@ -732,22 +764,6 @@ class BotsController {
   }
 
   /**
-   * Obtener límites de bots por plan
-   */
-  getBotLimitsForPlan(plan) {
-    const limits = {
-      free_trial: { max_bots: 1 },
-      trial: { max_bots: 1 },
-      starter: { max_bots: 3 },
-      business: { max_bots: 10 },
-      pro: { max_bots: 25 },
-      enterprise: { max_bots: -1 } // ilimitado
-    };
-
-    return limits[plan] || limits.starter;
-  }
-
-  /**
    * Obtener límites de bots para una empresa
    */
   async getBotLimitsForCompany(companyId) {
@@ -763,7 +779,7 @@ class BotsController {
     const plan = companyQuery.rows[0].plan;
     return {
       plan,
-      ...this.getBotLimitsForPlan(plan)
+      ...getBotLimitsForPlanHelper(plan)
     };
   }
 }
