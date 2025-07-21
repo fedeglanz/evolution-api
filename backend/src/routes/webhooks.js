@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const webhookController = require('../controllers/webhookController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth'); // Corregido: authenticate en lugar de authenticateToken
 
 // Todas las rutas requieren autenticación
-router.use(authenticateToken);
+router.use(authenticate);
 
 /**
  * GET /api/webhooks/status/:instanceId
