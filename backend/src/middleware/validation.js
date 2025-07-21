@@ -173,6 +173,12 @@ const instanceSchemas = {
       .optional()
       .messages({
         'array.includes': 'Los eventos del webhook deben ser válidos (message, status, connection)'
+      }),
+    phone_number: Joi.string()
+      .pattern(/^\+[1-9]\d{9,14}$/)
+      .optional()
+      .messages({
+        'string.pattern.base': 'El número de teléfono debe tener formato internacional (+5491123456789)'
       })
   }),
 
@@ -205,6 +211,13 @@ const instanceSchemas = {
       .optional()
       .messages({
         'array.includes': 'Los eventos del webhook deben ser válidos (message, status, connection)'
+      }),
+    phone_number: Joi.string()
+      .pattern(/^\+[1-9]\d{9,14}$/)
+      .optional()
+      .allow('')
+      .messages({
+        'string.pattern.base': 'El número de teléfono debe tener formato internacional (+5491123456789)'
       })
   })
 };

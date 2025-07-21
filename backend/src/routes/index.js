@@ -125,6 +125,71 @@ router.post('/debug/test-body', async (req, res) => {
   }
 });
 
+// Endpoint temporal para probar validación de instances (SIN autenticación)
+router.post('/debug/test-instance-validation', async (req, res) => {
+  try {
+    const { validateCreateInstance } = require('./instances'); // Import validation
+    
+    console.log('[DEBUG INSTANCE VALIDATION] Before validation:', JSON.stringify(req.body, null, 2));
+    
+    // Simular middleware de validación
+    const Joi = require('joi');
+    const instanceCreateSchema = Joi.object({
+      name: Joi.string().min(2).max(50).trim().required(),
+      description: Joi.string().max(500).trim().optional(),
+      webhook_url: Joi.string().uri().optional(),
+      webhook_events: Joi.array().items(Joi.string().valid('message', 'status', 'connection')).optional(),
+      phone_number: Joi.string().pattern(/^\+[1-9]\d{9,14}$/).optional()
+    });
+
+    const { error, value } = instanceCreateSchema.validate(req.body, {
+      abortEarly: false,
+      allowUnknown: false,
+      stripUnknown: true
+    });
+
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.details.map(d => ({
+          field: d.path.join('.'),
+          message: d.message
+        }))
+      });
+    }
+
+    console.log('[DEBUG INSTANCE VALIDATION] After validation:', JSON.stringify(value, null, 2));
+
+    res.json({
+      success: true,
+      message: 'Instance validation test successful',
+      beforeValidation: req.body,
+      afterValidation: value,
+      phoneNumberStatus: {
+        beforeValidation: {
+          value: req.body.phone_number,
+          type: typeof req.body.phone_number,
+          present: 'phone_number' in req.body
+        },
+        afterValidation: {
+          value: value.phone_number,
+          type: typeof value.phone_number,
+          present: 'phone_number' in value
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('[DEBUG INSTANCE VALIDATION] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug validation error',
+      error: error.message
+    });
+  }
+});
+
 // API info route
 router.get('/info', (req, res) => {
   res.json({
