@@ -5,6 +5,7 @@ const router = express.Router();
 const authRoutes = require('./auth');
 const instanceRoutes = require('./instances');
 const botConfigRoutes = require('./botConfig');
+const botsRoutes = require('./bots'); // Múltiples bots - NUEVO
 const contactRoutes = require('./contacts');
 const conversationRoutes = require('./conversations');
 const dashboardRoutes = require('./dashboard');
@@ -223,6 +224,7 @@ router.get('/info', (req, res) => {
       endpoints: {
         auth: '/api/auth',
         instances: '/api/instances (incluye bot-config como sub-rutas)',
+        bots: '/api/bots (sistema de múltiples bots - NUEVO)',
         contacts: '/api/contacts',
         conversations: '/api/conversations',
         dashboard: '/api/dashboard',
@@ -236,6 +238,7 @@ router.get('/info', (req, res) => {
 // Mount routes with prefixes
 router.use('/auth', authRoutes);
 router.use('/instances', instanceRoutes);
+router.use('/bots', botsRoutes); // Sistema de múltiples bots - NUEVO
 router.use('/contacts', contactRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/dashboard', dashboardRoutes);

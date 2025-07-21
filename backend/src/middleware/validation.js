@@ -394,6 +394,36 @@ const validatePagination = (req, res, next) => {
   next();
 };
 
+// Validación para creación de múltiples bots (nuevo sistema)
+const validateBotCreation = (req, res, next) => {
+  const schema = Joi.object({
+    instance_id: commonSchemas.uuid.required(),
+    name: Joi.string().min(2).max(50).trim().required(),
+    description: Joi.string().max(500).trim().optional(),
+    system_prompt: Joi.string().min(10).max(4000).trim().required(),
+    openai_model: Joi.string().valid('gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo', 'gpt-4o').default('gpt-4'),
+    openai_temperature: Joi.number().min(0).max(2).default(0.7),
+    max_tokens: Joi.number().min(1).max(4096).default(1000),
+    welcome_message: Joi.string().max(1000).default('¡Hola! ¿En qué puedo ayudarte?'),
+    fallback_message: Joi.string().max(1000).default('Lo siento, no pude entender tu mensaje. ¿Puedes reformularlo?'),
+    context_memory_turns: Joi.number().min(1).max(20).default(5),
+    response_delay_ms: Joi.number().min(0).max(10000).default(1000),
+    typing_simulation: Joi.boolean().default(true),
+    daily_message_limit: Joi.number().min(1).optional(),
+    monthly_token_limit: Joi.number().min(1).optional()
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Error de validación',
+      errors: error.details.map(detail => detail.message)
+    });
+  }
+  next();
+};
+
 module.exports = {
   validate,
   validateRegister,
@@ -406,6 +436,7 @@ module.exports = {
   validateCreateBotConfig,
   validateSendMessage,
   validatePagination,
+  validateBotCreation,
   schemas: {
     auth: authSchemas,
     instance: instanceSchemas,
