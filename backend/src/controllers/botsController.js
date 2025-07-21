@@ -45,12 +45,39 @@ class BotsController {
 
       const result = await pool.query(query, queryParams);
 
+      // Obtener límites del plan directamente para evitar problemas de contexto
+      let planLimits = null;
+      try {
+        const companyQuery = await pool.query(
+          'SELECT plan FROM whatsapp_bot.companies WHERE id = $1',
+          [companyId]
+        );
+        
+        if (companyQuery.rows.length > 0) {
+          const plan = companyQuery.rows[0].plan;
+          const limits = {
+            free_trial: { max_bots: 1 },
+            trial: { max_bots: 1 },
+            starter: { max_bots: 3 },
+            business: { max_bots: 10 },
+            pro: { max_bots: 25 },
+            enterprise: { max_bots: -1 }
+          };
+          planLimits = {
+            plan,
+            ...(limits[plan] || limits.starter)
+          };
+        }
+      } catch (planError) {
+        console.error('Error getting plan limits:', planError);
+      }
+
       res.json({
         success: true,
         data: {
           bots: result.rows,
           total: result.rows.length,
-          planLimits: await this.getBotLimitsForCompany(companyId)
+          planLimits
         }
       });
 
