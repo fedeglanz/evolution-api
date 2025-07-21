@@ -10,6 +10,13 @@ const conversationRoutes = require('./conversations');
 const dashboardRoutes = require('./dashboard');
 const planRoutes = require('./plans');
 const migrationRoutes = require('./migrations');
+const botRouter = require('./bot'); // Nueva ruta
+
+// Middleware de autenticación
+const { authenticateToken } = require('../middleware/auth');
+
+// Middleware de validación
+const { validate } = require('../middleware/validation');
 
 // Health check route
 router.get('/health', (req, res) => {
@@ -233,5 +240,6 @@ router.use('/conversations', conversationRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/plans', planRoutes);
 router.use('/migrations', migrationRoutes);
+router.use('/bot', botRouter); // Sin auth para n8n - usará API key propia
 
 module.exports = router;
