@@ -77,6 +77,22 @@ router.post('/', validateCreateInstance, instanceController.createInstance);
  */
 router.get('/:id', instanceController.getInstance);
 
+// ===== RUTAS ESPECÍFICAS DE SINCRONIZACIÓN (ANTES QUE RUTAS CON PARÁMETROS) =====
+
+/**
+ * PUT /api/instances/sync-all
+ * Sincronizar estado de todas las instancias de la empresa
+ */
+router.put('/sync-all', instanceController.syncAllInstancesState);
+
+/**
+ * PUT /api/instances/:id/sync-state
+ * Sincronizar estado de una instancia específica
+ */
+router.put('/:id/sync-state', instanceController.syncInstanceState);
+
+// ===== RUTAS CON PARÁMETROS =====
+
 /**
  * PUT /api/instances/:id
  * Actualizar instancia existente
@@ -100,10 +116,6 @@ router.post('/:id/connect', instanceController.connectInstance);
  * Obtener estado de conexión de la instancia
  */
 router.get('/:id/status', instanceController.getInstanceStatus);
-
-// Sincronización de estados con Evolution API
-router.put('/sync-all', instanceController.syncAllInstancesState);
-router.put('/:id/sync-state', instanceController.syncInstanceState);
 
 /**
  * DELETE /api/instances/:id
