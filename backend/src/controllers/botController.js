@@ -13,68 +13,55 @@ class BotController {
 
       console.log(`[Bot] Processing message from ${phone} on instance ${instance}`);
 
-      // 1. Obtener configuración del bot para esta instancia
+      // 1. Obtener bot activo para esta instancia
       const botConfigQuery = await pool.query(`
         SELECT 
-          bc.*,
+          b.*,
           wi.instance_name,
           wi.company_id,
           wi.status as instance_status
-        FROM whatsapp_bot.bot_configs bc
-        JOIN whatsapp_bot.whatsapp_instances wi ON bc.instance_id = wi.id
-        WHERE wi.evolution_instance_name = $1 AND bc.auto_response = true
+        FROM whatsapp_bot.bots b
+        JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
+        WHERE wi.evolution_instance_name = $1 AND b.is_active = true
       `, [instance]);
 
       if (botConfigQuery.rows.length === 0) {
-        console.log(`[Bot] No bot config found for instance: ${instance}`);
+        console.log(`[Bot] No active bot found for instance: ${instance}`);
         return res.json({
           shouldRespond: false,
-          reason: 'No bot configuration found or auto_response disabled'
+          reason: 'No active bot found for this instance'
         });
       }
 
       const botConfig = botConfigQuery.rows[0];
 
-      // 2. Verificar horarios de negocio
-      const businessHoursCheck = this.checkBusinessHours(botConfig.business_hours);
-      if (!businessHoursCheck.isOpen) {
-        console.log(`[Bot] Outside business hours for instance: ${instance}`);
+      // 2. Verificar que la instancia esté conectada
+      if (botConfig.instance_status !== 'connected') {
+        console.log(`[Bot] Instance not connected: ${instance}`);
         return res.json({
-          shouldRespond: true,
-          response: botConfig.away_message || 'Estamos fuera del horario de atención. Te responderemos pronto.',
-          reason: 'outside_business_hours'
+          shouldRespond: false,
+          reason: 'Instance not connected'
         });
       }
 
-      // 3. Verificar palabras clave de escalation
-      const escalationCheck = this.checkEscalationKeywords(message, botConfig.escalation_keywords);
-      if (escalationCheck.shouldEscalate && botConfig.escalation_number) {
-        return res.json({
-          shouldRespond: true,
-          response: `Te voy a conectar con uno de nuestros agentes. Por favor contacta al ${botConfig.escalation_number}`,
-          reason: 'escalation_triggered',
-          escalationTriggered: true
-        });
-      }
-
-      // 4. Obtener o crear contacto
+      // 3. Obtener o crear contacto
       const contact = await this.getOrCreateContact(botConfig.company_id, phone, senderName);
 
-      // 5. Guardar mensaje del usuario
+      // 4. Guardar mensaje del usuario
       await this.saveMessage(botConfig.company_id, contact.id, botConfig.instance_id, message, messageId, false, messageType);
 
-      // 6. Obtener contexto de mensajes previos
+      // 5. Obtener contexto de mensajes previos
       const conversationHistory = await this.getConversationHistory(contact.id, botConfig.instance_id, 10);
 
-      // 7. Generar respuesta con OpenAI
+      // 6. Generar respuesta con OpenAI
       const startTime = Date.now();
       
       const openaiResponse = await openaiService.generateResponse(
         message,
         {
-          model: 'gpt-3.5-turbo',
-          temperature: parseFloat(botConfig.temperature) || 0.7,
-          max_tokens: botConfig.max_tokens || 150,
+          model: botConfig.openai_model || 'gpt-4',
+          temperature: parseFloat(botConfig.openai_temperature) || 0.7,
+          max_tokens: botConfig.max_tokens || 1000,
           system_prompt: botConfig.system_prompt
         },
         conversationHistory
@@ -82,7 +69,7 @@ class BotController {
 
       const responseTime = Date.now() - startTime;
 
-      // 8. Guardar respuesta del bot
+      // 7. Guardar respuesta del bot
       await this.saveMessage(
         botConfig.company_id, 
         contact.id, 
