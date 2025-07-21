@@ -72,10 +72,10 @@ class EvolutionService {
   }
 
   /**
-   * Crear una nueva instancia en Evolution API
+   * Crear nueva instancia de WhatsApp
    * @param {string} instanceName - Nombre único de la instancia
-   * @param {string} webhookUrl - URL del webhook para recibir eventos
-   * @param {string} phoneNumber - Número de teléfono para pairing code (opcional)
+   * @param {string|null} webhookUrl - URL del webhook (opcional)
+   * @param {string|null} phoneNumber - Número de teléfono (opcional, para pairing code)
    * @returns {Promise<Object>} Datos de la instancia creada
    */
   async createInstance(instanceName, webhookUrl = null, phoneNumber = null) {
@@ -84,7 +84,6 @@ class EvolutionService {
         instanceName: instanceName,
         integration: 'WHATSAPP-BAILEYS',
         qrcode: true, // Siempre habilitar QR code
-        ...(phoneNumber && { number: phoneNumber }), // Agregar número si se proporciona
         ...(webhookUrl && {
           webhook: {
             url: webhookUrl,
@@ -109,24 +108,45 @@ class EvolutionService {
         })
       };
 
+      // Agregar número de teléfono en diferentes formatos para probar
+      if (phoneNumber) {
+        payload.number = phoneNumber; // Formato original
+        payload.phoneNumber = phoneNumber; // Formato alternativo
+        payload.phone = phoneNumber; // Otro formato posible
+      }
+
       console.log(`[Evolution API] Creating instance with payload:`, {
         instanceName,
         hasWebhook: !!webhookUrl,
         hasPhoneNumber: !!phoneNumber,
-        phoneNumber: phoneNumber ? `${phoneNumber.substring(0, 4)}...` : null
+        phoneNumber: phoneNumber ? `${phoneNumber.substring(0, 4)}...${phoneNumber.substring(-4)}` : null,
+        payloadKeys: Object.keys(payload)
       });
 
       const response = await this.client.post('/instance/create', payload);
       
+      console.log(`[Evolution API] Create response status:`, response.status);
+      console.log(`[Evolution API] Create response data keys:`, Object.keys(response.data || {}));
+      console.log(`[Evolution API] Create response data:`, JSON.stringify(response.data, null, 2));
+      
       return {
-        instanceName: response.data.instance.instanceName,
-        status: response.data.instance.status || 'created',
-        qrCode: response.data.qrcode || null,
-        pairingCode: response.data.pairingCode || null, // Pairing code si está disponible
+        instanceName: response.data.instance?.instanceName || instanceName,
+        status: response.data.instance?.status || 'created',
+        qrCode: response.data.qrcode || response.data.qr || response.data.base64 || null,
+        pairingCode: response.data.pairingCode || response.data.code || response.data.pair_code || null,
         hash: response.data.hash || null,
-        webhook: response.data.instance.webhook || null
+        webhook: response.data.instance?.webhook || null,
+        // Pasar toda la respuesta para debugging
+        _rawResponse: response.data
       };
     } catch (error) {
+      console.error(`[Evolution API] Error creating instance:`, {
+        instanceName,
+        phoneNumber,
+        error: error.message,
+        responseStatus: error.response?.status,
+        responseData: error.response?.data
+      });
       throw new Error(`Error al crear instancia: ${error.message}`);
     }
   }
@@ -177,33 +197,79 @@ class EvolutionService {
   }
 
   /**
-   * Obtener tanto QR code como pairing code para una instancia
+   * Obtener códigos de conexión (QR y pairing code)
    * @param {string} instanceName - Nombre de la instancia
-   * @returns {Promise<Object>} Ambos códigos disponibles
+   * @returns {Promise<Object>} QR code y pairing code
    */
   async getConnectionCodes(instanceName) {
     try {
+      console.log(`[Evolution API] Getting connection codes for instance: ${instanceName}`);
+      
       // Intentar obtener QR code
       const qrResponse = await this.client.get(`/instance/connect/${instanceName}`);
       
+      console.log(`[Evolution API] QR Response status:`, qrResponse.status);
+      console.log(`[Evolution API] QR Response data:`, JSON.stringify(qrResponse.data, null, 2));
+      
       let pairingCode = null;
       
-      // Intentar obtener pairing code (método alternativo)
-      try {
-        const pairingResponse = await this.client.post(`/instance/code/${instanceName}`, {});
-        pairingCode = pairingResponse.data.code || pairingResponse.data.pairingCode || null;
-      } catch (pairingError) {
-        console.warn(`No se pudo obtener pairing code para ${instanceName}:`, pairingError.message);
-        // No es un error crítico, continúa sin pairing code
+      // Probar diferentes endpoints para pairing code
+      const pairingEndpoints = [
+        `/instance/code/${instanceName}`,
+        `/instance/pairing/${instanceName}`,
+        `/instance/${instanceName}/code`,
+        `/instance/${instanceName}/pairing`
+      ];
+      
+      for (const endpoint of pairingEndpoints) {
+        try {
+          console.log(`[Evolution API] Trying pairing endpoint: ${endpoint}`);
+          const pairingResponse = await this.client.post(endpoint, {});
+          
+          console.log(`[Evolution API] Pairing response from ${endpoint}:`, JSON.stringify(pairingResponse.data, null, 2));
+          
+          pairingCode = pairingResponse.data.code || 
+                       pairingResponse.data.pairingCode || 
+                       pairingResponse.data.pair_code ||
+                       pairingResponse.data.pairing_code || null;
+          
+          if (pairingCode) {
+            console.log(`[Evolution API] Pairing code found with endpoint ${endpoint}: ${pairingCode}`);
+            break;
+          }
+        } catch (pairingError) {
+          console.log(`[Evolution API] Endpoint ${endpoint} failed:`, pairingError.message);
+          // Continuar con el siguiente endpoint
+        }
       }
       
-      return {
-        qrCode: qrResponse.data.qrcode || qrResponse.data.base64 || null,
+      if (!pairingCode) {
+        console.warn(`[Evolution API] No se pudo obtener pairing code para ${instanceName} con ningún endpoint`);
+      }
+      
+      const result = {
+        qrCode: qrResponse.data.qrcode || qrResponse.data.qr || qrResponse.data.base64 || null,
         pairingCode: pairingCode,
         status: qrResponse.data.status || 'connecting',
-        message: 'Códigos de conexión obtenidos'
+        message: 'Códigos de conexión obtenidos',
+        _qrRawResponse: qrResponse.data
       };
+      
+      console.log(`[Evolution API] Final connection codes result:`, {
+        hasQR: !!result.qrCode,
+        hasPairingCode: !!result.pairingCode,
+        status: result.status,
+        pairingCode: result.pairingCode ? `${result.pairingCode.substring(0, 4)}...` : null
+      });
+      
+      return result;
     } catch (error) {
+      console.error(`[Evolution API] Error getting connection codes:`, {
+        instanceName,
+        error: error.message,
+        responseStatus: error.response?.status,
+        responseData: error.response?.data
+      });
       throw new Error(`Error al obtener códigos de conexión: ${error.message}`);
     }
   }

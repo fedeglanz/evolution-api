@@ -125,11 +125,23 @@ class InstanceController {
       const evolutionInstanceName = `${companyId}_${name}`.replace(/[^a-zA-Z0-9_]/g, '_');
       
       // Crear instancia en Evolution API con número de teléfono si se proporciona
+      console.log(`[Controller] Creating Evolution instance with:`, {
+        evolutionInstanceName,
+        hasWebhook: !!webhook_url,
+        hasPhoneNumber: !!phone_number,
+        phoneNumber: phone_number ? `${phone_number.substring(0, 4)}...${phone_number.substring(-4)}` : null
+      });
+      
       const evolutionInstance = await evolutionService.createInstance(
         evolutionInstanceName, 
         webhook_url,
         phone_number // Pasar el número de teléfono
       );
+      
+      console.log(`[Controller] Evolution API response received:`, {
+        hasEvolutionInstance: !!evolutionInstance,
+        responseKeys: Object.keys(evolutionInstance || {})
+      });
       
       // Extraer datos correctamente de la respuesta de Evolution API
       console.log('[CreateInstance] Evolution API response:', JSON.stringify(evolutionInstance, null, 2));
@@ -145,19 +157,38 @@ class InstanceController {
             const qrData = JSON.parse(evolutionInstance.qrCode);
             qrCodeBase64 = qrData.base64;
             pairingCode = qrData.pairingCode;
+            console.log('[Controller] Parsed QR as JSON:', { hasBase64: !!qrCodeBase64, hasPairingCode: !!pairingCode });
           } catch (e) {
             // Si no se puede parsear, asumir que es base64 directo
             qrCodeBase64 = evolutionInstance.qrCode;
+            console.log('[Controller] Using QR as direct base64');
           }
         } else if (typeof evolutionInstance.qrCode === 'object') {
           qrCodeBase64 = evolutionInstance.qrCode.base64;
           pairingCode = evolutionInstance.qrCode.pairingCode;
+          console.log('[Controller] Extracted from QR object:', { hasBase64: !!qrCodeBase64, hasPairingCode: !!pairingCode });
         }
       }
       
       // Si no se obtuvo pairing code de qrCode, usar el campo directo
       if (!pairingCode && evolutionInstance.pairingCode) {
         pairingCode = evolutionInstance.pairingCode;
+        console.log('[Controller] Using direct pairingCode field');
+      }
+      
+      // También revisar en _rawResponse por si está ahí
+      if (!qrCodeBase64 && evolutionInstance._rawResponse) {
+        qrCodeBase64 = evolutionInstance._rawResponse.qrcode || 
+                      evolutionInstance._rawResponse.qr || 
+                      evolutionInstance._rawResponse.base64 || null;
+        console.log('[Controller] Found QR in raw response:', !!qrCodeBase64);
+      }
+      
+      if (!pairingCode && evolutionInstance._rawResponse) {
+        pairingCode = evolutionInstance._rawResponse.pairingCode || 
+                     evolutionInstance._rawResponse.code || 
+                     evolutionInstance._rawResponse.pair_code || null;
+        console.log('[Controller] Found pairing code in raw response:', !!pairingCode);
       }
       
       console.log('[CreateInstance] Extracted data:', {

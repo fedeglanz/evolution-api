@@ -22,6 +22,56 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Endpoint temporal para debugging (SIN autenticación)
+router.post('/debug/test-instance', async (req, res) => {
+  try {
+    const { name, phone_number } = req.body;
+    
+    console.log('[DEBUG] Test instance creation:', {
+      name,
+      phone_number,
+      body: req.body
+    });
+    
+    // Test básico con evolutionService
+    const EvolutionService = require('../services/evolutionService');
+    const service = new EvolutionService();
+    
+    const testInstanceName = `debug_test_${Date.now()}`;
+    
+    console.log('[DEBUG] Creating test instance:', testInstanceName);
+    
+    const result = await service.createInstance(
+      testInstanceName,
+      null, // sin webhook
+      phone_number
+    );
+    
+    console.log('[DEBUG] Result:', result);
+    
+    res.json({
+      success: true,
+      message: 'Test instance creation',
+      data: {
+        testInstanceName,
+        result,
+        phoneProvided: !!phone_number,
+        hasQrCode: !!result.qrCode,
+        hasPairingCode: !!result.pairingCode
+      }
+    });
+    
+  } catch (error) {
+    console.error('[DEBUG] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug error',
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // API info route
 router.get('/info', (req, res) => {
   res.json({
