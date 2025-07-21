@@ -452,13 +452,16 @@ class EvolutionService {
       if (response.data && response.data.length > 0) {
         const instance = response.data[0];
         
+        // CORRECCIÓN: Leer connectionStatus en lugar de status
+        const connectionStatus = instance.connectionStatus || instance.status || 'unknown';
+        
         return {
           instanceName: instance.instanceName,
-          status: instance.status || 'unknown',
+          status: connectionStatus,
           profileName: instance.profileName || null,
-          profilePictureUrl: instance.profilePictureUrl || null,
-          phone: instance.phone || null,
-          isConnected: instance.status === 'open' || instance.status === 'connected',
+          profilePictureUrl: instance.profilePicUrl || null,
+          phone: instance.number || null,
+          isConnected: connectionStatus === 'open' || connectionStatus === 'connected',
           lastSeen: instance.lastSeen || null,
           _rawData: instance
         };
