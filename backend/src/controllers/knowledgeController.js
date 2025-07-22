@@ -322,7 +322,7 @@ class KnowledgeController {
     try {
       const companyId = req.user.companyId;
       const { botId } = req.params;
-      const { knowledgeItemId, priority = 3 } = req.body;
+      const { knowledge_item_id: knowledgeItemId, priority = 3 } = req.body;  // 🔧 FIX: Use snake_case from frontend
 
       await verifyBotOwnership(botId, companyId);
 
@@ -346,8 +346,7 @@ class KnowledgeController {
   async unassignKnowledgeFromBot(req, res) {
     try {
       const companyId = req.user.companyId;
-      const { botId } = req.params;
-      const { knowledgeItemId } = req.body;
+      const { botId, knowledgeItemId } = req.params;  // 🔧 FIX: knowledgeItemId comes from URL params, not body
 
       await verifyBotOwnership(botId, companyId);
 
