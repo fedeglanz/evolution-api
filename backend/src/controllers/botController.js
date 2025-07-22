@@ -1,5 +1,6 @@
 const pool = require('../database');
 const openaiService = require('../services/openaiService');
+const ragService = require('../services/ragService'); // 🧠 RAG Integration
 
 // === FUNCIONES HELPER PARA EVITAR PROBLEMAS DE CONTEXTO ===
 
@@ -174,8 +175,33 @@ class BotController {
       // 5. Obtener contexto de mensajes previos - USANDO HELPER
       const conversationHistory = await getConversationHistoryHelper(contact.id, botConfig.instance_id, 10);
 
-      // 6. Generar respuesta con OpenAI
+      // 🧠 6. RAG: Buscar contexto relevante en Knowledge Base
+      let ragContext = null;
+      let ragMetadata = null;
+      try {
+        console.log(`[Bot RAG] Searching knowledge for bot ${botConfig.id}: "${message}"`);
+        const ragResult = await ragService.retrieveKnowledgeForBot(botConfig.id, message, {
+          similarityThreshold: 0.6, // Un poco más permisivo para bots
+          maxResults: 3 // Máximo 3 chunks relevantes
+        });
+        
+        ragContext = ragResult.context;
+        ragMetadata = ragResult.metadata;
+        
+        console.log(`[Bot RAG] Found ${ragResult.sources.length} relevant sources, ${ragContext.totalTokens} tokens`);
+      } catch (ragError) {
+        console.warn('[Bot RAG] Knowledge search failed, continuing without RAG:', ragError.message);
+      }
+
+      // 7. Generar respuesta con OpenAI (con contexto RAG si disponible)
       const startTime = Date.now();
+      
+      // Construir prompt mejorado con contexto RAG
+      let enhancedSystemPrompt = botConfig.system_prompt || 'Eres un asistente útil y amigable.';
+      
+      if (ragContext && ragContext.text) {
+        enhancedSystemPrompt += `\n\nCONTEXTO DE KNOWLEDGE BASE:\n${ragContext.text}\n\nUsa la información del contexto anterior para responder de manera más precisa y específica. Si la información del contexto es relevante para la pregunta, úsala. Si no encuentras información relevante en el contexto, responde basándote en tu conocimiento general pero menciona que no tienes información específica sobre ese tema.`;
+      }
       
       const openaiResponse = await openaiService.generateResponse(
         message,
@@ -183,7 +209,7 @@ class BotController {
           model: botConfig.openai_model || 'gpt-4',
           temperature: parseFloat(botConfig.openai_temperature) || 0.7,
           max_tokens: botConfig.max_tokens || 1000,
-          system_prompt: botConfig.system_prompt
+          system_prompt: enhancedSystemPrompt
         },
         conversationHistory,
         companyPlan // Pasar el plan de la empresa
@@ -191,7 +217,7 @@ class BotController {
 
       const responseTime = Date.now() - startTime;
 
-      // 7. Guardar respuesta del bot - USANDO HELPER
+      // 8. Guardar respuesta del bot - USANDO HELPER (con metadatos RAG)
       await saveMessageHelper(
         botConfig.company_id, 
         contact.id, 
@@ -203,25 +229,45 @@ class BotController {
         {
           tokens_used: openaiResponse.tokens_used,
           response_time: responseTime,
-          model: openaiResponse.model
+          model: openaiResponse.model,
+          // 🧠 RAG metadata
+          rag_used: ragContext ? true : false,
+          rag_sources_count: ragContext ? ragContext.chunksUsed : 0,
+          rag_context_tokens: ragContext ? ragContext.totalTokens : 0,
+          rag_avg_similarity: ragMetadata ? ragMetadata.avgSimilarity : null
         }
       );
 
       console.log(`[Bot] Response generated for ${phone}:`, {
         responseTime: `${responseTime}ms`,
         tokens: openaiResponse.tokens_used,
-        responseLength: openaiResponse.message.length
+        responseLength: openaiResponse.message.length,
+        // 🧠 RAG info in logs
+        ragUsed: ragContext ? true : false,
+        ragSources: ragContext ? ragContext.chunksUsed : 0,
+        ragTokens: ragContext ? ragContext.totalTokens : 0
       });
 
       res.json({
         shouldRespond: true,
         response: openaiResponse.message,
-        reason: 'openai_response',
+        reason: ragContext ? 'openai_response_with_rag' : 'openai_response',
         metadata: {
           tokensUsed: openaiResponse.tokens_used,
           responseTime: responseTime,
           model: openaiResponse.model,
-          contactId: contact.id
+          contactId: contact.id,
+          // 🧠 RAG metadata in API response
+          rag: ragContext ? {
+            used: true,
+            sourcesCount: ragContext.chunksUsed,
+            contextTokens: ragContext.totalTokens,
+            avgSimilarity: ragMetadata ? ragMetadata.avgSimilarity.toFixed(3) : null,
+            sources: ragMetadata && ragMetadata.resultsCount ? `${ragMetadata.resultsCount} knowledge items found` : null
+          } : {
+            used: false,
+            reason: 'No relevant knowledge found or RAG failed'
+          }
         }
       });
 
