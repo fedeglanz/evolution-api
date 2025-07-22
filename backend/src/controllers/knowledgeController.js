@@ -591,6 +591,176 @@ class KnowledgeController {
       });
     }
   }
+
+  // ========================================
+  // 🔧 DEBUG RAG ENDPOINTS
+  // ========================================
+
+  /**
+   * Debug: Test RAG search for a specific bot with a query
+   * POST /api/knowledge/debug/bot-search
+   */
+  async debugBotRAGSearch(req, res) {
+    try {
+      const companyId = req.user.companyId;
+      const { botId, query, similarityThreshold = 0.6, maxResults = 5 } = req.body;
+
+      if (!botId || !query) {
+        return res.status(400).json({
+          success: false,
+          message: 'botId y query son requeridos'
+        });
+      }
+
+      await verifyBotOwnership(botId, companyId);
+
+      console.log(`[DEBUG] Testing RAG search for bot ${botId}: "${query}"`);
+
+      // Step 1: Verify bot has assigned knowledge
+      const assignedKnowledge = await knowledgeService.getBotKnowledge(botId);
+      
+      // Step 2: Test RAG search
+      let ragResults = null;
+      let ragError = null;
+      
+      try {
+        ragResults = await ragService.retrieveKnowledgeForBot(botId, query, {
+          similarityThreshold,
+          maxResults
+        });
+      } catch (error) {
+        ragError = error.message;
+        console.error('[DEBUG] RAG search failed:', error);
+      }
+
+      // Step 3: Get embeddings count for assigned knowledge
+      const embeddingsCount = assignedKnowledge.length > 0 ? await pool.query(`
+        SELECT 
+          ki.id,
+          ki.title,
+          ki.embeddings_generated,
+          COUNT(ke.id) as embeddings_count
+        FROM whatsapp_bot.knowledge_items ki
+        LEFT JOIN whatsapp_bot.knowledge_embeddings ke ON ki.id = ke.knowledge_item_id
+        WHERE ki.id = ANY($1)
+        GROUP BY ki.id, ki.title, ki.embeddings_generated
+      `, [assignedKnowledge.map(k => k.id)]) : { rows: [] };
+
+      const debugInfo = {
+        bot: {
+          id: botId,
+          assigned_knowledge_count: assignedKnowledge.length,
+          assigned_knowledge: assignedKnowledge.map(k => ({
+            id: k.id,
+            title: k.title,
+            priority: k.priority,
+            content_preview: k.content.substring(0, 100) + '...'
+          }))
+        },
+        embeddings: {
+          items_with_embeddings: embeddingsCount.rows.filter(r => r.embeddings_generated).length,
+          embeddings_details: embeddingsCount.rows
+        },
+        rag_search: {
+          query,
+          similarity_threshold: similarityThreshold,
+          max_results: maxResults,
+          success: !ragError,
+          error: ragError,
+          results_count: ragResults?.sources?.length || 0,
+          results: ragResults?.sources?.map(source => ({
+            knowledge_title: source.knowledgeTitle,
+            chunk_text: source.chunkText.substring(0, 100) + '...',
+            similarity_score: source.similarity_score,
+            priority: source.priority
+          })) || [],
+          context: ragResults?.context ? {
+            total_tokens: ragResults.context.totalTokens,
+            chunks_used: ragResults.context.chunksUsed,
+            text_preview: ragResults.context.text.substring(0, 200) + '...'
+          } : null
+        }
+      };
+
+      res.json({
+        success: true,
+        message: 'RAG debug completado',
+        debug: debugInfo
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error in RAG debug:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error en debug RAG',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Debug: Get detailed bot knowledge assignments
+   * GET /api/knowledge/debug/bot/:botId/assignments
+   */
+  async debugBotAssignments(req, res) {
+    try {
+      const companyId = req.user.companyId;
+      const { botId } = req.params;
+
+      await verifyBotOwnership(botId, companyId);
+
+      // Get detailed assignment info
+      const result = await pool.query(`
+        SELECT 
+          b.id as bot_id,
+          b.name as bot_name,
+          b.is_active as bot_active,
+          COUNT(bka.id) as total_assignments,
+          COUNT(bka.id) FILTER (WHERE bka.is_active = true) as active_assignments,
+          json_agg(
+            json_build_object(
+              'knowledge_id', ki.id,
+              'knowledge_title', ki.title,
+              'knowledge_active', ki.is_active,
+              'embeddings_generated', ki.embeddings_generated,
+              'processing_status', ki.processing_status,
+              'assignment_priority', bka.priority,
+              'assignment_active', bka.is_active,
+              'content_length', LENGTH(ki.content),
+              'embeddings_count', (
+                SELECT COUNT(*) 
+                FROM whatsapp_bot.knowledge_embeddings ke 
+                WHERE ke.knowledge_item_id = ki.id
+              )
+            )
+          ) FILTER (WHERE ki.id IS NOT NULL) as assignments_detail
+        FROM whatsapp_bot.bots b
+        LEFT JOIN whatsapp_bot.bot_knowledge_assignments bka ON b.id = bka.bot_id
+        LEFT JOIN whatsapp_bot.knowledge_items ki ON bka.knowledge_item_id = ki.id
+        WHERE b.id = $1
+        GROUP BY b.id, b.name, b.is_active
+      `, [botId]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Bot no encontrado'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: result.rows[0]
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error getting bot assignments debug:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
 }
 
 module.exports = new KnowledgeController(); 

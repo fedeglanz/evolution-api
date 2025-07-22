@@ -94,7 +94,34 @@ router.post('/upload',
  */
 router.get('/info', knowledgeController.getApiInfo);
 
-// **🔥 RAG ENDPOINTS FOR TESTING**
+// ========================================
+// 🔧 DEBUG RAG ENDPOINTS
+// ========================================
+
+/**
+ * @swagger
+ * /api/knowledge/debug/bot-search:
+ *   post:
+ *     summary: Debug RAG search for a specific bot
+ *     tags: [Knowledge Base - Debug]
+ */
+router.post('/debug/bot-search', 
+  knowledgeController.debugBotRAGSearch
+);
+
+/**
+ * @swagger
+ * /api/knowledge/debug/bot/{botId}/assignments:
+ *   get:
+ *     summary: Get detailed bot knowledge assignments for debugging
+ *     tags: [Knowledge Base - Debug]
+ */
+router.get('/debug/bot/:botId/assignments', 
+  validation.validateUUID('botId'),
+  knowledgeController.debugBotAssignments
+);
+
+// **RAG ENDPOINTS FOR TESTING**
 router.get('/rag/status', knowledgeController.getRAGStatus);
 router.post('/rag/migrate', knowledgeController.migrateToRAG);
 router.post('/rag/test-search', knowledgeController.testRAGSearch);
