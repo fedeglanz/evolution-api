@@ -654,7 +654,7 @@ class KnowledgeController {
             id: k.id,
             title: k.title,
             priority: k.priority,
-            content_preview: k.content.substring(0, 100) + '...'
+            content_preview: k.content ? (k.content.substring(0, 100) + '...') : 'Sin contenido'
           }))
         },
         embeddings: {
@@ -669,15 +669,15 @@ class KnowledgeController {
           error: ragError,
           results_count: ragResults?.sources?.length || 0,
           results: ragResults?.sources?.map(source => ({
-            knowledge_title: source.knowledgeTitle,
-            chunk_text: source.chunkText.substring(0, 100) + '...',
-            similarity_score: source.similarity_score,
-            priority: source.priority
+            knowledge_title: source.knowledgeTitle || 'Sin título',
+            chunk_text: source.chunkText ? (source.chunkText.substring(0, 100) + '...') : 'Sin contenido',
+            similarity_score: source.similarity_score || 0,
+            priority: source.priority || 0
           })) || [],
           context: ragResults?.context ? {
-            total_tokens: ragResults.context.totalTokens,
-            chunks_used: ragResults.context.chunksUsed,
-            text_preview: ragResults.context.text.substring(0, 200) + '...'
+            total_tokens: ragResults.context.totalTokens || 0,
+            chunks_used: ragResults.context.chunksUsed || 0,
+            text_preview: ragResults.context.text ? (ragResults.context.text.substring(0, 200) + '...') : 'Sin contenido'
           } : null
         }
       };
