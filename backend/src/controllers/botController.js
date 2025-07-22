@@ -301,23 +301,16 @@ class BotController {
 
       console.log(`[Bot] Logging interaction: ${phone} on ${instance}`);
 
-      // Actualizar uso de API para facturación
-      const today = new Date().toISOString().split('T')[0];
-      
+      // Actualizar uso de API para facturación (using correct table structure)
       await pool.query(`
         INSERT INTO whatsapp_bot.api_usage (
-          company_id, date, endpoint, requests_count, total_tokens, avg_response_time
+          company_id, endpoint, method, status_code, response_time
         ) 
         SELECT 
-          wi.company_id, $2, 'bot_message', 1, $3, $4
+          wi.company_id, 'bot_message', 'POST', 200, $2
         FROM whatsapp_bot.whatsapp_instances wi
         WHERE wi.evolution_instance_name = $1
-        ON CONFLICT (company_id, date, endpoint) 
-        DO UPDATE SET 
-          requests_count = api_usage.requests_count + 1,
-          total_tokens = api_usage.total_tokens + $3,
-          avg_response_time = (api_usage.avg_response_time + $4) / 2
-      `, [instance, today, tokensUsed || 0, responseTime || 0]);
+      `, [instance, responseTime || 0]);
 
       res.json({
         success: true,
