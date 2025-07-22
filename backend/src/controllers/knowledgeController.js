@@ -1,5 +1,33 @@
 const knowledgeService = require('../services/knowledgeService');
 
+// ========================================
+// UTILITY FUNCTIONS
+// ========================================
+
+/**
+ * Verificar que un bot pertenece a la empresa del usuario
+ */
+async function verifyBotOwnership(botId, companyId) {
+  const { pool } = require('../database');
+  
+  const result = await pool.query(`
+    SELECT b.id
+    FROM whatsapp_bot.bots b
+    JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
+    WHERE b.id = $1 AND wi.company_id = $2
+  `, [botId, companyId]);
+
+  if (result.rows.length === 0) {
+    throw new Error('Bot no encontrado o no tienes acceso');
+  }
+
+  return true;
+}
+
+// ========================================
+// KNOWLEDGE CONTROLLER CLASS
+// ========================================
+
 class KnowledgeController {
 
   // ========================================
@@ -13,12 +41,20 @@ class KnowledgeController {
   async getKnowledgeItems(req, res) {
     try {
       const companyId = req.user.companyId;
+      const {
+        active_only = 'false',
+        content_type = '',
+        search = '',
+        limit = 50,
+        offset = 0
+      } = req.query;
+
       const filters = {
-        active_only: req.query.active_only,
-        content_type: req.query.content_type,
-        search: req.query.search,
-        limit: parseInt(req.query.limit) || 50,
-        offset: parseInt(req.query.offset) || 0
+        active_only: active_only === 'true',
+        content_type: content_type || null,
+        search: search.trim() || null,
+        limit: Math.min(parseInt(limit) || 50, 100), // Max 100 items
+        offset: Math.max(parseInt(offset) || 0, 0)
       };
 
       const result = await knowledgeService.getCompanyKnowledge(companyId, filters);
@@ -95,7 +131,7 @@ class KnowledgeController {
   }
 
   /**
-   * Actualizar knowledge item
+   * Actualizar knowledge item existente
    * PUT /api/knowledge/:id
    */
   async updateKnowledgeItem(req, res) {
@@ -131,11 +167,11 @@ class KnowledgeController {
       const companyId = req.user.companyId;
       const { id } = req.params;
 
-      const result = await knowledgeService.deleteKnowledgeItem(id, companyId);
+      await knowledgeService.deleteKnowledgeItem(id, companyId);
 
       res.json({
         success: true,
-        message: result.message
+        message: 'Knowledge item eliminado exitosamente'
       });
 
     } catch (error) {
@@ -163,26 +199,30 @@ class KnowledgeController {
       if (!req.file) {
         return res.status(400).json({
           success: false,
-          message: 'No se proporcionó archivo'
+          message: 'No se ha subido ningún archivo'
         });
       }
 
-      // Metadata opcional del formulario
+      // Metadatos opcionales del formulario
       const metadata = {
-        title: req.body.title,
+        title: req.body.title || null,
         tags: req.body.tags ? JSON.parse(req.body.tags) : []
       };
 
-      const item = await knowledgeService.processUploadedFile(req.file, companyId, metadata);
+      const item = await knowledgeService.processUploadedFile(
+        req.file, 
+        companyId, 
+        metadata
+      );
 
       res.status(201).json({
         success: true,
-        message: 'Archivo procesado exitosamente',
+        message: 'Archivo procesado y knowledge item creado exitosamente',
         data: { item }
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error uploading file:', error);
+      console.error('[Knowledge API] Error processing uploaded file:', error);
       res.status(400).json({
         success: false,
         message: error.message
@@ -204,7 +244,7 @@ class KnowledgeController {
       const { botId } = req.params;
 
       // Verificar que el bot pertenece a la empresa
-      await this.verifyBotOwnership(botId, companyId);
+      await verifyBotOwnership(botId, companyId);
 
       const items = await knowledgeService.getBotKnowledge(botId);
 
@@ -234,7 +274,7 @@ class KnowledgeController {
       const { knowledge_item_id, priority = 3 } = req.body;
 
       // Verificar que el bot pertenece a la empresa
-      await this.verifyBotOwnership(botId, companyId);
+      await verifyBotOwnership(botId, companyId);
 
       const assignment = await knowledgeService.assignKnowledgeToBot(
         botId, 
@@ -267,14 +307,13 @@ class KnowledgeController {
       const { botId, knowledgeItemId } = req.params;
 
       // Verificar que el bot pertenece a la empresa
-      await this.verifyBotOwnership(botId, companyId);
+      await verifyBotOwnership(botId, companyId);
 
-      const result = await knowledgeService.unassignKnowledgeFromBot(botId, knowledgeItemId);
+      await knowledgeService.unassignKnowledgeFromBot(botId, knowledgeItemId);
 
       res.json({
         success: true,
-        message: 'Knowledge removido del bot exitosamente',
-        data: { result }
+        message: 'Knowledge removido del bot exitosamente'
       });
 
     } catch (error) {
@@ -296,7 +335,7 @@ class KnowledgeController {
       const { botId } = req.params;
 
       // Verificar que el bot pertenece a la empresa
-      await this.verifyBotOwnership(botId, companyId);
+      await verifyBotOwnership(botId, companyId);
 
       // Obtener todos los knowledge items de la empresa
       const allItems = await knowledgeService.getCompanyKnowledge(companyId, { active_only: 'true' });
@@ -355,10 +394,6 @@ class KnowledgeController {
     }
   }
 
-  // ========================================
-  // SEARCH AND DISCOVERY
-  // ========================================
-
   /**
    * Buscar en knowledge base
    * POST /api/knowledge/search
@@ -366,36 +401,30 @@ class KnowledgeController {
   async searchKnowledge(req, res) {
     try {
       const companyId = req.user.companyId;
-      const { query, content_types, limit = 20 } = req.body;
+      const { query, content_types = [], limit = 20 } = req.body;
 
-      if (!query || query.trim().length < 2) {
+      if (!query || query.length < 2) {
         return res.status(400).json({
           success: false,
-          message: 'Query de búsqueda debe tener al menos 2 caracteres'
+          message: 'Query debe tener al menos 2 caracteres'
         });
       }
 
-      const filters = {
+      const searchFilters = {
         search: query.trim(),
-        active_only: 'true',
-        limit: parseInt(limit)
+        content_types: Array.isArray(content_types) ? content_types : [],
+        limit: Math.min(parseInt(limit) || 20, 50),
+        active_only: true
       };
 
-      if (content_types && Array.isArray(content_types)) {
-        // TODO: Implementar filtro por múltiples content_types
-        // Por ahora usar el primer tipo
-        filters.content_type = content_types[0];
-      }
-
-      const result = await knowledgeService.getCompanyKnowledge(companyId, filters);
+      const results = await knowledgeService.searchKnowledge(companyId, searchFilters);
 
       res.json({
         success: true,
         data: {
-          query,
-          results: result.items,
-          total: result.total,
-          search_performed_at: new Date().toISOString()
+          results: results.items,
+          total: results.total,
+          query: query.trim()
         }
       });
 
@@ -406,30 +435,6 @@ class KnowledgeController {
         message: error.message
       });
     }
-  }
-
-  // ========================================
-  // UTILITY METHODS
-  // ========================================
-
-  /**
-   * Verificar que un bot pertenece a la empresa del usuario
-   */
-  async verifyBotOwnership(botId, companyId) {
-    const { pool } = require('../database');
-    
-    const result = await pool.query(`
-      SELECT b.id
-      FROM whatsapp_bot.bots b
-      JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
-      WHERE b.id = $1 AND wi.company_id = $2
-    `, [botId, companyId]);
-
-    if (result.rows.length === 0) {
-      throw new Error('Bot no encontrado o no tienes acceso');
-    }
-
-    return true;
   }
 
   /**
