@@ -194,12 +194,16 @@ class KnowledgeService {
       // **🔥 RAG INTEGRATION: Generate embeddings automatically**
       if (content && content.trim().length >= 50) {
         try {
-          console.log(`[KnowledgeService] Auto-generating embeddings for knowledge item ${knowledgeItem.id}`);
-          await ragService.processKnowledgeForRAG(knowledgeItem.id, companyId, content);
+          console.log(`[KnowledgeService] Auto-generating embeddings for knowledge item ${knowledgeItem.id}, content length: ${content.trim().length}`);
+          const embeddings = await ragService.processKnowledgeForRAG(knowledgeItem.id, companyId, content);
+          console.log(`[KnowledgeService] ✅ Successfully generated ${embeddings.length} embeddings for manual item ${knowledgeItem.id}`);
         } catch (embeddingError) {
-          console.error('[KnowledgeService] Failed to generate embeddings:', embeddingError);
+          console.error(`[KnowledgeService] ❌ Failed to generate embeddings for manual item ${knowledgeItem.id}:`, embeddingError.message);
+          console.error('Full error:', embeddingError);
           // Don't throw - knowledge creation should succeed even if embeddings fail
         }
+      } else {
+        console.log(`[KnowledgeService] ⚠️ Skipping embedding generation: content too short (${content ? content.trim().length : 0} chars, minimum 50)`);
       }
 
       return knowledgeItem;
@@ -409,10 +413,12 @@ class KnowledgeService {
 
         // **🔥 RAG INTEGRATION: Generate embeddings for uploaded file**
         try {
-          console.log(`[KnowledgeService] Generating embeddings for uploaded file ${itemId}`);
-          await ragService.processKnowledgeForRAG(itemId, companyId, extractedText.trim());
+          console.log(`[KnowledgeService] Generating embeddings for uploaded file ${itemId}, content length: ${extractedText.trim().length}`);
+          const embeddings = await ragService.processKnowledgeForRAG(itemId, companyId, extractedText.trim());
+          console.log(`[KnowledgeService] ✅ Successfully generated ${embeddings.length} embeddings for file ${itemId}`);
         } catch (embeddingError) {
-          console.error('[KnowledgeService] Failed to generate embeddings for uploaded file:', embeddingError);
+          console.error(`[KnowledgeService] ❌ Failed to generate embeddings for uploaded file ${itemId}:`, embeddingError.message);
+          console.error('Full error:', embeddingError);
         }
 
         // Return the complete knowledge item

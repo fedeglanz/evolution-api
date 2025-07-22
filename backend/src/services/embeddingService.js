@@ -255,7 +255,7 @@ class EmbeddingService {
     const result = await pool.query(`
       INSERT INTO whatsapp_bot.knowledge_embeddings (
         knowledge_item_id,
-        chunk_text,
+        content_chunk,
         chunk_index,
         chunk_tokens,
         chunk_hash,
