@@ -94,6 +94,13 @@ router.post('/upload',
  */
 router.get('/info', knowledgeController.getApiInfo);
 
+// **🔥 RAG ENDPOINTS FOR TESTING**
+router.get('/rag/status', knowledgeController.getRAGStatus);
+router.post('/rag/migrate', knowledgeController.migrateToRAG);
+router.post('/rag/test-search', knowledgeController.testRAGSearch);
+router.post('/rag/test-embeddings', knowledgeController.testEmbeddingGeneration);
+router.get('/rag/analytics/:botId?', knowledgeController.getRAGAnalytics);
+
 // ========================================
 // KNOWLEDGE ITEMS MANAGEMENT
 // ========================================

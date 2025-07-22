@@ -1,60 +1,37 @@
+const { pool } = require('../database');
 const knowledgeService = require('../services/knowledgeService');
+const ragService = require('../services/ragService');
+const embeddingService = require('../services/embeddingService');
 
-// ========================================
 // UTILITY FUNCTIONS
-// ========================================
-
-/**
- * Verificar que un bot pertenece a la empresa del usuario
- */
 async function verifyBotOwnership(botId, companyId) {
-  const { pool } = require('../database');
-  
   const result = await pool.query(`
     SELECT b.id
     FROM whatsapp_bot.bots b
     JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
     WHERE b.id = $1 AND wi.company_id = $2
   `, [botId, companyId]);
-
+  
   if (result.rows.length === 0) {
     throw new Error('Bot no encontrado o no tienes acceso');
   }
-
   return true;
 }
 
-// ========================================
-// KNOWLEDGE CONTROLLER CLASS
-// ========================================
-
 class KnowledgeController {
-
   // ========================================
-  // KNOWLEDGE ITEMS MANAGEMENT
+  // MAIN KNOWLEDGE OPERATIONS
   // ========================================
 
-  /**
-   * Obtener todos los knowledge items de la empresa
-   * GET /api/knowledge
-   */
   async getKnowledgeItems(req, res) {
     try {
       const companyId = req.user.companyId;
-      const {
-        active_only = 'false',
-        content_type = '',
-        search = '',
-        limit = 50,
-        offset = 0
-      } = req.query;
-
       const filters = {
-        active_only: active_only === 'true',
-        content_type: content_type || null,
-        search: search.trim() || null,
-        limit: Math.min(parseInt(limit) || 50, 100), // Max 100 items
-        offset: Math.max(parseInt(offset) || 0, 0)
+        active_only: req.query.active_only === 'true',
+        content_type: req.query.content_type,
+        search: req.query.search,
+        limit: req.query.limit ? parseInt(req.query.limit) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset) : undefined
       };
 
       const result = await knowledgeService.getCompanyKnowledge(companyId, filters);
@@ -65,18 +42,15 @@ class KnowledgeController {
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error getting knowledge items:', error);
+      console.error('[KnowledgeController] Error getting knowledge items:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Error obteniendo knowledge items',
+        error: error.message
       });
     }
   }
 
-  /**
-   * Obtener knowledge item específico
-   * GET /api/knowledge/:id
-   */
   async getKnowledgeItem(req, res) {
     try {
       const companyId = req.user.companyId;
@@ -86,82 +60,66 @@ class KnowledgeController {
 
       res.json({
         success: true,
-        data: { item }
+        data: item
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error getting knowledge item:', error);
-      const statusCode = error.message.includes('no encontrado') ? 404 : 500;
-      res.status(statusCode).json({
+      console.error('[KnowledgeController] Error getting knowledge item:', error);
+      res.status(404).json({
         success: false,
-        message: error.message
+        message: 'Knowledge item no encontrado',
+        error: error.message
       });
     }
   }
 
-  /**
-   * Crear nuevo knowledge item manualmente
-   * POST /api/knowledge
-   */
   async createKnowledgeItem(req, res) {
     try {
       const companyId = req.user.companyId;
-      const { title, content, tags } = req.body;
+      const data = req.body;
 
-      const item = await knowledgeService.createKnowledgeItem(companyId, {
-        title,
-        content,
-        content_type: 'manual',
-        tags: Array.isArray(tags) ? tags : []
-      });
+      const item = await knowledgeService.createKnowledgeItem(companyId, data);
 
       res.status(201).json({
         success: true,
         message: 'Knowledge item creado exitosamente',
-        data: { item }
+        data: item
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error creating knowledge item:', error);
+      console.error('[KnowledgeController] Error creating knowledge item:', error);
       res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Error creando knowledge item',
+        error: error.message
       });
     }
   }
 
-  /**
-   * Actualizar knowledge item existente
-   * PUT /api/knowledge/:id
-   */
   async updateKnowledgeItem(req, res) {
     try {
       const companyId = req.user.companyId;
       const { id } = req.params;
-      const updateData = req.body;
+      const data = req.body;
 
-      const item = await knowledgeService.updateKnowledgeItem(id, companyId, updateData);
+      const item = await knowledgeService.updateKnowledgeItem(id, companyId, data);
 
       res.json({
         success: true,
         message: 'Knowledge item actualizado exitosamente',
-        data: { item }
+        data: item
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error updating knowledge item:', error);
-      const statusCode = error.message.includes('no encontrado') ? 404 : 400;
-      res.status(statusCode).json({
+      console.error('[KnowledgeController] Error updating knowledge item:', error);
+      res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Error actualizando knowledge item',
+        error: error.message
       });
     }
   }
 
-  /**
-   * Eliminar knowledge item
-   * DELETE /api/knowledge/:id
-   */
   async deleteKnowledgeItem(req, res) {
     try {
       const companyId = req.user.companyId;
@@ -175,205 +133,79 @@ class KnowledgeController {
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error deleting knowledge item:', error);
-      const statusCode = error.message.includes('no encontrado') ? 404 : 500;
-      res.status(statusCode).json({
+      console.error('[KnowledgeController] Error deleting knowledge item:', error);
+      res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Error eliminando knowledge item',
+        error: error.message
       });
     }
   }
 
   // ========================================
-  // FILE UPLOAD AND PROCESSING
+  // FILE UPLOAD
   // ========================================
 
-  /**
-   * Subir archivo y crear knowledge item
-   * POST /api/knowledge/upload
-   */
   async uploadFile(req, res) {
     try {
       const companyId = req.user.companyId;
-      
-      if (!req.file) {
+      const file = req.file;
+      const metadata = {
+        title: req.body.title,
+        tags: req.body.tags ? JSON.parse(req.body.tags) : []
+      };
+
+      if (!file) {
         return res.status(400).json({
           success: false,
           message: 'No se ha subido ningún archivo'
         });
       }
 
-      // Metadatos opcionales del formulario
-      const metadata = {
-        title: req.body.title || null,
-        tags: req.body.tags ? JSON.parse(req.body.tags) : []
-      };
+      const item = await knowledgeService.processUploadedFile(file, companyId, metadata);
 
-      const item = await knowledgeService.processUploadedFile(
-        req.file, 
-        companyId, 
-        metadata
-      );
-
-      res.status(201).json({
+      res.json({
         success: true,
-        message: 'Archivo procesado y knowledge item creado exitosamente',
-        data: { item }
+        message: 'Archivo procesado exitosamente',
+        data: item
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error processing uploaded file:', error);
+      console.error('[KnowledgeController] Error uploading file:', error);
       res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Error procesando archivo',
+        error: error.message
       });
     }
   }
 
   // ========================================
-  // BOT ASSIGNMENTS
+  // SEARCH AND ANALYTICS
   // ========================================
 
-  /**
-   * Obtener knowledge items asignados a un bot
-   * GET /api/knowledge/bots/:botId
-   */
-  async getBotKnowledge(req, res) {
+  async searchKnowledge(req, res) {
     try {
       const companyId = req.user.companyId;
-      const { botId } = req.params;
+      const filters = req.body;
 
-      // Verificar que el bot pertenece a la empresa
-      await verifyBotOwnership(botId, companyId);
-
-      const items = await knowledgeService.getBotKnowledge(botId);
+      const result = await knowledgeService.searchKnowledge(companyId, filters);
 
       res.json({
         success: true,
-        data: { items, total: items.length }
+        data: result
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error getting bot knowledge:', error);
-      const statusCode = error.message.includes('no encontrado') ? 404 : 500;
-      res.status(statusCode).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Asignar knowledge item a bot
-   * POST /api/knowledge/bots/:botId/assign
-   */
-  async assignKnowledgeToBot(req, res) {
-    try {
-      const companyId = req.user.companyId;
-      const { botId } = req.params;
-      const { knowledge_item_id, priority = 3 } = req.body;
-
-      // Verificar que el bot pertenece a la empresa
-      await verifyBotOwnership(botId, companyId);
-
-      const assignment = await knowledgeService.assignKnowledgeToBot(
-        botId, 
-        knowledge_item_id, 
-        priority
-      );
-
-      res.json({
-        success: true,
-        message: 'Knowledge asignado al bot exitosamente',
-        data: { assignment }
-      });
-
-    } catch (error) {
-      console.error('[Knowledge API] Error assigning knowledge to bot:', error);
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Quitar knowledge item de bot
-   * DELETE /api/knowledge/bots/:botId/assign/:knowledgeItemId
-   */
-  async unassignKnowledgeFromBot(req, res) {
-    try {
-      const companyId = req.user.companyId;
-      const { botId, knowledgeItemId } = req.params;
-
-      // Verificar que el bot pertenece a la empresa
-      await verifyBotOwnership(botId, companyId);
-
-      await knowledgeService.unassignKnowledgeFromBot(botId, knowledgeItemId);
-
-      res.json({
-        success: true,
-        message: 'Knowledge removido del bot exitosamente'
-      });
-
-    } catch (error) {
-      console.error('[Knowledge API] Error unassigning knowledge from bot:', error);
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
-    }
-  }
-
-  /**
-   * Obtener knowledge items disponibles para asignar a un bot
-   * GET /api/knowledge/bots/:botId/available
-   */
-  async getAvailableKnowledgeForBot(req, res) {
-    try {
-      const companyId = req.user.companyId;
-      const { botId } = req.params;
-
-      // Verificar que el bot pertenece a la empresa
-      await verifyBotOwnership(botId, companyId);
-
-      // Obtener todos los knowledge items de la empresa
-      const allItems = await knowledgeService.getCompanyKnowledge(companyId, { active_only: 'true' });
-
-      // Obtener knowledge items ya asignados a este bot
-      const assignedItems = await knowledgeService.getBotKnowledge(botId);
-      const assignedIds = new Set(assignedItems.map(item => item.id));
-
-      // Filtrar items disponibles (no asignados)
-      const availableItems = allItems.items.filter(item => !assignedIds.has(item.id));
-
-      res.json({
-        success: true,
-        data: { 
-          available: availableItems, 
-          assigned: assignedItems,
-          total_available: availableItems.length,
-          total_assigned: assignedItems.length
-        }
-      });
-
-    } catch (error) {
-      console.error('[Knowledge API] Error getting available knowledge:', error);
+      console.error('[KnowledgeController] Error searching knowledge:', error);
       res.status(500).json({
         success: false,
-        message: error.message
+        message: 'Error en búsqueda de knowledge',
+        error: error.message
       });
     }
   }
 
-  // ========================================
-  // STATISTICS AND ANALYTICS
-  // ========================================
-
-  /**
-   * Obtener estadísticas de knowledge base de la empresa
-   * GET /api/knowledge/stats
-   */
   async getKnowledgeStats(req, res) {
     try {
       const companyId = req.user.companyId;
@@ -382,54 +214,103 @@ class KnowledgeController {
 
       res.json({
         success: true,
-        data: { stats }
+        data: stats
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error getting knowledge stats:', error);
+      console.error('[KnowledgeController] Error getting knowledge stats:', error);
       res.status(500).json({
+        success: false,
+        message: 'Error obteniendo estadísticas',
+        error: error.message
+      });
+    }
+  }
+
+  async getApiInfo(req, res) {
+    res.json({
+      success: true,
+      data: {
+        name: 'WhatsApp Bot Knowledge API',
+        version: '1.0.0',
+        endpoints: [
+          'GET /knowledge',
+          'GET /knowledge/:id',
+          'POST /knowledge',
+          'PUT /knowledge/:id',
+          'DELETE /knowledge/:id',
+          'POST /knowledge/upload',
+          'POST /knowledge/search',
+          'GET /knowledge/stats'
+        ],
+        rag_endpoints: [
+          'GET /knowledge/rag/status',
+          'POST /knowledge/rag/migrate',
+          'POST /knowledge/rag/test-search',
+          'POST /knowledge/rag/test-embeddings',
+          'GET /knowledge/rag/analytics/:botId?'
+        ]
+      }
+    });
+  }
+
+  // ========================================
+  // BOT KNOWLEDGE ASSIGNMENTS
+  // ========================================
+
+  async getBotKnowledge(req, res) {
+    try {
+      const companyId = req.user.companyId;
+      const { botId } = req.params;
+
+      await verifyBotOwnership(botId, companyId);
+
+      const knowledge = await knowledgeService.getBotKnowledge(botId);
+
+      res.json({
+        success: true,
+        data: knowledge
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error getting bot knowledge:', error);
+      res.status(404).json({
         success: false,
         message: error.message
       });
     }
   }
 
-  /**
-   * Buscar en knowledge base
-   * POST /api/knowledge/search
-   */
-  async searchKnowledge(req, res) {
+  async getAvailableKnowledgeForBot(req, res) {
     try {
       const companyId = req.user.companyId;
-      const { query, content_types = [], limit = 20 } = req.body;
+      const { botId } = req.params;
 
-      if (!query || query.length < 2) {
-        return res.status(400).json({
-          success: false,
-          message: 'Query debe tener al menos 2 caracteres'
-        });
-      }
+      await verifyBotOwnership(botId, companyId);
 
-      const searchFilters = {
-        search: query.trim(),
-        content_types: Array.isArray(content_types) ? content_types : [],
-        limit: Math.min(parseInt(limit) || 20, 50),
-        active_only: true
+      // Get assigned knowledge
+      const assigned = await knowledgeService.getBotKnowledge(botId);
+      const assignedIds = assigned.map(item => item.id);
+
+      // Get available knowledge (not assigned to this bot)
+      const filters = {
+        active_only: true,
+        limit: 100
       };
-
-      const results = await knowledgeService.searchKnowledge(companyId, searchFilters);
+      
+      const allKnowledge = await knowledgeService.getCompanyKnowledge(companyId, filters);
+      const available = allKnowledge.items.filter(item => !assignedIds.includes(item.id));
 
       res.json({
         success: true,
         data: {
-          results: results.items,
-          total: results.total,
-          query: query.trim()
+          assigned,
+          available
         }
       });
 
     } catch (error) {
-      console.error('[Knowledge API] Error searching knowledge:', error);
+      console.error('[KnowledgeController] Error getting available knowledge:', error);
       res.status(500).json({
         success: false,
         message: error.message
@@ -437,46 +318,277 @@ class KnowledgeController {
     }
   }
 
-  /**
-   * Endpoint de información (para debugging)
-   * GET /api/knowledge/info
-   */
-  async getApiInfo(req, res) {
+  async assignKnowledgeToBot(req, res) {
     try {
+      const companyId = req.user.companyId;
+      const { botId } = req.params;
+      const { knowledgeItemId, priority = 3 } = req.body;
+
+      await verifyBotOwnership(botId, companyId);
+
+      const assignment = await knowledgeService.assignKnowledgeToBot(botId, knowledgeItemId, priority);
+
       res.json({
-        service: 'Knowledge Base API',
-        version: '1.0.0',
-        features: [
-          'Gestión completa de knowledge items',
-          'Upload y procesamiento de archivos (PDF, DOCX, TXT)',
-          'Asignación dinámica a bots',
-          'Búsqueda inteligente',
-          'Estadísticas y analytics',
-          'Integración con OpenAI (preparado para RAG)'
-        ],
-        endpoints: {
-          'GET /api/knowledge': 'Listar knowledge items',
-          'POST /api/knowledge': 'Crear knowledge item',
-          'GET /api/knowledge/:id': 'Obtener knowledge item',
-          'PUT /api/knowledge/:id': 'Actualizar knowledge item',
-          'DELETE /api/knowledge/:id': 'Eliminar knowledge item',
-          'POST /api/knowledge/upload': 'Subir archivo',
-          'GET /api/knowledge/bots/:botId': 'Knowledge de bot',
-          'POST /api/knowledge/bots/:botId/assign': 'Asignar knowledge a bot',
-          'DELETE /api/knowledge/bots/:botId/assign/:knowledgeItemId': 'Quitar knowledge de bot',
-          'GET /api/knowledge/bots/:botId/available': 'Knowledge disponible para bot',
-          'GET /api/knowledge/stats': 'Estadísticas',
-          'POST /api/knowledge/search': 'Buscar knowledge'
-        },
-        supported_file_types: ['pdf', 'docx', 'txt'],
-        max_file_size: '10MB',
-        company_id: req.user?.companyId || 'Not authenticated'
+        success: true,
+        message: 'Knowledge asignado exitosamente',
+        data: assignment
       });
 
     } catch (error) {
-      res.status(500).json({
+      console.error('[KnowledgeController] Error assigning knowledge:', error);
+      res.status(400).json({
         success: false,
         message: error.message
+      });
+    }
+  }
+
+  async unassignKnowledgeFromBot(req, res) {
+    try {
+      const companyId = req.user.companyId;
+      const { botId } = req.params;
+      const { knowledgeItemId } = req.body;
+
+      await verifyBotOwnership(botId, companyId);
+
+      const success = await knowledgeService.unassignKnowledgeFromBot(botId, knowledgeItemId);
+
+      if (success) {
+        res.json({
+          success: true,
+          message: 'Knowledge desasignado exitosamente'
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: 'Asignación no encontrada'
+        });
+      }
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error unassigning knowledge:', error);
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  // ========================================
+  // 🔥 RAG TESTING ENDPOINTS
+  // ========================================
+
+  /**
+   * Get RAG system status and readiness for company
+   */
+  async getRAGStatus(req, res) {
+    try {
+      const companyId = req.user.companyId;
+
+      const status = await knowledgeService.getKnowledgeRAGStatus(companyId);
+      const embeddingStats = await embeddingService.getEmbeddingStats(companyId);
+
+      const summary = {
+        total_items: status.length,
+        items_with_embeddings: status.filter(item => item.embeddings_generated).length,
+        processing_items: status.filter(item => item.processing_status === 'processing').length,
+        error_items: status.filter(item => item.processing_status === 'error').length,
+        ready_for_rag: status.filter(item => item.embeddings_count > 0).length,
+        embedding_stats: embeddingStats
+      };
+
+      res.json({
+        success: true,
+        data: {
+          summary,
+          items: status
+        }
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error getting RAG status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error obteniendo estado RAG',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Migrate existing knowledge to RAG (generate embeddings)
+   */
+  async migrateToRAG(req, res) {
+    try {
+      const companyId = req.user.companyId;
+
+      console.log(`[RAG Migration] Starting migration for company ${companyId}`);
+
+      const results = await knowledgeService.migrateToRAG(companyId);
+      
+      const summary = {
+        total_processed: results.length,
+        successful: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length,
+        total_embeddings: results.reduce((sum, r) => sum + (r.embeddingsCount || 0), 0)
+      };
+
+      console.log(`[RAG Migration] Completed for company ${companyId}:`, summary);
+
+      res.json({
+        success: true,
+        message: 'Migración RAG completada',
+        data: {
+          summary,
+          details: results
+        }
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error in RAG migration:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error en migración RAG',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Test RAG search functionality
+   */
+  async testRAGSearch(req, res) {
+    try {
+      const companyId = req.user.companyId;
+      const { query, botId, similarityThreshold, maxResults } = req.body;
+
+      if (!query) {
+        return res.status(400).json({
+          success: false,
+          message: 'Query es requerido'
+        });
+      }
+
+      let results;
+      
+      if (botId) {
+        // Test bot-specific search
+        await verifyBotOwnership(botId, companyId);
+        results = await ragService.retrieveKnowledgeForBot(botId, query, {
+          similarityThreshold: similarityThreshold || 0.7,
+          maxResults: maxResults || 5
+        });
+      } else {
+        // Test company-wide search
+        results = await ragService.retrieveKnowledgeForCompany(companyId, query, {
+          similarityThreshold: similarityThreshold || 0.7,
+          limit: maxResults || 5
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Búsqueda RAG completada',
+        data: {
+          query,
+          context: results.context,
+          sources: results.sources,
+          metadata: results.metadata
+        }
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error testing RAG search:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error en búsqueda RAG de prueba',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Test embedding generation for text
+   */
+  async testEmbeddingGeneration(req, res) {
+    try {
+      const { text, provider, model } = req.body;
+
+      if (!text) {
+        return res.status(400).json({
+          success: false,
+          message: 'Text es requerido'
+        });
+      }
+
+      const startTime = Date.now();
+
+      const result = await embeddingService.generateQueryEmbedding(text, {
+        provider: provider || 'openai',
+        model: model || 'text-embedding-3-small'
+      });
+
+      const duration = Date.now() - startTime;
+
+      res.json({
+        success: true,
+        message: 'Embedding generado exitosamente',
+        data: {
+          text,
+          embedding_vector_size: result.embedding.length,
+          provider: result.provider,
+          model: result.model,
+          token_count: result.tokenCount,
+          generation_time_ms: duration,
+          embedding_preview: result.embedding.slice(0, 10) // Solo los primeros 10 valores
+        }
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error testing embedding generation:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error generando embedding de prueba',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get RAG analytics and performance metrics
+   */
+  async getRAGAnalytics(req, res) {
+    try {
+      const companyId = req.user.companyId;
+      const { botId } = req.params;
+      const { daysBack, limit } = req.query;
+
+      const options = {
+        botId: botId || null,
+        daysBack: daysBack ? parseInt(daysBack) : 30,
+        limit: limit ? parseInt(limit) : 100
+      };
+
+      if (botId) {
+        await verifyBotOwnership(botId, companyId);
+      }
+
+      const analytics = await ragService.getRAGAnalytics(companyId, options);
+
+      res.json({
+        success: true,
+        data: {
+          analytics,
+          options
+        }
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeController] Error getting RAG analytics:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error obteniendo analytics RAG',
+        error: error.message
       });
     }
   }

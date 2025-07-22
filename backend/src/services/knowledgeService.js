@@ -1,135 +1,155 @@
 const { pool } = require('../database');
-const fs = require('fs').promises;
-const path = require('path');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
 const pdfParse = require('pdf-parse');
-const mammoth = require('mammoth'); // Para DOCX
-const openaiService = require('./openaiService');
+const mammoth = require('mammoth');
+const ragService = require('./ragService');
 
 class KnowledgeService {
   constructor() {
-    this.uploadPath = process.env.UPLOADS_PATH || path.join(__dirname, '../../uploads/knowledge');
-    this.maxFileSize = 10 * 1024 * 1024; // 10MB
-    this.allowedFileTypes = ['pdf', 'docx', 'txt'];
-    
-    console.log('✅ Knowledge Service inicializado');
+    this.uploadDir = path.join(__dirname, '../uploads/knowledge');
+    this.ensureUploadDirectory();
   }
 
   // ========================================
-  // CRUD OPERATIONS
+  // KNOWLEDGE ITEMS MANAGEMENT
   // ========================================
 
   /**
-   * Obtener todos los knowledge items de una empresa
+   * Get company knowledge items with filtering
    */
   async getCompanyKnowledge(companyId, filters = {}) {
     try {
-      const { active_only, content_type, search, limit = 50, offset = 0 } = filters;
-      
       let query = `
         SELECT 
           ki.*,
-          COUNT(bka.id) as assigned_bots_count,
-          STRING_AGG(DISTINCT b.name, ', ') as assigned_bot_names
+          COALESCE((
+            SELECT COUNT(*) 
+            FROM whatsapp_bot.bot_knowledge_assignments bka
+            WHERE bka.knowledge_item_id = ki.id AND bka.is_active = true
+          ), 0) as assigned_bots_count
         FROM whatsapp_bot.knowledge_items ki
-        LEFT JOIN whatsapp_bot.bot_knowledge_assignments bka ON ki.id = bka.knowledge_item_id AND bka.is_active = true
-        LEFT JOIN whatsapp_bot.bots b ON bka.bot_id = b.id
         WHERE ki.company_id = $1
       `;
       
-      const queryParams = [companyId];
-      let paramIndex = 2;
+      const params = [companyId];
+      let paramCounter = 1;
 
-      // Filtros adicionales
-      if (active_only === 'true') {
+      // Apply filters
+      if (filters.active_only) {
         query += ` AND ki.is_active = true`;
       }
 
-      if (content_type) {
-        query += ` AND ki.content_type = $${paramIndex}`;
-        queryParams.push(content_type);
-        paramIndex++;
+      if (filters.content_type) {
+        paramCounter++;
+        query += ` AND ki.content_type = $${paramCounter}`;
+        params.push(filters.content_type);
       }
 
-      if (search) {
+      if (filters.search) {
+        paramCounter++;
         query += ` AND (
-          ki.title ILIKE $${paramIndex} OR 
-          ki.content ILIKE $${paramIndex} OR 
-          ki.content_summary ILIKE $${paramIndex} OR
-          $${paramIndex} = ANY(ki.tags)
+          ki.title ILIKE $${paramCounter} OR 
+          ki.content ILIKE $${paramCounter} OR
+          EXISTS (
+            SELECT 1 FROM unnest(ki.tags) tag 
+            WHERE tag ILIKE $${paramCounter}
+          )
         )`;
-        queryParams.push(`%${search}%`);
-        paramIndex++;
+        params.push(`%${filters.search}%`);
       }
 
-      query += `
-        GROUP BY ki.id
-        ORDER BY ki.created_at DESC
-        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      // Order by
+      query += ` ORDER BY ki.created_at DESC`;
+
+      // Apply pagination
+      if (filters.limit) {
+        paramCounter++;
+        query += ` LIMIT $${paramCounter}`;
+        params.push(filters.limit);
+      }
+
+      if (filters.offset) {
+        paramCounter++;
+        query += ` OFFSET $${paramCounter}`;
+        params.push(filters.offset);
+      }
+
+      const result = await pool.query(query, params);
+
+      // Get total count for pagination
+      let countQuery = `
+        SELECT COUNT(*) as total
+        FROM whatsapp_bot.knowledge_items ki
+        WHERE ki.company_id = $1
       `;
-      
-      queryParams.push(limit, offset);
-
-      const result = await pool.query(query, queryParams);
-
-      // Contar total para paginación
-      let countQuery = `SELECT COUNT(*) as total FROM whatsapp_bot.knowledge_items ki WHERE ki.company_id = $1`;
       const countParams = [companyId];
-      let countParamIndex = 2;
+      let countParamCounter = 1;
 
-      if (active_only === 'true') {
+      if (filters.active_only) {
         countQuery += ` AND ki.is_active = true`;
       }
-      if (content_type) {
-        countQuery += ` AND ki.content_type = $${countParamIndex}`;
-        countParams.push(content_type);
-        countParamIndex++;
+
+      if (filters.content_type) {
+        countParamCounter++;
+        countQuery += ` AND ki.content_type = $${countParamCounter}`;
+        countParams.push(filters.content_type);
       }
-      if (search) {
-        countQuery += ` AND (ki.title ILIKE $${countParamIndex} OR ki.content ILIKE $${countParamIndex} OR ki.content_summary ILIKE $${countParamIndex} OR $${countParamIndex} = ANY(ki.tags))`;
-        countParams.push(`%${search}%`);
+
+      if (filters.search) {
+        countParamCounter++;
+        countQuery += ` AND (
+          ki.title ILIKE $${countParamCounter} OR 
+          ki.content ILIKE $${countParamCounter} OR
+          EXISTS (
+            SELECT 1 FROM unnest(ki.tags) tag 
+            WHERE tag ILIKE $${countParamCounter}
+          )
+        )`;
+        countParams.push(`%${filters.search}%`);
       }
 
       const countResult = await pool.query(countQuery, countParams);
+      const total = parseInt(countResult.rows[0].total);
 
       return {
         items: result.rows,
-        total: parseInt(countResult.rows[0].total),
-        limit,
-        offset
+        total,
+        limit: filters.limit || total,
+        offset: filters.offset || 0
       };
 
     } catch (error) {
-      console.error('[Knowledge] Error getting company knowledge:', error);
-      throw new Error('Error obteniendo base de conocimientos');
+      console.error('[KnowledgeService] Error getting company knowledge:', error);
+      throw error;
     }
   }
 
   /**
-   * Obtener knowledge item específico
+   * Get specific knowledge item
    */
-  async getKnowledgeItem(itemId, companyId) {
+  async getKnowledgeItem(id, companyId) {
     try {
       const result = await pool.query(`
         SELECT 
           ki.*,
-          COUNT(bka.id) as assigned_bots_count,
-          ARRAY_AGG(
-            CASE WHEN b.id IS NOT NULL THEN 
-              JSON_BUILD_OBJECT(
-                'id', b.id,
-                'name', b.name,
+          COALESCE((
+            SELECT json_agg(
+              json_build_object(
+                'bot_id', b.id,
+                'bot_name', b.name,
                 'priority', bka.priority,
                 'assigned_at', bka.created_at
               )
-            END
-          ) FILTER (WHERE b.id IS NOT NULL) as assigned_bots
+            )
+            FROM whatsapp_bot.bot_knowledge_assignments bka
+            JOIN whatsapp_bot.bots b ON bka.bot_id = b.id
+            WHERE bka.knowledge_item_id = ki.id AND bka.is_active = true
+          ), '[]'::json) as assigned_bots
         FROM whatsapp_bot.knowledge_items ki
-        LEFT JOIN whatsapp_bot.bot_knowledge_assignments bka ON ki.id = bka.knowledge_item_id AND bka.is_active = true
-        LEFT JOIN whatsapp_bot.bots b ON bka.bot_id = b.id
         WHERE ki.id = $1 AND ki.company_id = $2
-        GROUP BY ki.id
-      `, [itemId, companyId]);
+      `, [id, companyId]);
 
       if (result.rows.length === 0) {
         throw new Error('Knowledge item no encontrado');
@@ -138,13 +158,13 @@ class KnowledgeService {
       return result.rows[0];
 
     } catch (error) {
-      console.error('[Knowledge] Error getting knowledge item:', error);
-      throw new Error('Error obteniendo knowledge item');
+      console.error('[KnowledgeService] Error getting knowledge item:', error);
+      throw error;
     }
   }
 
   /**
-   * Crear nuevo knowledge item
+   * Create new knowledge item
    */
   async createKnowledgeItem(companyId, data) {
     try {
@@ -153,223 +173,196 @@ class KnowledgeService {
         content,
         content_type = 'manual',
         tags = [],
-        file_url,
-        file_name,
-        file_size
+        file_url = null,
+        file_name = null,
+        file_size = null
       } = data;
 
-      // Validaciones básicas
-      if (!title || title.trim().length < 3) {
-        throw new Error('El título debe tener al menos 3 caracteres');
-      }
-
-      if (!content || content.trim().length < 10) {
-        throw new Error('El contenido debe tener al menos 10 caracteres');
-      }
-
-      // Generar resumen automático del contenido
-      const contentSummary = await this.generateSummary(content);
-
-      const query = `
+      const result = await pool.query(`
         INSERT INTO whatsapp_bot.knowledge_items (
-          company_id, title, content, content_summary, content_type,
-          tags, file_url, file_name, file_size, processing_status,
-          embeddings_generated
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          company_id, title, content, content_type, tags,
+          file_url, file_name, file_size, embeddings_generated
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
         RETURNING *
-      `;
-
-      const result = await pool.query(query, [
-        companyId,
-        title.trim(),
-        content.trim(),
-        contentSummary,
-        content_type,
-        Array.isArray(tags) ? tags : [],
-        file_url || null,
-        file_name || null,
-        file_size || null,
-        'completed', // Manual content is immediately ready
-        false // Embeddings will be generated separately
+      `, [
+        companyId, title, content, content_type, tags,
+        file_url, file_name, file_size
       ]);
 
       const knowledgeItem = result.rows[0];
 
-      console.log(`[Knowledge] Created item: ${knowledgeItem.title} for company ${companyId}`);
+      // **🔥 RAG INTEGRATION: Generate embeddings automatically**
+      if (content && content.trim().length >= 50) {
+        try {
+          console.log(`[KnowledgeService] Auto-generating embeddings for knowledge item ${knowledgeItem.id}`);
+          await ragService.processKnowledgeForRAG(knowledgeItem.id, companyId, content);
+        } catch (embeddingError) {
+          console.error('[KnowledgeService] Failed to generate embeddings:', embeddingError);
+          // Don't throw - knowledge creation should succeed even if embeddings fail
+        }
+      }
 
       return knowledgeItem;
 
     } catch (error) {
-      console.error('[Knowledge] Error creating knowledge item:', error);
-      throw new Error(`Error creando knowledge item: ${error.message}`);
+      console.error('[KnowledgeService] Error creating knowledge item:', error);
+      throw error;
     }
   }
 
   /**
-   * Actualizar knowledge item
+   * Update knowledge item
    */
-  async updateKnowledgeItem(itemId, companyId, data) {
+  async updateKnowledgeItem(id, companyId, data) {
     try {
-      const existingItem = await this.getKnowledgeItem(itemId, companyId);
+      const allowedFields = ['title', 'content', 'tags', 'is_active'];
+      const updateFields = [];
+      const values = [];
+      let paramCounter = 0;
 
-      const {
-        title,
-        content,
-        tags,
-        is_active
-      } = data;
-
-      const setClause = [];
-      const values = [itemId, companyId];
-      let paramIndex = 3;
-
-      if (title !== undefined) {
-        if (!title || title.trim().length < 3) {
-          throw new Error('El título debe tener al menos 3 caracteres');
+      for (const [field, value] of Object.entries(data)) {
+        if (allowedFields.includes(field) && value !== undefined) {
+          paramCounter++;
+          updateFields.push(`${field} = $${paramCounter}`);
+          values.push(value);
         }
-        setClause.push(`title = $${paramIndex++}`);
-        values.push(title.trim());
       }
 
-      if (content !== undefined) {
-        if (!content || content.trim().length < 10) {
-          throw new Error('El contenido debe tener al menos 10 caracteres');
-        }
-        setClause.push(`content = $${paramIndex++}`);
-        values.push(content.trim());
-
-        // Regenerar resumen si el contenido cambió
-        const newSummary = await this.generateSummary(content);
-        setClause.push(`content_summary = $${paramIndex++}`);
-        values.push(newSummary);
-
-        // Marcar embeddings como desactualizados
-        setClause.push(`embeddings_generated = false`);
+      if (updateFields.length === 0) {
+        throw new Error('No hay campos válidos para actualizar');
       }
 
-      if (tags !== undefined) {
-        setClause.push(`tags = $${paramIndex++}`);
-        values.push(Array.isArray(tags) ? tags : []);
-      }
+      // Add updated_at
+      paramCounter++;
+      updateFields.push(`updated_at = $${paramCounter}`);
+      values.push(new Date());
 
-      if (is_active !== undefined) {
-        setClause.push(`is_active = $${paramIndex++}`);
-        values.push(Boolean(is_active));
-      }
+      // Add WHERE conditions
+      paramCounter++;
+      values.push(id);
+      paramCounter++;
+      values.push(companyId);
 
-      if (setClause.length === 0) {
-        return existingItem;
-      }
-
-      setClause.push('updated_at = NOW()');
-
-      const query = `
-        UPDATE whatsapp_bot.knowledge_items
-        SET ${setClause.join(', ')}
-        WHERE id = $1 AND company_id = $2
+      const result = await pool.query(`
+        UPDATE whatsapp_bot.knowledge_items 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramCounter - 1} AND company_id = $${paramCounter}
         RETURNING *
-      `;
-
-      const result = await pool.query(query, values);
+      `, values);
 
       if (result.rows.length === 0) {
         throw new Error('Knowledge item no encontrado');
       }
 
-      console.log(`[Knowledge] Updated item: ${result.rows[0].title}`);
+      const updatedItem = result.rows[0];
 
-      return result.rows[0];
+      // **🔥 RAG INTEGRATION: Regenerate embeddings if content changed**
+      if (data.content && data.content !== updatedItem.content) {
+        try {
+          console.log(`[KnowledgeService] Content updated, regenerating embeddings for ${id}`);
+          
+          // Delete old embeddings
+          await pool.query(`
+            DELETE FROM whatsapp_bot.knowledge_embeddings
+            WHERE knowledge_item_id = $1
+          `, [id]);
+
+          // Generate new embeddings
+          await ragService.processKnowledgeForRAG(id, companyId, data.content);
+        } catch (embeddingError) {
+          console.error('[KnowledgeService] Failed to regenerate embeddings:', embeddingError);
+        }
+      }
+
+      return updatedItem;
 
     } catch (error) {
-      console.error('[Knowledge] Error updating knowledge item:', error);
-      throw new Error(`Error actualizando knowledge item: ${error.message}`);
+      console.error('[KnowledgeService] Error updating knowledge item:', error);
+      throw error;
     }
   }
 
   /**
-   * Eliminar knowledge item
+   * Delete knowledge item
    */
-  async deleteKnowledgeItem(itemId, companyId) {
+  async deleteKnowledgeItem(id, companyId) {
     try {
-      // Verificar que existe y pertenece a la empresa
-      const existingItem = await this.getKnowledgeItem(itemId, companyId);
+      // Check if item exists and belongs to company
+      const checkResult = await pool.query(`
+        SELECT file_url FROM whatsapp_bot.knowledge_items
+        WHERE id = $1 AND company_id = $2
+      `, [id, companyId]);
 
-      // Eliminar archivo físico si existe
-      if (existingItem.file_url) {
-        await this.deleteFile(existingItem.file_url);
+      if (checkResult.rows.length === 0) {
+        throw new Error('Knowledge item no encontrado');
       }
 
-      // Eliminar de BD (CASCADE eliminará asignaciones y embeddings)
-      const result = await pool.query(`
+      const fileUrl = checkResult.rows[0].file_url;
+
+      // Delete from database (cascades to embeddings and assignments)
+      await pool.query(`
         DELETE FROM whatsapp_bot.knowledge_items
         WHERE id = $1 AND company_id = $2
-        RETURNING title
-      `, [itemId, companyId]);
+      `, [id, companyId]);
 
-      if (result.rows.length === 0) {
-        throw new Error('Knowledge item no encontrado');
+      // Delete associated file if exists
+      if (fileUrl) {
+        try {
+          await this.deleteFile(fileUrl);
+        } catch (fileError) {
+          console.error('[KnowledgeService] Failed to delete file:', fileError);
+        }
       }
 
-      console.log(`[Knowledge] Deleted item: ${result.rows[0].title}`);
-
-      return {
-        success: true,
-        message: 'Knowledge item eliminado exitosamente'
-      };
+      return true;
 
     } catch (error) {
-      console.error('[Knowledge] Error deleting knowledge item:', error);
-      throw new Error(`Error eliminando knowledge item: ${error.message}`);
+      console.error('[KnowledgeService] Error deleting knowledge item:', error);
+      throw error;
     }
   }
 
   // ========================================
-  // FILE PROCESSING
+  // FILE UPLOAD AND PROCESSING
   // ========================================
 
-  /**
-   * Configurar multer para upload de archivos
-   */
   getUploadMiddleware() {
-    // Asegurar que el directorio existe
-    this.ensureUploadDirectory();
-
     const storage = multer.diskStorage({
       destination: (req, file, cb) => {
-        cb(null, this.uploadPath);
+        cb(null, this.uploadDir);
       },
       filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2)}-${file.originalname}`;
-        cb(null, uniqueName);
+        const timestamp = Date.now();
+        const cleanName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+        cb(null, `${timestamp}_${cleanName}`);
       }
     });
 
     return multer({
       storage,
       limits: {
-        fileSize: this.maxFileSize
+        fileSize: 10 * 1024 * 1024, // 10MB
       },
       fileFilter: (req, file, cb) => {
-        const fileExtension = path.extname(file.originalname).toLowerCase().substring(1);
-        if (this.allowedFileTypes.includes(fileExtension)) {
+        const allowedTypes = ['.pdf', '.docx', '.doc', '.txt'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        
+        if (allowedTypes.includes(ext)) {
           cb(null, true);
         } else {
-          cb(new Error(`Tipo de archivo no permitido. Permitidos: ${this.allowedFileTypes.join(', ')}`));
+          cb(new Error(`Tipo de archivo no permitido. Permitidos: ${allowedTypes.join(', ')}`));
         }
       }
     });
   }
 
-  /**
-   * Procesar archivo subido y crear knowledge item
-   */
   async processUploadedFile(file, companyId, metadata = {}) {
     try {
       const fileExtension = path.extname(file.originalname).toLowerCase();
       let extractedText = '';
       let title = metadata.title || path.basename(file.originalname, fileExtension);
 
-      // Actualizar estado a processing
+      // Create temporary knowledge item
       const tempItem = await pool.query(`
         INSERT INTO whatsapp_bot.knowledge_items (
           company_id, title, content, content_type, file_url, file_name, file_size,
@@ -377,26 +370,20 @@ class KnowledgeService {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id
       `, [
-        companyId,
-        title,
-        'Procesando archivo...', // Temporal
-        fileExtension.substring(1), // Sin el punto
-        file.filename,
-        file.originalname,
-        file.size,
-        'processing',
-        false
+        companyId, title, 'Procesando archivo...', fileExtension.substring(1),
+        file.filename, file.originalname, file.size, 'processing', false
       ]);
 
       const itemId = tempItem.rows[0].id;
 
       try {
-        // Extraer texto según tipo de archivo
+        // Extract text based on file type
         switch (fileExtension) {
           case '.pdf':
             extractedText = await this.extractTextFromPDF(file.path);
             break;
           case '.docx':
+          case '.doc':
             extractedText = await this.extractTextFromDOCX(file.path);
             break;
           case '.txt':
@@ -410,22 +397,29 @@ class KnowledgeService {
           throw new Error('No se pudo extraer texto válido del archivo');
         }
 
-        // Generar resumen
+        // Generate summary
         const summary = await this.generateSummary(extractedText);
 
-        // Actualizar item con texto extraído
+        // Update knowledge item with extracted content
         await pool.query(`
           UPDATE whatsapp_bot.knowledge_items
           SET content = $1, content_summary = $2, processing_status = $3, updated_at = NOW()
           WHERE id = $4
         `, [extractedText.trim(), summary, 'completed', itemId]);
 
-        console.log(`[Knowledge] Processed file: ${file.originalname} → ${extractedText.length} chars`);
+        // **🔥 RAG INTEGRATION: Generate embeddings for uploaded file**
+        try {
+          console.log(`[KnowledgeService] Generating embeddings for uploaded file ${itemId}`);
+          await ragService.processKnowledgeForRAG(itemId, companyId, extractedText.trim());
+        } catch (embeddingError) {
+          console.error('[KnowledgeService] Failed to generate embeddings for uploaded file:', embeddingError);
+        }
 
+        // Return the complete knowledge item
         return await this.getKnowledgeItem(itemId, companyId);
 
       } catch (processingError) {
-        // Actualizar estado de error
+        // Update status to error
         await pool.query(`
           UPDATE whatsapp_bot.knowledge_items
           SET processing_status = $1, processing_error = $2, updated_at = NOW()
@@ -436,147 +430,248 @@ class KnowledgeService {
       }
 
     } catch (error) {
-      console.error('[Knowledge] Error processing uploaded file:', error);
-      // Limpiar archivo si hubo error
+      console.error('[KnowledgeService] Error processing uploaded file:', error);
+      
+      // Clean up file if processing failed
       if (file && file.path) {
         await this.deleteFile(file.path);
       }
+      
       throw new Error(`Error procesando archivo: ${error.message}`);
     }
   }
 
-  /**
-   * Extraer texto de PDF
-   */
   async extractTextFromPDF(filePath) {
     try {
-      const fileBuffer = await fs.readFile(filePath);
-      const data = await pdfParse(fileBuffer);
+      const buffer = await fs.readFile(filePath);
+      const data = await pdfParse(buffer);
       return data.text;
     } catch (error) {
-      console.error('[Knowledge] Error extracting PDF text:', error);
-      throw new Error('Error extrayendo texto del PDF');
+      throw new Error(`Error procesando PDF: ${error.message}`);
     }
   }
 
-  /**
-   * Extraer texto de DOCX
-   */
   async extractTextFromDOCX(filePath) {
     try {
-      const fileBuffer = await fs.readFile(filePath);
-      const result = await mammoth.extractRawText({ buffer: fileBuffer });
+      const result = await mammoth.extractRawText({ path: filePath });
       return result.value;
     } catch (error) {
-      console.error('[Knowledge] Error extracting DOCX text:', error);
-      throw new Error('Error extrayendo texto del DOCX');
+      throw new Error(`Error procesando DOCX: ${error.message}`);
     }
+  }
+
+  async generateSummary(text) {
+    // Simple summary generation (first 200 chars)
+    // TODO: Integrate with OpenAI for better summaries
+    if (text.length <= 200) {
+      return text;
+    }
+    
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    let summary = '';
+    
+    for (const sentence of sentences) {
+      if (summary.length + sentence.length > 200) {
+        break;
+      }
+      summary += sentence.trim() + '. ';
+    }
+    
+    return summary.trim() || text.substring(0, 200) + '...';
   }
 
   // ========================================
   // BOT ASSIGNMENTS
   // ========================================
 
-  /**
-   * Obtener knowledge items asignados a un bot
-   */
   async getBotKnowledge(botId) {
     try {
       const result = await pool.query(`
         SELECT 
           ki.*,
           bka.priority,
-          bka.is_active as is_assigned,
           bka.created_at as assigned_at
         FROM whatsapp_bot.knowledge_items ki
         JOIN whatsapp_bot.bot_knowledge_assignments bka ON ki.id = bka.knowledge_item_id
         WHERE bka.bot_id = $1 AND bka.is_active = true AND ki.is_active = true
-        ORDER BY bka.priority ASC, ki.title ASC
+        ORDER BY bka.priority ASC, ki.created_at DESC
       `, [botId]);
 
       return result.rows;
 
     } catch (error) {
-      console.error('[Knowledge] Error getting bot knowledge:', error);
-      throw new Error('Error obteniendo knowledge del bot');
+      console.error('[KnowledgeService] Error getting bot knowledge:', error);
+      throw error;
     }
   }
 
-  /**
-   * Asignar knowledge item a bot
-   */
   async assignKnowledgeToBot(botId, knowledgeItemId, priority = 3) {
     try {
-      // Verificar que el bot existe y obtener company_id
-      const botResult = await pool.query(`
-        SELECT b.id, wi.company_id 
-        FROM whatsapp_bot.bots b
-        JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
-        WHERE b.id = $1
-      `, [botId]);
+      // Check if already assigned
+      const existing = await pool.query(`
+        SELECT id FROM whatsapp_bot.bot_knowledge_assignments
+        WHERE bot_id = $1 AND knowledge_item_id = $2
+      `, [botId, knowledgeItemId]);
 
-      if (botResult.rows.length === 0) {
-        throw new Error('Bot no encontrado');
+      if (existing.rows.length > 0) {
+        // Update existing assignment
+        const result = await pool.query(`
+          UPDATE whatsapp_bot.bot_knowledge_assignments
+          SET priority = $3, is_active = true, updated_at = NOW()
+          WHERE bot_id = $1 AND knowledge_item_id = $2
+          RETURNING *
+        `, [botId, knowledgeItemId, priority]);
+
+        return result.rows[0];
+      } else {
+        // Create new assignment
+        const result = await pool.query(`
+          INSERT INTO whatsapp_bot.bot_knowledge_assignments (
+            bot_id, knowledge_item_id, priority
+          ) VALUES ($1, $2, $3)
+          RETURNING *
+        `, [botId, knowledgeItemId, priority]);
+
+        return result.rows[0];
       }
-
-      const companyId = botResult.rows[0].company_id;
-
-      // Verificar que el knowledge item existe y pertenece a la misma empresa
-      const knowledgeResult = await pool.query(`
-        SELECT id FROM whatsapp_bot.knowledge_items
-        WHERE id = $1 AND company_id = $2 AND is_active = true
-      `, [knowledgeItemId, companyId]);
-
-      if (knowledgeResult.rows.length === 0) {
-        throw new Error('Knowledge item no encontrado o no accesible');
-      }
-
-      // Crear o actualizar asignación
-      const result = await pool.query(`
-        INSERT INTO whatsapp_bot.bot_knowledge_assignments (
-          bot_id, knowledge_item_id, priority, assigned_by
-        ) VALUES ($1, $2, $3, $4)
-        ON CONFLICT (bot_id, knowledge_item_id)
-        DO UPDATE SET 
-          priority = EXCLUDED.priority,
-          is_active = true,
-          updated_at = NOW()
-        RETURNING *
-      `, [botId, knowledgeItemId, priority, companyId]);
-
-      console.log(`[Knowledge] Assigned knowledge ${knowledgeItemId} to bot ${botId}`);
-
-      return result.rows[0];
 
     } catch (error) {
-      console.error('[Knowledge] Error assigning knowledge to bot:', error);
-      throw new Error(`Error asignando knowledge a bot: ${error.message}`);
+      console.error('[KnowledgeService] Error assigning knowledge to bot:', error);
+      throw error;
     }
   }
 
-  /**
-   * Quitar knowledge item de bot
-   */
   async unassignKnowledgeFromBot(botId, knowledgeItemId) {
     try {
       const result = await pool.query(`
-        UPDATE whatsapp_bot.bot_knowledge_assignments
-        SET is_active = false, updated_at = NOW()
+        DELETE FROM whatsapp_bot.bot_knowledge_assignments
         WHERE bot_id = $1 AND knowledge_item_id = $2
-        RETURNING *
       `, [botId, knowledgeItemId]);
 
-      if (result.rows.length === 0) {
-        throw new Error('Asignación no encontrada');
-      }
-
-      console.log(`[Knowledge] Unassigned knowledge ${knowledgeItemId} from bot ${botId}`);
-
-      return result.rows[0];
+      return result.rowCount > 0;
 
     } catch (error) {
-      console.error('[Knowledge] Error unassigning knowledge from bot:', error);
-      throw new Error('Error quitando knowledge del bot');
+      console.error('[KnowledgeService] Error unassigning knowledge from bot:', error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // SEARCH AND ANALYTICS
+  // ========================================
+
+  /**
+   * Enhanced search with RAG integration
+   */
+  async searchKnowledge(companyId, filters) {
+    try {
+      const { search, content_types, limit, active_only } = filters;
+
+      // **🔥 RAG INTEGRATION: Use semantic search if available**
+      if (search && search.length >= 3) {
+        try {
+          const ragResults = await ragService.retrieveKnowledgeForCompany(
+            companyId,
+            search,
+            {
+              similarityThreshold: 0.6, // Lower threshold for search
+              limit: limit || 20
+            }
+          );
+
+          if (ragResults.sources.length > 0) {
+            console.log(`[KnowledgeService] Using RAG search, found ${ragResults.sources.length} results`);
+            
+            // Convert RAG results to knowledge items format
+            const knowledgeItemIds = [...new Set(ragResults.sources.map(s => s.knowledgeItemId))];
+            
+            if (knowledgeItemIds.length > 0) {
+              const placeholders = knowledgeItemIds.map((_, i) => `$${i + 2}`).join(',');
+              const result = await pool.query(`
+                SELECT ki.*, 0 as assigned_bots_count
+                FROM whatsapp_bot.knowledge_items ki
+                WHERE ki.company_id = $1 AND ki.id IN (${placeholders})
+                ORDER BY 
+                  CASE 
+                    ${knowledgeItemIds.map((id, i) => `WHEN ki.id = $${i + 2} THEN ${i}`).join(' ')}
+                    ELSE ${knowledgeItemIds.length}
+                  END
+              `, [companyId, ...knowledgeItemIds]);
+
+              return {
+                items: result.rows,
+                total: result.rows.length,
+                searchType: 'semantic',
+                ragMetadata: ragResults.metadata
+              };
+            }
+          }
+        } catch (ragError) {
+          console.warn('[KnowledgeService] RAG search failed, falling back to traditional search:', ragError.message);
+        }
+      }
+
+      // Fallback to traditional search
+      return await this.getCompanyKnowledge(companyId, {
+        search,
+        content_type: content_types?.[0],
+        active_only,
+        limit
+      });
+
+    } catch (error) {
+      console.error('[KnowledgeService] Error in knowledge search:', error);
+      throw error;
+    }
+  }
+
+  async getCompanyKnowledgeStats(companyId) {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          COUNT(*) as total_items,
+          COUNT(*) FILTER (WHERE is_active = true) as active_items,
+          COUNT(*) FILTER (WHERE content_type = 'manual') as manual_items,
+          COUNT(*) FILTER (WHERE content_type IN ('pdf', 'docx', 'txt')) as file_items,
+          COUNT(*) FILTER (WHERE embeddings_generated = true) as items_with_embeddings,
+          COUNT(*) FILTER (WHERE processing_status = 'processing') as processing_items,
+          COUNT(*) FILTER (WHERE processing_status = 'error') as error_items,
+          AVG(LENGTH(content)) as avg_content_length,
+          (
+            SELECT COUNT(*) 
+            FROM whatsapp_bot.bot_knowledge_assignments bka
+            JOIN whatsapp_bot.knowledge_items ki ON bka.knowledge_item_id = ki.id
+            WHERE ki.company_id = $1 AND bka.is_active = true
+          ) as total_assignments
+        FROM whatsapp_bot.knowledge_items
+        WHERE company_id = $1
+      `, [companyId]);
+
+      const stats = result.rows[0];
+
+      // **🔥 RAG INTEGRATION: Add embedding stats**
+      try {
+        const embeddingStats = await pool.query(`
+          SELECT * FROM whatsapp_bot.get_embeddings_stats($1)
+        `, [companyId]);
+
+        if (embeddingStats.rows.length > 0) {
+          const embStats = embeddingStats.rows[0];
+          stats.total_embeddings = embStats.total_embeddings || 0;
+          stats.embeddings_by_provider = embStats.embeddings_by_provider || {};
+          stats.embeddings_by_type = embStats.embeddings_by_type || {};
+          stats.avg_chunk_tokens = embStats.avg_chunk_tokens || 0;
+          stats.total_tokens = embStats.total_tokens || 0;
+        }
+      } catch (embeddingError) {
+        console.warn('[KnowledgeService] Could not get embedding stats:', embeddingError.message);
+      }
+
+      return stats;
+
+    } catch (error) {
+      console.error('[KnowledgeService] Error getting knowledge stats:', error);
+      throw error;
     }
   }
 
@@ -584,89 +679,73 @@ class KnowledgeService {
   // UTILITY METHODS
   // ========================================
 
-  /**
-   * Generar resumen automático del contenido
-   */
-  async generateSummary(content, maxLength = 200) {
-    try {
-      // Si el contenido es corto, usar las primeras líneas
-      if (content.length <= maxLength * 2) {
-        return content.substring(0, maxLength) + (content.length > maxLength ? '...' : '');
-      }
-
-      // TODO: Integrar con OpenAI para generar resúmenes inteligentes
-      // Por ahora, usar extracción simple
-      const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
-      const summary = sentences.slice(0, 3).join('. ').substring(0, maxLength);
-      
-      return summary + (summary.length < content.length ? '...' : '');
-
-    } catch (error) {
-      console.error('[Knowledge] Error generating summary:', error);
-      return content.substring(0, maxLength) + '...';
-    }
-  }
-
-  /**
-   * Asegurar que el directorio de uploads existe
-   */
   async ensureUploadDirectory() {
     try {
-      await fs.mkdir(this.uploadPath, { recursive: true });
+      await fs.mkdir(this.uploadDir, { recursive: true });
     } catch (error) {
-      console.error('[Knowledge] Error creating upload directory:', error);
+      console.error('[KnowledgeService] Failed to create upload directory:', error);
     }
   }
 
-  /**
-   * Eliminar archivo físico
-   */
   async deleteFile(filePath) {
     try {
-      const fullPath = path.isAbsolute(filePath) ? filePath : path.join(this.uploadPath, filePath);
+      const fullPath = path.isAbsolute(filePath) ? filePath : path.join(this.uploadDir, filePath);
       await fs.unlink(fullPath);
-      console.log(`[Knowledge] Deleted file: ${fullPath}`);
     } catch (error) {
-      console.error('[Knowledge] Error deleting file:', error);
-      // No throw, ya que el archivo podría no existir
+      console.error('[KnowledgeService] Failed to delete file:', error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // RAG INTEGRATION METHODS
+  // ========================================
+
+  /**
+   * Migrate existing knowledge to RAG (generate embeddings)
+   */
+  async migrateToRAG(companyId) {
+    try {
+      console.log(`[KnowledgeService] Starting RAG migration for company ${companyId}`);
+      
+      const results = await ragService.reprocessCompanyKnowledge(companyId);
+      
+      console.log(`[KnowledgeService] RAG migration completed for company ${companyId}`);
+      return results;
+
+    } catch (error) {
+      console.error('[KnowledgeService] Error in RAG migration:', error);
+      throw error;
     }
   }
 
   /**
-   * Obtener estadísticas de knowledge base por empresa
+   * Get knowledge with RAG readiness info
    */
-  async getCompanyKnowledgeStats(companyId) {
+  async getKnowledgeRAGStatus(companyId) {
     try {
-      const stats = await pool.query(`
+      const result = await pool.query(`
         SELECT 
-          COUNT(*) as total_items,
-          COUNT(CASE WHEN is_active = true THEN 1 END) as active_items,
-          COUNT(CASE WHEN content_type = 'manual' THEN 1 END) as manual_items,
-          COUNT(CASE WHEN content_type != 'manual' THEN 1 END) as file_items,
-          COUNT(CASE WHEN embeddings_generated = true THEN 1 END) as items_with_embeddings,
-          COUNT(CASE WHEN processing_status = 'processing' THEN 1 END) as processing_items,
-          COUNT(CASE WHEN processing_status = 'error' THEN 1 END) as error_items,
-          AVG(LENGTH(content)) as avg_content_length
-        FROM whatsapp_bot.knowledge_items 
-        WHERE company_id = $1
+          ki.id,
+          ki.title,
+          ki.content_type,
+          ki.embeddings_generated,
+          ki.processing_status,
+          COALESCE((
+            SELECT COUNT(*) 
+            FROM whatsapp_bot.knowledge_embeddings ke
+            WHERE ke.knowledge_item_id = ki.id
+          ), 0) as embeddings_count
+        FROM whatsapp_bot.knowledge_items ki
+        WHERE ki.company_id = $1 AND ki.is_active = true
+        ORDER BY ki.created_at DESC
       `, [companyId]);
 
-      const assignmentStats = await pool.query(`
-        SELECT COUNT(*) as total_assignments
-        FROM whatsapp_bot.bot_knowledge_assignments bka
-        JOIN whatsapp_bot.bots b ON bka.bot_id = b.id
-        JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
-        WHERE wi.company_id = $1 AND bka.is_active = true
-      `, [companyId]);
-
-      return {
-        ...stats.rows[0],
-        total_assignments: assignmentStats.rows[0].total_assignments
-      };
+      return result.rows;
 
     } catch (error) {
-      console.error('[Knowledge] Error getting company stats:', error);
-      throw new Error('Error obteniendo estadísticas');
+      console.error('[KnowledgeService] Error getting RAG status:', error);
+      throw error;
     }
   }
 }
