@@ -649,6 +649,16 @@ class KnowledgeService {
 
       const stats = result.rows[0];
 
+      // 🔧 Convert string numbers to integers for frontend
+      Object.keys(stats).forEach(key => {
+        if (typeof stats[key] === 'string' && !isNaN(stats[key])) {
+          stats[key] = parseInt(stats[key]) || 0;
+        }
+        if (typeof stats[key] === 'string' && stats[key].includes('.')) {
+          stats[key] = parseFloat(stats[key]) || 0;
+        }
+      });
+
       // **🔥 RAG INTEGRATION: Add embedding stats**
       try {
         const embeddingStats = await pool.query(`
