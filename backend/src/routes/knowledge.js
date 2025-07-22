@@ -9,80 +9,26 @@ const validation = require('../middleware/validation');
 router.use(authenticate);
 
 // ========================================
-// KNOWLEDGE ITEMS MANAGEMENT
+// SPECIFIC ROUTES (MUST GO FIRST!)
 // ========================================
 
 /**
  * @swagger
- * /api/knowledge:
+ * /api/knowledge/stats:
  *   get:
- *     summary: Obtener todos los knowledge items de la empresa
+ *     summary: Obtener estadísticas de knowledge base
  *     tags: [Knowledge Base]
- *     parameters:
- *       - in: query
- *         name: active_only
- *         schema:
- *           type: string
- *           enum: [true, false]
- *         description: Filtrar solo items activos
- *       - in: query
- *         name: content_type
- *         schema:
- *           type: string
- *           enum: [manual, pdf, docx, txt, url, api]
- *         description: Filtrar por tipo de contenido
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Buscar en título, contenido o tags
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 50
- *         description: Límite de resultados
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
- *           default: 0
- *         description: Offset para paginación
  *     responses:
  *       200:
- *         description: Lista de knowledge items
+ *         description: Estadísticas de la knowledge base
  */
-router.get('/', knowledgeController.getKnowledgeItems);
+router.get('/stats', knowledgeController.getKnowledgeStats);
 
 /**
  * @swagger
- * /api/knowledge/{id}:
- *   get:
- *     summary: Obtener knowledge item específico
- *     tags: [Knowledge Base]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Knowledge item encontrado
- *       404:
- *         description: Knowledge item no encontrado
- */
-router.get('/:id', 
-  validation.validateUUID('id'),
-  knowledgeController.getKnowledgeItem
-);
-
-/**
- * @swagger
- * /api/knowledge:
+ * /api/knowledge/search:
  *   post:
- *     summary: Crear nuevo knowledge item manualmente
+ *     summary: Buscar en knowledge base
  *     tags: [Knowledge Base]
  *     requestBody:
  *       required: true
@@ -91,99 +37,23 @@ router.get('/:id',
  *           schema:
  *             type: object
  *             properties:
- *               title:
+ *               query:
  *                 type: string
- *                 minLength: 3
- *                 maxLength: 200
- *               content:
- *                 type: string
- *                 minLength: 10
- *               tags:
+ *                 minLength: 2
+ *               content_types:
  *                 type: array
  *                 items:
  *                   type: string
+ *               limit:
+ *                 type: integer
+ *                 default: 20
  *             required:
- *               - title
- *               - content
- *     responses:
- *       201:
- *         description: Knowledge item creado exitosamente
- *       400:
- *         description: Datos inválidos
- */
-router.post('/', 
-  validation.validateKnowledgeCreation,
-  knowledgeController.createKnowledgeItem
-);
-
-/**
- * @swagger
- * /api/knowledge/{id}:
- *   put:
- *     summary: Actualizar knowledge item
- *     tags: [Knowledge Base]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               title:
- *                 type: string
- *               content:
- *                 type: string
- *               tags:
- *                 type: array
- *                 items:
- *                   type: string
- *               is_active:
- *                 type: boolean
+ *               - query
  *     responses:
  *       200:
- *         description: Knowledge item actualizado exitosamente
- *       404:
- *         description: Knowledge item no encontrado
+ *         description: Resultados de búsqueda
  */
-router.put('/:id', 
-  validation.validateUUID('id'),
-  knowledgeController.updateKnowledgeItem
-);
-
-/**
- * @swagger
- * /api/knowledge/{id}:
- *   delete:
- *     summary: Eliminar knowledge item
- *     tags: [Knowledge Base]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Knowledge item eliminado exitosamente
- *       404:
- *         description: Knowledge item no encontrado
- */
-router.delete('/:id', 
-  validation.validateUUID('id'),
-  knowledgeController.deleteKnowledgeItem
-);
-
-// ========================================
-// FILE UPLOAD AND PROCESSING
-// ========================================
+router.post('/search', knowledgeController.searchKnowledge);
 
 /**
  * @swagger
@@ -218,8 +88,75 @@ router.post('/upload',
   knowledgeController.uploadFile
 );
 
+/**
+ * Endpoint de información (para debugging)
+ * GET /api/knowledge/info
+ */
+router.get('/info', knowledgeController.getApiInfo);
+
 // ========================================
-// BOT ASSIGNMENTS
+// KNOWLEDGE ITEMS MANAGEMENT
+// ========================================
+
+/**
+ * @swagger
+ * /api/knowledge:
+ *   get:
+ *     summary: Obtener todos los knowledge items de la empresa
+ *     tags: [Knowledge Base]
+ */
+router.get('/', knowledgeController.getKnowledgeItems);
+
+/**
+ * @swagger
+ * /api/knowledge:
+ *   post:
+ *     summary: Crear nuevo knowledge item manualmente
+ *     tags: [Knowledge Base]
+ */
+router.post('/', 
+  validation.validateKnowledgeCreation,
+  knowledgeController.createKnowledgeItem
+);
+
+/**
+ * @swagger
+ * /api/knowledge/{id}:
+ *   get:
+ *     summary: Obtener knowledge item específico
+ *     tags: [Knowledge Base]
+ */
+router.get('/:id', 
+  validation.validateUUID('id'),
+  knowledgeController.getKnowledgeItem
+);
+
+/**
+ * @swagger
+ * /api/knowledge/{id}:
+ *   put:
+ *     summary: Actualizar knowledge item
+ *     tags: [Knowledge Base]
+ */
+router.put('/:id', 
+  validation.validateUUID('id'),
+  knowledgeController.updateKnowledgeItem
+);
+
+/**
+ * @swagger
+ * /api/knowledge/{id}:
+ *   delete:
+ *     summary: Eliminar knowledge item
+ *     tags: [Knowledge Base]
+ */
+router.delete('/:id', 
+  validation.validateUUID('id'),
+  knowledgeController.deleteKnowledgeItem
+);
+
+// ========================================
+// BOT ASSIGNMENTS (SPECIFIC PATHS)
 // ========================================
 
 /**
@@ -228,18 +165,6 @@ router.post('/upload',
  *   get:
  *     summary: Obtener knowledge items asignados a un bot
  *     tags: [Knowledge Base]
- *     parameters:
- *       - in: path
- *         name: botId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Knowledge items del bot
- *       404:
- *         description: Bot no encontrado
  */
 router.get('/bots/:botId', 
   validation.validateUUID('botId'),
@@ -252,16 +177,6 @@ router.get('/bots/:botId',
  *   get:
  *     summary: Obtener knowledge items disponibles y asignados para un bot
  *     tags: [Knowledge Base]
- *     parameters:
- *       - in: path
- *         name: botId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Knowledge items disponibles y asignados
  */
 router.get('/bots/:botId/available', 
   validation.validateUUID('botId'),
@@ -274,33 +189,6 @@ router.get('/bots/:botId/available',
  *   post:
  *     summary: Asignar knowledge item a bot
  *     tags: [Knowledge Base]
- *     parameters:
- *       - in: path
- *         name: botId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               knowledge_item_id:
- *                 type: string
- *                 format: uuid
- *               priority:
- *                 type: integer
- *                 minimum: 1
- *                 maximum: 5
- *                 default: 3
- *             required:
- *               - knowledge_item_id
- *     responses:
- *       200:
- *         description: Knowledge asignado exitosamente
  */
 router.post('/bots/:botId/assign', 
   validation.validateUUID('botId'),
@@ -314,87 +202,12 @@ router.post('/bots/:botId/assign',
  *   delete:
  *     summary: Quitar knowledge item de bot
  *     tags: [Knowledge Base]
- *     parameters:
- *       - in: path
- *         name: botId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *       - in: path
- *         name: knowledgeItemId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Knowledge removido exitosamente
  */
 router.delete('/bots/:botId/assign/:knowledgeItemId', 
   validation.validateUUID('botId'),
   validation.validateUUID('knowledgeItemId'),
   knowledgeController.unassignKnowledgeFromBot
 );
-
-// ========================================
-// SEARCH AND ANALYTICS
-// ========================================
-
-/**
- * @swagger
- * /api/knowledge/search:
- *   post:
- *     summary: Buscar en knowledge base
- *     tags: [Knowledge Base]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               query:
- *                 type: string
- *                 minLength: 2
- *               content_types:
- *                 type: array
- *                 items:
- *                   type: string
- *               limit:
- *                 type: integer
- *                 default: 20
- *             required:
- *               - query
- *     responses:
- *       200:
- *         description: Resultados de búsqueda
- */
-router.post('/search', 
-  knowledgeController.searchKnowledge
-);
-
-/**
- * @swagger
- * /api/knowledge/stats:
- *   get:
- *     summary: Obtener estadísticas de knowledge base
- *     tags: [Knowledge Base]
- *     responses:
- *       200:
- *         description: Estadísticas de la knowledge base
- */
-router.get('/stats', knowledgeController.getKnowledgeStats);
-
-// ========================================
-// INFO AND DEBUG
-// ========================================
-
-/**
- * Endpoint de información (para debugging)
- * GET /api/knowledge/info
- */
-router.get('/info', knowledgeController.getApiInfo);
 
 // ========================================
 // ERROR HANDLING
