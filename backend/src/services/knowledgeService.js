@@ -197,13 +197,42 @@ class KnowledgeService {
           console.log(`[KnowledgeService] Auto-generating embeddings for knowledge item ${knowledgeItem.id}, content length: ${content.trim().length}`);
           const embeddings = await ragService.processKnowledgeForRAG(knowledgeItem.id, companyId, content);
           console.log(`[KnowledgeService] ✅ Successfully generated ${embeddings.length} embeddings for manual item ${knowledgeItem.id}`);
+          
+          // 🔧 UPDATE STATUS: Mark as completed with embeddings
+          await pool.query(`
+            UPDATE whatsapp_bot.knowledge_items
+            SET embeddings_generated = true, processing_status = 'completed', updated_at = NOW()
+            WHERE id = $1
+          `, [knowledgeItem.id]);
+          
+          // Update local object to reflect changes
+          knowledgeItem.embeddings_generated = true;
+          knowledgeItem.processing_status = 'completed';
+          
         } catch (embeddingError) {
           console.error(`[KnowledgeService] ❌ Failed to generate embeddings for manual item ${knowledgeItem.id}:`, embeddingError.message);
           console.error('Full error:', embeddingError);
+          
+          // 🔧 MARK ERROR STATUS
+          await pool.query(`
+            UPDATE whatsapp_bot.knowledge_items
+            SET processing_status = 'error', processing_error = $2, updated_at = NOW()
+            WHERE id = $1
+          `, [knowledgeItem.id, embeddingError.message]);
+          
           // Don't throw - knowledge creation should succeed even if embeddings fail
         }
       } else {
         console.log(`[KnowledgeService] ⚠️ Skipping embedding generation: content too short (${content ? content.trim().length : 0} chars, minimum 50)`);
+        
+        // 🔧 MARK AS COMPLETED (manual items without embeddings)
+        await pool.query(`
+          UPDATE whatsapp_bot.knowledge_items
+          SET processing_status = 'completed', updated_at = NOW()
+          WHERE id = $1
+        `, [knowledgeItem.id]);
+        
+        knowledgeItem.processing_status = 'completed';
       }
 
       return knowledgeItem;
@@ -416,9 +445,24 @@ class KnowledgeService {
           console.log(`[KnowledgeService] Generating embeddings for uploaded file ${itemId}, content length: ${extractedText.trim().length}`);
           const embeddings = await ragService.processKnowledgeForRAG(itemId, companyId, extractedText.trim());
           console.log(`[KnowledgeService] ✅ Successfully generated ${embeddings.length} embeddings for file ${itemId}`);
+          
+          // 🔧 UPDATE STATUS: Mark as completed with embeddings
+          await pool.query(`
+            UPDATE whatsapp_bot.knowledge_items
+            SET embeddings_generated = true, processing_status = 'completed', updated_at = NOW()
+            WHERE id = $1
+          `, [itemId]);
+          
         } catch (embeddingError) {
           console.error(`[KnowledgeService] ❌ Failed to generate embeddings for uploaded file ${itemId}:`, embeddingError.message);
           console.error('Full error:', embeddingError);
+          
+          // 🔧 MARK ERROR STATUS for embeddings, but file processing was successful
+          await pool.query(`
+            UPDATE whatsapp_bot.knowledge_items
+            SET processing_status = 'completed', processing_error = $2, updated_at = NOW()
+            WHERE id = $1
+          `, [itemId, `Embedding failed: ${embeddingError.message}`]);
         }
 
         // Return the complete knowledge item
@@ -758,6 +802,149 @@ class KnowledgeService {
       `, [companyId]);
 
       return result.rows;
+
+    } catch (error) {
+      console.error('[KnowledgeService] Error getting RAG status:', error);
+      throw error;
+    }
+  }
+
+  // ========================================
+  // RAG MIGRATION METHODS
+  // ========================================
+
+  /**
+   * Migrate existing knowledge items to generate embeddings
+   */
+  async migrateKnowledgeToRAG(companyId, options = {}) {
+    try {
+      const { forceRegenerate = false, itemIds = null } = options;
+      
+      console.log(`[KnowledgeService] Starting RAG migration for company ${companyId}`);
+      
+      // Build query to find items that need embeddings
+      let whereClause = `company_id = $1 AND is_active = true`;
+      const params = [companyId];
+      
+      if (!forceRegenerate) {
+        whereClause += ` AND embeddings_generated = false`;
+      }
+      
+      if (itemIds && itemIds.length > 0) {
+        const placeholders = itemIds.map((_, i) => `$${i + 2}`).join(',');
+        whereClause += ` AND id IN (${placeholders})`;
+        params.push(...itemIds);
+      }
+      
+      const result = await pool.query(`
+        SELECT id, title, content, content_type, processing_status
+        FROM whatsapp_bot.knowledge_items
+        WHERE ${whereClause}
+        ORDER BY created_at DESC
+      `, params);
+      
+      const itemsToProcess = result.rows.filter(item => 
+        item.content && item.content.trim().length >= 50
+      );
+      
+      console.log(`[KnowledgeService] Found ${itemsToProcess.length} items to process`);
+      
+      const results = {
+        total: itemsToProcess.length,
+        processed: 0,
+        failed: 0,
+        errors: []
+      };
+      
+      // Process each item
+      for (const item of itemsToProcess) {
+        try {
+          console.log(`[KnowledgeService] Processing embeddings for item ${item.id}: "${item.title}"`);
+          
+          // Update status to processing
+          await pool.query(`
+            UPDATE whatsapp_bot.knowledge_items
+            SET processing_status = 'processing', updated_at = NOW()
+            WHERE id = $1
+          `, [item.id]);
+          
+          // Generate embeddings
+          const embeddings = await ragService.processKnowledgeForRAG(item.id, companyId, item.content);
+          
+          // Update status to completed with embeddings
+          await pool.query(`
+            UPDATE whatsapp_bot.knowledge_items
+            SET embeddings_generated = true, processing_status = 'completed', 
+                processing_error = NULL, updated_at = NOW()
+            WHERE id = $1
+          `, [item.id]);
+          
+          results.processed++;
+          console.log(`[KnowledgeService] ✅ Successfully generated ${embeddings.length} embeddings for item ${item.id}`);
+          
+          // Small delay to avoid overwhelming OpenAI API
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (embeddingError) {
+          console.error(`[KnowledgeService] ❌ Failed to generate embeddings for item ${item.id}:`, embeddingError.message);
+          
+          // Update status to error
+          await pool.query(`
+            UPDATE whatsapp_bot.knowledge_items
+            SET processing_status = 'error', processing_error = $2, updated_at = NOW()
+            WHERE id = $1
+          `, [item.id, embeddingError.message]);
+          
+          results.failed++;
+          results.errors.push({
+            itemId: item.id,
+            title: item.title,
+            error: embeddingError.message
+          });
+        }
+      }
+      
+      console.log(`[KnowledgeService] RAG migration completed: ${results.processed} processed, ${results.failed} failed`);
+      return results;
+      
+    } catch (error) {
+      console.error('[KnowledgeService] Error in RAG migration:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get RAG migration status for knowledge items
+   */
+  async getKnowledgeRAGStatus(companyId) {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          ki.id,
+          ki.title,
+          ki.content_type,
+          ki.processing_status,
+          ki.embeddings_generated,
+          ki.processing_error,
+          LENGTH(ki.content) as content_length,
+          ki.created_at,
+          ki.updated_at,
+          COALESCE((
+            SELECT COUNT(*) 
+            FROM whatsapp_bot.knowledge_embeddings ke
+            WHERE ke.knowledge_item_id = ki.id
+          ), 0) as embeddings_count
+        FROM whatsapp_bot.knowledge_items ki
+        WHERE ki.company_id = $1 AND ki.is_active = true
+        ORDER BY ki.created_at DESC
+      `, [companyId]);
+
+      return result.rows.map(item => ({
+        ...item,
+        embeddings_generated: Boolean(item.embeddings_generated),
+        needs_processing: !item.embeddings_generated && item.content_length >= 50,
+        can_generate_embeddings: item.content_length >= 50
+      }));
 
     } catch (error) {
       console.error('[KnowledgeService] Error getting RAG status:', error);
