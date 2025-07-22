@@ -427,12 +427,42 @@ const validateBotCreation = (req, res, next) => {
 // Validación para parámetros UUID en URLs
 const validateUUID = (paramName = 'id') => {
   return (req, res, next) => {
-    const { error } = commonSchemas.uuid.validate(req.params[paramName]);
+    const schema = Joi.object({
+      [paramName]: Joi.string().uuid().required().messages({
+        'string.guid': `${paramName} debe ser un UUID válido`,
+        'any.required': `${paramName} es requerido`
+      })
+    });
+
+    const { error } = schema.validate(req.params);
     if (error) {
       return res.status(400).json({
         success: false,
-        message: `El parámetro '${paramName}' debe ser un UUID válido`,
-        error: error.details[0].message
+        message: 'Parámetro inválido',
+        errors: error.details.map(detail => detail.message)
+      });
+    }
+    next();
+  };
+};
+
+// Validación para UUID en diferentes partes del request (params, body, query)
+const validateUUIDField = (fieldName = 'id', location = 'params') => {
+  return (req, res, next) => {
+    const data = req[location];
+    const schema = Joi.object({
+      [fieldName]: Joi.string().uuid().required().messages({
+        'string.guid': `${fieldName} debe ser un UUID válido`,
+        'any.required': `${fieldName} es requerido`
+      })
+    });
+
+    const { error } = schema.validate(data);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: `${location === 'body' ? 'Datos' : 'Parámetro'} inválido`,
+        errors: error.details.map(detail => detail.message)
       });
     }
     next();
@@ -453,6 +483,7 @@ module.exports = {
   validatePagination,
   validateBotCreation,
   validateUUID,
+  validateUUIDField, // Nueva función más flexible
   schemas: {
     auth: authSchemas,
     instance: instanceSchemas,
