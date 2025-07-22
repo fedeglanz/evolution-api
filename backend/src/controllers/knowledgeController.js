@@ -669,8 +669,8 @@ class KnowledgeController {
           error: ragError,
           results_count: ragResults?.sources?.length || 0,
           results: ragResults?.sources?.map(source => ({
-            knowledge_title: source.knowledgeTitle || 'Sin título',
-            chunk_text: source.chunkText ? (source.chunkText.substring(0, 100) + '...') : 'Sin contenido',
+            knowledge_title: source.knowledge_title || 'Sin título',   // 🔧 FIX: snake_case
+            chunk_text: source.chunk_text ? (source.chunk_text.substring(0, 100) + '...') : 'Sin contenido',  // 🔧 FIX: snake_case
             similarity_score: source.similarity_score || 0,
             priority: source.priority || 0
           })) || [],
