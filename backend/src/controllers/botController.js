@@ -181,7 +181,7 @@ class BotController {
       try {
         console.log(`[Bot RAG] Searching knowledge for bot ${botConfig.id}: "${message}"`);
         const ragResult = await ragService.retrieveKnowledgeForBot(botConfig.id, message, {
-          similarityThreshold: 0.6, // Un poco más permisivo para bots
+          similarityThreshold: 0.45, // 🔧 Más permisivo para capturar más knowledge relevante
           maxResults: 3 // Máximo 3 chunks relevantes
         });
         
