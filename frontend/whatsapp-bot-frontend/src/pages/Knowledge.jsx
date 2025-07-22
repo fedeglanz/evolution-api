@@ -120,7 +120,7 @@ const Knowledge = () => {
   }
 
   const knowledgeItems = knowledgeData?.data?.items || [];
-  const stats = statsData?.data?.stats || {};
+  const stats = statsData?.data || {};  // 🔧 FIX: stats están directamente en data
   const totalItems = knowledgeData?.data?.total || 0;
 
   return (
