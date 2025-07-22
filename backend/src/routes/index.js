@@ -7,6 +7,7 @@ const instanceRoutes = require('./instances');
 const botConfigRoutes = require('./botConfig');
 const botsRoutes = require('./bots'); // Múltiples bots - NUEVO
 const workflowRoutes = require('./workflows');
+const knowledgeRoutes = require('./knowledge');
 const contactRoutes = require('./contacts');
 const conversationRoutes = require('./conversations');
 const dashboardRoutes = require('./dashboard');
@@ -231,7 +232,8 @@ router.get('/info', (req, res) => {
         dashboard: '/api/dashboard',
         plans: '/api/plans',
         migrations: '/api/migrations (solo admin)',
-        workflows: '/api/workflows'
+        workflows: '/api/workflows',
+        knowledge: '/api/knowledge'
       }
     }
   });
@@ -249,5 +251,6 @@ router.use('/migrations', migrationRoutes);
 router.use('/webhooks', webhookRoutes); // Nuevo - con auth
 router.use('/bot', botRouter); // Sin auth para n8n - usará API key propia
 router.use('/workflows', workflowRoutes);
+router.use('/knowledge', knowledgeRoutes);
 
 module.exports = router;

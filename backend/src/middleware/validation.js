@@ -424,6 +424,60 @@ const validateBotCreation = (req, res, next) => {
   next();
 };
 
+// Validación para creación de knowledge items
+const validateKnowledgeCreation = (req, res, next) => {
+  const schema = Joi.object({
+    title: Joi.string().min(3).max(200).required().messages({
+      'string.min': 'El título debe tener al menos 3 caracteres',
+      'string.max': 'El título no puede exceder 200 caracteres',
+      'any.required': 'El título es requerido'
+    }),
+    content: Joi.string().min(10).required().messages({
+      'string.min': 'El contenido debe tener al menos 10 caracteres',
+      'any.required': 'El contenido es requerido'
+    }),
+    tags: Joi.array().items(Joi.string().max(50)).max(20).default([]).messages({
+      'array.max': 'Máximo 20 tags permitidos',
+      'string.max': 'Cada tag no puede exceder 50 caracteres'
+    })
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Datos de entrada inválidos',
+      errors: error.details.map(detail => detail.message)
+    });
+  }
+  next();
+};
+
+// Validación para asignación de knowledge a bot
+const validateKnowledgeAssignment = (req, res, next) => {
+  const schema = Joi.object({
+    knowledge_item_id: Joi.string().uuid().required().messages({
+      'string.guid': 'El ID del knowledge item debe ser un UUID válido',
+      'any.required': 'El ID del knowledge item es requerido'
+    }),
+    priority: Joi.number().integer().min(1).max(5).default(3).messages({
+      'number.min': 'La prioridad debe ser entre 1 y 5',
+      'number.max': 'La prioridad debe ser entre 1 y 5',
+      'number.integer': 'La prioridad debe ser un número entero'
+    })
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Datos de entrada inválidos',
+      errors: error.details.map(detail => detail.message)
+    });
+  }
+  next();
+};
+
 // Validación para parámetros UUID en URLs
 const validateUUID = (paramName = 'id') => {
   return (req, res, next) => {
@@ -482,6 +536,8 @@ module.exports = {
   validateSendMessage,
   validatePagination,
   validateBotCreation,
+  validateKnowledgeCreation,
+  validateKnowledgeAssignment,
   validateUUID,
   validateUUIDField, // Nueva función más flexible
   schemas: {
