@@ -1,0 +1,20 @@
+{
+  "environments": {
+    "local": {
+      "name": "Desarrollo Local",
+      "url": "http://localhost:3000/api",
+      "timeout": 10000
+    },
+    "production": {
+      "name": "Producción (Render)",
+      "url": "https://whatsapp-bot-backend-fnte.onrender.com/api",
+      "timeout": 15000
+    },
+    "staging": {
+      "name": "Staging",
+      "url": "https://staging-api.ejemplo.com/api",
+      "timeout": 12000
+    }
+  },
+  "current": "production"
+}
