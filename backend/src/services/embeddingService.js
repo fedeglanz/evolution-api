@@ -240,7 +240,7 @@ class EmbeddingService {
   /**
    * Save embedding to database
    */
-  async saveEmbedding(embeddingData) {
+  async saveEmbedding(embeddingParams) {
     const {
       knowledgeItemId,
       chunkText,
@@ -250,7 +250,7 @@ class EmbeddingService {
       embeddingData,
       embeddingProvider,
       embeddingModel
-    } = embeddingData;
+    } = embeddingParams;
 
     const result = await pool.query(`
       INSERT INTO whatsapp_bot.knowledge_embeddings (
