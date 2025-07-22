@@ -137,9 +137,11 @@ class BotController {
           b.*,
           wi.instance_name,
           wi.company_id,
-          wi.status as instance_status
+          wi.status as instance_status,
+          c.plan
         FROM whatsapp_bot.bots b
         JOIN whatsapp_bot.whatsapp_instances wi ON b.instance_id = wi.id
+        JOIN whatsapp_bot.companies c ON wi.company_id = c.id
         WHERE wi.evolution_instance_name = $1 AND b.is_active = true
       `, [instance]);
 
@@ -152,6 +154,7 @@ class BotController {
       }
 
       const botConfig = botConfigQuery.rows[0];
+      const companyPlan = botConfig.plan || 'free';
 
       // 2. Verificar que la instancia esté conectada
       if (botConfig.instance_status !== 'connected') {
@@ -182,7 +185,8 @@ class BotController {
           max_tokens: botConfig.max_tokens || 1000,
           system_prompt: botConfig.system_prompt
         },
-        conversationHistory
+        conversationHistory,
+        companyPlan // Pasar el plan de la empresa
       );
 
       const responseTime = Date.now() - startTime;

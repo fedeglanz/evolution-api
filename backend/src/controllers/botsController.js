@@ -1,6 +1,7 @@
 const { pool } = require('../database');
 const config = require('../config');
 const openaiService = require('../services/openaiService');
+const { encryptOpenAIKey, decryptOpenAIKey } = require('../utils/encryption');
 
 // Función auxiliar para obtener bot con detalles (evita problemas de contexto)
 async function getBotWithDetailsHelper(botId) {
@@ -102,6 +103,17 @@ class BotsController {
 
       const result = await pool.query(query, queryParams);
 
+      // Ocultar API keys encriptadas por seguridad
+      const botsWithSecureData = result.rows.map(bot => {
+        if (bot.openai_api_key) {
+          bot.openai_api_key = '[ENCRIPTADA]';
+          bot.has_custom_api_key = true;
+        } else {
+          bot.has_custom_api_key = false;
+        }
+        return bot;
+      });
+
       // Obtener límites del plan directamente para evitar problemas de contexto
       let planLimits = null;
       try {
@@ -132,7 +144,7 @@ class BotsController {
       res.json({
         success: true,
         data: {
-          bots: result.rows,
+          bots: botsWithSecureData,
           total: result.rows.length,
           planLimits
         }
@@ -160,6 +172,7 @@ class BotsController {
         name,
         description,
         system_prompt,
+        openai_api_key, // Nueva API key personalizada
         openai_model = 'gpt-4',
         openai_temperature = 0.7,
         max_tokens = 1000,
@@ -248,15 +261,53 @@ class BotsController {
         });
       }
 
-      // Crear el bot
+      // Procesar API key personalizada si se proporciona
+      let encryptedApiKey = null;
+      if (openai_api_key && openai_api_key.trim()) {
+        try {
+          // Validar que el plan permita API keys personalizadas
+          const canUseCustomAPIKey = ['business', 'pro', 'enterprise'].includes(plan?.toLowerCase());
+          
+          if (!canUseCustomAPIKey) {
+            return res.status(403).json({
+              success: false,
+              message: `Tu plan ${plan} no permite usar API keys personalizadas. Actualiza a un plan superior.`,
+              planInfo: { plan, feature: 'custom_openai_api_key', available: false }
+            });
+          }
+
+          // Validar formato básico de la API key
+          if (!openai_api_key.startsWith('sk-')) {
+            return res.status(400).json({
+              success: false,
+              message: 'Formato de API key de OpenAI inválido. Debe comenzar con "sk-"'
+            });
+          }
+
+          // Encriptar la API key
+          encryptedApiKey = encryptOpenAIKey(openai_api_key.trim());
+          
+          // Validar que la API key funcione (opcional, puede ser costoso)
+          console.log('[Bot] API key personalizada proporcionada y encriptada correctamente');
+          
+        } catch (error) {
+          console.error('[Bot] Error procesando API key:', error);
+          return res.status(400).json({
+            success: false,
+            message: 'Error procesando la API key personalizada. Verifica que sea válida.'
+          });
+        }
+      }
+
+      // Crear el bot (ACTUALIZADO con openai_api_key)
       const createQuery = `
         INSERT INTO whatsapp_bot.bots (
-          instance_id, name, description, system_prompt,
+          instance_id, name, description, system_prompt, openai_api_key,
           openai_model, openai_temperature, max_tokens,
           welcome_message, fallback_message, context_memory_turns,
           response_delay_ms, typing_simulation, daily_message_limit,
           monthly_token_limit, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
         RETURNING *
       `;
 
@@ -265,6 +316,7 @@ class BotsController {
         name.trim(),
         description?.trim() || null,
         system_prompt.trim(),
+        encryptedApiKey, // API key encriptada o null
         openai_model,
         parseFloat(openai_temperature),
         parseInt(max_tokens),
@@ -280,10 +332,25 @@ class BotsController {
       // Obtener datos completos del bot creado
       const botWithDetails = await getBotWithDetailsHelper(result.rows[0].id);
 
+      // NO devolver la API key encriptada en la respuesta (seguridad)
+      if (botWithDetails.openai_api_key) {
+        botWithDetails.openai_api_key = '[ENCRIPTADA]';
+        botWithDetails.has_custom_api_key = true;
+      } else {
+        botWithDetails.has_custom_api_key = false;
+      }
+
       res.status(201).json({
         success: true,
         message: 'Bot creado exitosamente',
-        data: { bot: botWithDetails }
+        data: { 
+          bot: botWithDetails,
+          planInfo: { 
+            plan, 
+            custom_api_key_used: !!encryptedApiKey,
+            can_use_custom_api_key: ['business', 'pro', 'enterprise'].includes(plan?.toLowerCase())
+          }
+        }
       });
 
     } catch (error) {
@@ -371,15 +438,14 @@ class BotsController {
       let paramIndex = 1;
 
       const allowedFields = [
-        'name', 'description', 'system_prompt', 'openai_model',
-        'openai_temperature', 'max_tokens', 'welcome_message',
+        'name', 'description', 'system_prompt', 'openai_api_key', // Agregado openai_api_key
+        'openai_model', 'openai_temperature', 'max_tokens', 'welcome_message',
         'fallback_message', 'context_memory_turns', 'response_delay_ms',
         'typing_simulation', 'daily_message_limit', 'monthly_token_limit'
       ];
 
       for (const field of allowedFields) {
         if (updates[field] !== undefined) {
-          setClause.push(`${field} = $${paramIndex++}`);
           let value = updates[field];
           
           // Validaciones específicas
@@ -397,14 +463,63 @@ class BotsController {
             });
           }
 
-          // Conversiones de tipo
+          // Manejo especial para openai_api_key
+          if (field === 'openai_api_key') {
+            if (value && value.trim()) {
+              try {
+                // Obtener plan de la empresa para validar permisos
+                const companyQuery = await pool.query(
+                  'SELECT c.plan FROM whatsapp_bot.companies c JOIN whatsapp_bot.whatsapp_instances wi ON c.id = wi.company_id WHERE wi.id = $1',
+                  [existingBot.instance_id]
+                );
+
+                const plan = companyQuery.rows[0]?.plan || 'free';
+                const canUseCustomAPIKey = ['business', 'pro', 'enterprise'].includes(plan?.toLowerCase());
+                
+                if (!canUseCustomAPIKey) {
+                  return res.status(403).json({
+                    success: false,
+                    message: `Tu plan ${plan} no permite usar API keys personalizadas. Actualiza a un plan superior.`,
+                    planInfo: { plan, feature: 'custom_openai_api_key', available: false }
+                  });
+                }
+
+                // Validar formato
+                if (!value.startsWith('sk-')) {
+                  return res.status(400).json({
+                    success: false,
+                    message: 'Formato de API key de OpenAI inválido. Debe comenzar con "sk-"'
+                  });
+                }
+
+                // Encriptar la API key
+                value = encryptOpenAIKey(value.trim());
+                console.log('[Bot] API key personalizada actualizada y encriptada');
+                
+              } catch (error) {
+                console.error('[Bot] Error procesando API key:', error);
+                return res.status(400).json({
+                  success: false,
+                  message: 'Error procesando la API key personalizada. Verifica que sea válida.'
+                });
+              }
+            } else {
+              // Si se envía vacío, eliminar la API key personalizada
+              value = null;
+              console.log('[Bot] API key personalizada eliminada');
+            }
+          }
+
+          setClause.push(`${field} = $${paramIndex++}`);
+
+          // Conversiones de tipo (mantener las existentes)
           if (['openai_temperature'].includes(field)) {
             value = parseFloat(value);
           } else if (['max_tokens', 'context_memory_turns', 'response_delay_ms', 'daily_message_limit', 'monthly_token_limit'].includes(field)) {
             value = value ? parseInt(value) : null;
           } else if (field === 'typing_simulation') {
             value = Boolean(value);
-          } else if (typeof value === 'string') {
+          } else if (typeof value === 'string' && field !== 'openai_api_key') { // No trim en API key ya encriptada
             value = value.trim();
           }
 
@@ -433,6 +548,14 @@ class BotsController {
 
       // Obtener bot actualizado con todos los detalles
       const updatedBot = await getBotWithDetailsHelper(id);
+
+      // NO devolver la API key encriptada en la respuesta (seguridad)
+      if (updatedBot.openai_api_key) {
+        updatedBot.openai_api_key = '[ENCRIPTADA]';
+        updatedBot.has_custom_api_key = true;
+      } else {
+        updatedBot.has_custom_api_key = false;
+      }
 
       res.json({
         success: true,
