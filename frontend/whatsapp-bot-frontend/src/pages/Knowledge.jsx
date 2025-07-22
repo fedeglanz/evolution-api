@@ -9,6 +9,7 @@ import { knowledgeService } from '../services/knowledge';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import CreateKnowledgeModal from '../components/knowledge/CreateKnowledgeModal';
+import EditKnowledgeModal from '../components/knowledge/EditKnowledgeModal';
 import UploadFileModal from '../components/knowledge/UploadFileModal';
 import KnowledgeItemCard from '../components/knowledge/KnowledgeItemCard';
 import KnowledgeStatsCards from '../components/knowledge/KnowledgeStatsCards';
@@ -16,7 +17,9 @@ import KnowledgeStatsCards from '../components/knowledge/KnowledgeStatsCards';
 const Knowledge = () => {
   // Estados locales
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedItemToEdit, setSelectedItemToEdit] = useState(null);
   const [filters, setFilters] = useState({
     active_only: 'true',
     content_type: '',
@@ -56,6 +59,17 @@ const Knowledge = () => {
         console.error('Error deleting knowledge item:', error);
       }
     }
+  };
+
+  const handleEditItem = (item) => {
+    setSelectedItemToEdit(item);
+    setShowEditModal(true);
+  };
+
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    setSelectedItemToEdit(null);
+    refetch();
   };
 
   const handleSelectItem = (id) => {
@@ -283,6 +297,7 @@ const Knowledge = () => {
               isSelected={selectedItems.includes(item.id)}
               onSelect={() => handleSelectItem(item.id)}
               onDelete={() => handleDeleteItem(item.id)}
+              onEdit={() => handleEditItem(item)}
               isDeleting={deleteKnowledgeMutation.isPending}
             />
           ))
@@ -323,6 +338,16 @@ const Knowledge = () => {
           setShowCreateModal(false);
           refetch();
         }}
+      />
+
+      <EditKnowledgeModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedItemToEdit(null);
+        }}
+        onSuccess={handleEditSuccess}
+        knowledgeItem={selectedItemToEdit}
       />
 
       <UploadFileModal

@@ -17,11 +17,13 @@ import {
   Settings,
   ChevronDown,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Brain
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import CreateBotModal from '../components/bots/CreateBotModal';
+import BotKnowledgeModal from '../components/bots/BotKnowledgeModal';
 import { 
   useBots, 
   useDeleteBot, 
@@ -35,7 +37,9 @@ const Bots = () => {
   const [instanceFilter, setInstanceFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all, active, inactive
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isKnowledgeModalOpen, setIsKnowledgeModalOpen] = useState(false);
   const [editingBot, setEditingBot] = useState(null);
+  const [selectedBotForKnowledge, setSelectedBotForKnowledge] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: botsData, isLoading, error, refetch } = useBots(instanceFilter || null);
@@ -86,6 +90,11 @@ const Bots = () => {
     setIsCreateModalOpen(true);
   };
 
+  const handleManageKnowledge = (bot) => {
+    setSelectedBotForKnowledge(bot);
+    setIsKnowledgeModalOpen(true);
+  };
+
   const getBotIcon = (systemPrompt) => {
     const prompt = systemPrompt.toLowerCase();
     if (prompt.includes('venta') || prompt.includes('comercial')) {
@@ -99,21 +108,31 @@ const Bots = () => {
 
   const getStatusColor = (isActive) => {
     return isActive 
-      ? 'text-green-600 bg-green-100' 
-      : 'text-gray-600 bg-gray-100';
+      ? 'bg-green-100 text-green-800' 
+      : 'bg-gray-100 text-gray-800';
   };
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Error al cargar los bots</h3>
-            <p className="text-gray-600 mb-4">{error.message}</p>
-            <Button onClick={() => refetch()}>
-              Reintentar
-            </Button>
+      <div className="p-6">
+        <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Error al cargar los bots
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>{error.message}</p>
+              </div>
+              <div className="mt-4">
+                <Button onClick={() => refetch()}>
+                  Reintentar
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -121,83 +140,99 @@ const Bots = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Bot className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestión de Bots</h1>
-            <p className="text-gray-600">
-              {planLimits ? `${bots.length}/${planLimits.max_bots === -1 ? '∞' : planLimits.max_bots} bots` : `${bots.length} bots`}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="order-1 sm:order-2"
-            disabled={planLimits && planLimits.max_bots !== -1 && bots.length >= planLimits.max_bots}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Crear Bot
-          </Button>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Mis Bots</h1>
+          <p className="text-gray-600 mt-1">
+            Gestiona tus bots de WhatsApp con inteligencia artificial
+          </p>
           
-          {planLimits && planLimits.max_bots !== -1 && bots.length >= planLimits.max_bots && (
-            <div className="order-2 sm:order-1 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
-              Has alcanzado el límite de tu plan ({planLimits.plan})
+          {/* Plan Info */}
+          {planLimits && (
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">Bots activos:</span>
+                <span className="font-medium">
+                  {bots.filter(bot => bot.is_active).length} / {planLimits.maxActiveBots}
+                </span>
+                <div className="w-20 bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-blue-600 h-2 rounded-full"
+                    style={{ 
+                      width: `${Math.min(100, (bots.filter(bot => bot.is_active).length / planLimits.maxActiveBots) * 100)}%` 
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">Total bots:</span>
+                <span className="font-medium">
+                  {bots.length} / {planLimits.maxBots}
+                </span>
+                <div className="w-20 bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-purple-600 h-2 rounded-full"
+                    style={{ 
+                      width: `${Math.min(100, (bots.length / planLimits.maxBots) * 100)}%` 
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
+        
+        <Button 
+          onClick={() => setIsCreateModalOpen(true)}
+          disabled={planLimits && bots.length >= planLimits.maxBots}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          {planLimits && bots.length >= planLimits.maxBots ? 'Límite alcanzado' : 'Nuevo Bot'}
+        </Button>
       </div>
 
-      {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        {/* Buscar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar bots..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex-1 min-w-64">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar bots..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
-        {/* Filtro por Instancia */}
-        <div className="relative">
-          <select
-            value={instanceFilter}
-            onChange={(e) => setInstanceFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-          >
-            <option value="">Todas las instancias</option>
-            {instances.map(instance => (
-              <option key={instance.id} value={instance.id}>
-                {instance.instance_name}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-        </div>
+        {/* Instance Filter */}
+        <select
+          value={instanceFilter}
+          onChange={(e) => setInstanceFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="">Todas las instancias</option>
+          {instances.map(instance => (
+            <option key={instance.id} value={instance.id}>
+              {instance.name}
+            </option>
+          ))}
+        </select>
 
-        {/* Filtro por Estado */}
-        <div className="relative">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
-          >
-            <option value="all">Todos los estados</option>
-            <option value="active">Solo activos</option>
-            <option value="inactive">Solo inactivos</option>
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-        </div>
+        {/* Status Filter */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        >
+          <option value="all">Todos los estados</option>
+          <option value="active">Solo activos</option>
+          <option value="inactive">Solo inactivos</option>
+        </select>
 
         {/* Refresh */}
         <Button
@@ -303,6 +338,14 @@ const Bots = () => {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => handleManageKnowledge(bot)}
+                        className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                      >
+                        <Brain className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleDeleteBot(bot)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                       >
@@ -337,7 +380,7 @@ const Bots = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modals */}
       <CreateBotModal
         isOpen={isCreateModalOpen}
         onClose={() => {
@@ -349,6 +392,15 @@ const Bots = () => {
           refetch();
           setEditingBot(null);
         }}
+      />
+
+      <BotKnowledgeModal
+        isOpen={isKnowledgeModalOpen}
+        onClose={() => {
+          setIsKnowledgeModalOpen(false);
+          setSelectedBotForKnowledge(null);
+        }}
+        bot={selectedBotForKnowledge}
       />
     </div>
   );
