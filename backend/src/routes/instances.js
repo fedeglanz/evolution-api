@@ -28,6 +28,8 @@ router.get('/info', (req, res) => {
       'POST /api/instances - Crear nueva instancia',
       'GET /api/instances/:id - Obtener instancia específica',
       'PUT /api/instances/:id - Actualizar instancia existente',
+      'PUT /api/instances/:id/webhook - Actualizar URL del webhook',
+      'POST /api/instances/:id/regenerate-workflow - Regenerar workflow N8N',
       'GET /api/instances/:id/qr - Obtener código QR',
       'POST /api/instances/:id/connect - Conectar instancia',
       'GET /api/instances/:id/status - Estado de conexión',
@@ -48,20 +50,18 @@ router.get('/info', (req, res) => {
       header: 'Authorization: Bearer <token>'
     },
     businessRules: {
-      planLimits: {
-        starter: '1 instancia',
-        business: '3 instancias',
-        enterprise: 'Ilimitado'
-      },
-      instanceNaming: 'Nombres únicos por empresa, máximo 50 caracteres',
-      qrCodeExpiration: 'Los códigos QR expiran automáticamente'
+      instanceLimits: 'Limitado por plan de suscripción',
+      multiTenant: 'Aislamiento total entre empresas',
+      automation: 'Workflows N8N automáticos por instancia'
     }
   });
 });
 
+// ===== RUTAS PRINCIPALES =====
+
 /**
  * GET /api/instances
- * Listar instancias de la empresa
+ * Listar todas las instancias de la empresa actual
  */
 router.get('/', validatePagination, instanceController.getInstances);
 
@@ -100,14 +100,26 @@ router.put('/:id/sync-state', instanceController.syncInstanceState);
 router.put('/:id', validateUpdateInstance, instanceController.updateInstance);
 
 /**
+ * PUT /api/instances/:id/webhook
+ * Actualizar URL del webhook de una instancia
+ */
+router.put('/:id/webhook', instanceController.updateWebhookUrl);
+
+/**
+ * POST /api/instances/:id/regenerate-workflow
+ * Regenerar workflow N8N para una instancia
+ */
+router.post('/:id/regenerate-workflow', instanceController.regenerateWorkflow);
+
+/**
  * GET /api/instances/:id/qr
- * Obtener código QR para conexión
+ * Obtener código QR de vinculación
  */
 router.get('/:id/qr', instanceController.getQRCode);
 
 /**
  * POST /api/instances/:id/connect
- * Conectar/reconectar instancia
+ * Conectar instancia manualmente
  */
 router.post('/:id/connect', instanceController.connectInstance);
 
@@ -119,54 +131,54 @@ router.get('/:id/status', instanceController.getInstanceStatus);
 
 /**
  * DELETE /api/instances/:id
- * Eliminar instancia
+ * Eliminar instancia de WhatsApp
  */
 router.delete('/:id', instanceController.deleteInstance);
 
-// ===== BOT CONFIGURATION ROUTES =====
+// ===== RUTAS DE CONFIGURACIÓN DE BOTS =====
 
 /**
  * GET /api/instances/:id/bot-config
- * Obtener configuración del bot para una instancia
+ * Obtener configuración del bot de la instancia
  */
 router.get('/:id/bot-config', botConfigController.getBotConfig);
 
 /**
  * POST /api/instances/:id/bot-config
- * Crear configuración del bot para una instancia
+ * Crear configuración del bot para la instancia
  */
-router.post('/:id/bot-config', validateCreateBotConfig, botConfigController.updateBotConfig);
+router.post('/:id/bot-config', validateCreateBotConfig, botConfigController.createBotConfig);
 
 /**
  * PUT /api/instances/:id/bot-config
- * Actualizar configuración del bot
+ * Actualizar configuración del bot existente
  */
 router.put('/:id/bot-config', validateCreateBotConfig, botConfigController.updateBotConfig);
 
 /**
  * POST /api/instances/:id/bot-config/test
- * Probar respuesta del bot con configuración actual
+ * Probar respuesta del bot con mensaje de prueba
  */
 router.post('/:id/bot-config/test', botConfigController.testBotResponse);
 
 /**
  * POST /api/instances/:id/bot-config/reset
- * Restaurar configuración a valores por defecto
+ * Resetear configuración del bot a valores por defecto
  */
 router.post('/:id/bot-config/reset', botConfigController.resetBotConfig);
 
-// ===== MESSAGE ROUTES =====
+// ===== RUTAS DE MENSAJES =====
 
 /**
  * POST /api/instances/:id/messages/send
- * Enviar mensaje a través de WhatsApp
+ * Enviar mensaje desde la instancia
  */
 router.post('/:id/messages/send', messageController.sendMessage);
 
 /**
  * GET /api/instances/:id/messages
- * Obtener historial de mensajes
+ * Obtener historial de mensajes de la instancia
  */
-router.get('/:id/messages', messageController.getMessages);
+router.get('/:id/messages', validatePagination, messageController.getMessages);
 
 module.exports = router;

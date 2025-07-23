@@ -1,4 +1,5 @@
 const evolutionService = require('../services/evolutionService');
+const n8nService = require('../services/n8nService');
 const { pool } = require('../database');
 const config = require('../config');
 const planService = require('../services/planService');
@@ -74,7 +75,7 @@ class InstanceController {
    */
   async createInstance(req, res) {
     try {
-      const { name, description, webhook_url, webhook_events, phone_number } = req.body;
+      const { name, description, phone_number } = req.body; // Removido webhook_url - se genera automáticamente
       const companyId = req.user.companyId;
 
       // Validar datos requeridos
@@ -137,23 +138,12 @@ class InstanceController {
         cleanedName: cleanName,
         evolutionInstanceName: evolutionInstanceName
       });
-      
-      // Crear instancia en Evolution API con número de teléfono si se proporciona
-      const evolutionInstance = await evolutionService.createInstance(
-        evolutionInstanceName, 
-        webhook_url,
-        phone_number // Pasar el número de teléfono
-      );
-      
-      // Extraer datos ya parseados del evolutionService
-      const qrCodeBase64 = evolutionInstance.qrCode;
-      const pairingCode = evolutionInstance.pairingCode;
-      
-      // Guardar en base de datos
+
+      // PASO 1: Crear instancia en BD primero (necesitamos el ID para N8N)
       const dbQuery = `
         INSERT INTO whatsapp_bot.whatsapp_instances 
-        (company_id, instance_name, evolution_instance_name, status, qr_code, pairing_code, description, webhook_url, webhook_events, phone_number, created_at, updated_at) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()) 
+        (company_id, instance_name, evolution_instance_name, status, description, phone_number, created_at, updated_at) 
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) 
         RETURNING *
       `;
       
@@ -161,40 +151,136 @@ class InstanceController {
         companyId,
         name,
         evolutionInstanceName,
-        evolutionInstance.status || 'connecting',
-        qrCodeBase64, // Solo guardar el base64 limpio
-        pairingCode,  // Guardar pairing code por separado
+        'creating', // Estado inicial
         description,
-        webhook_url,
-        webhook_events ? JSON.stringify(webhook_events) : null,
-        phone_number || null // Guardar número de teléfono en BD
+        phone_number || null
       ]);
       
-      const instance = result.rows[0];
+      const dbInstance = result.rows[0];
+
+      let n8nWorkflow = null;
+      let webhookUrl = null;
+
+      try {
+        // PASO 2: Crear workflow automático en N8N
+        console.log(`[Controller] Creating N8N workflow for instance: ${dbInstance.id}`);
+        
+        n8nWorkflow = await n8nService.createWorkflowForInstance({
+          id: dbInstance.id,
+          evolution_instance_name: evolutionInstanceName,
+          instance_name: name,
+          company_id: companyId
+        });
+        
+        webhookUrl = n8nWorkflow.workflow.webhookUrl;
+        
+        console.log(`[Controller] N8N workflow created:`, {
+          workflowId: n8nWorkflow.workflow.id,
+          webhookUrl: webhookUrl
+        });
+
+      } catch (n8nError) {
+        console.error(`[Controller] N8N workflow creation failed:`, n8nError.message);
+        
+        // Si N8N falla, generar URL manual y continuar
+        webhookUrl = `${process.env.N8N_BASE_URL || 'https://n8n.tu-dominio.com'}/webhook/whatsapp-${evolutionInstanceName}`;
+        
+        console.log(`[Controller] Using fallback webhook URL: ${webhookUrl}`);
+      }
+
+      // PASO 3: Crear instancia en Evolution API con webhook automático
+      const evolutionInstance = await evolutionService.createInstance(
+        evolutionInstanceName, 
+        webhookUrl, // URL generada automáticamente
+        phone_number
+      );
+      
+      // Extraer datos ya parseados del evolutionService
+      const qrCodeBase64 = evolutionInstance.qrCode;
+      const pairingCode = evolutionInstance.pairingCode;
+
+      // PASO 4: Actualizar BD con datos completos
+      const updateQuery = `
+        UPDATE whatsapp_bot.whatsapp_instances 
+        SET 
+          status = $2,
+          qr_code = $3,
+          pairing_code = $4,
+          webhook_url = $5,
+          n8n_workflow_id = $6,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `;
+      
+      const updateResult = await pool.query(updateQuery, [
+        dbInstance.id,
+        evolutionInstance.status || 'connecting',
+        qrCodeBase64,
+        pairingCode,
+        webhookUrl,
+        n8nWorkflow?.workflow?.id || null
+      ]);
+      
+      const instance = updateResult.rows[0];
       
       res.status(201).json({
         success: true,
-        message: 'Instancia creada exitosamente',
+        message: 'Instancia creada exitosamente con workflow automático',
         data: {
           instance: {
             id: instance.id,
             name: instance.instance_name,
-            phoneNumber: instance.phone_number, // Ahora debería tener el número
+            phoneNumber: instance.phone_number,
             status: instance.status,
-            qrCode: instance.qr_code, // Base64 limpio
-            pairingCode: instance.pairing_code, // Código numérico
+            qrCode: instance.qr_code,
+            pairingCode: instance.pairing_code,
             description: instance.description,
-            webhookUrl: instance.webhook_url,
-            webhookEvents: instance.webhook_events || null,
+            webhookUrl: instance.webhook_url, // URL automática
             createdAt: instance.created_at,
             evolutionInstanceName: evolutionInstanceName,
-            supportsPairingCode: !!instance.phone_number // Basado en si tiene número guardado
+            supportsPairingCode: !!instance.phone_number,
+            // Información del workflow N8N
+            n8nWorkflow: n8nWorkflow ? {
+              id: n8nWorkflow.workflow.id,
+              name: n8nWorkflow.workflow.name,
+              isActive: n8nWorkflow.workflow.isActive,
+              createdAutomatically: true
+            } : null
           }
         }
       });
       
     } catch (error) {
       console.error('Error al crear instancia:', error);
+      
+      // Si hay error, intentar limpiar recursos creados
+      if (req.body.name) {
+        try {
+          const cleanName = req.body.name.trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/ñ/gi, 'n')
+            .replace(/[^a-zA-Z0-9\s]/g, '')
+            .replace(/\s+/g, '_')
+            .toLowerCase();
+          
+          const evolutionInstanceName = `${req.user.companyId}_${cleanName}`;
+          
+          // Intentar eliminar instancia de Evolution API si se creó
+          await evolutionService.deleteInstance(evolutionInstanceName).catch(() => {});
+          
+          // Eliminar de BD si se creó
+          await pool.query(
+            'DELETE FROM whatsapp_bot.whatsapp_instances WHERE company_id = $1 AND evolution_instance_name = $2',
+            [req.user.companyId, evolutionInstanceName]
+          ).catch(() => {});
+          
+        } catch (cleanupError) {
+          console.error('Error in cleanup:', cleanupError.message);
+        }
+      }
+      
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor',
@@ -909,6 +995,221 @@ class InstanceController {
     }
   }
 
+  /**
+   * Actualizar URL del webhook de una instancia
+   * PUT /api/instances/:id/webhook
+   */
+  async updateWebhookUrl(req, res) {
+    try {
+      const { id } = req.params;
+      const { webhook_url } = req.body;
+      const companyId = req.user.companyId;
+
+      // Validar URL del webhook
+      if (!webhook_url || !webhook_url.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'La URL del webhook es requerida'
+        });
+      }
+
+      // Validar formato de URL
+      try {
+        new URL(webhook_url);
+      } catch (urlError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Formato de URL inválido'
+        });
+      }
+
+      // Verificar que la instancia pertenece a la empresa
+      const instanceQuery = await pool.query(`
+        SELECT 
+          id, 
+          instance_name, 
+          evolution_instance_name, 
+          status,
+          webhook_url as current_webhook_url
+        FROM whatsapp_bot.whatsapp_instances 
+        WHERE id = $1 AND company_id = $2
+      `, [id, companyId]);
+
+      if (instanceQuery.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Instancia no encontrada o no tienes acceso a ella'
+        });
+      }
+
+      const instance = instanceQuery.rows[0];
+
+      console.log(`[Controller] Updating webhook URL for instance: ${instance.instance_name}`);
+      console.log(`[Controller] Current URL: ${instance.current_webhook_url}`);
+      console.log(`[Controller] New URL: ${webhook_url}`);
+
+      // Actualizar webhook en Evolution API
+      try {
+        await evolutionService.updateInstanceWebhook(
+          instance.evolution_instance_name, 
+          webhook_url
+        );
+        
+        console.log(`[Controller] Evolution API webhook updated successfully`);
+        
+      } catch (evolutionError) {
+        console.error(`[Controller] Evolution API webhook update failed:`, evolutionError.message);
+        return res.status(500).json({
+          success: false,
+          message: 'Error al actualizar webhook en Evolution API',
+          error: evolutionError.message
+        });
+      }
+
+      // Actualizar en base de datos
+      const updateQuery = `
+        UPDATE whatsapp_bot.whatsapp_instances 
+        SET webhook_url = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `;
+      
+      const result = await pool.query(updateQuery, [id, webhook_url]);
+      const updatedInstance = result.rows[0];
+
+      res.json({
+        success: true,
+        message: 'URL del webhook actualizada exitosamente',
+        data: {
+          instance: {
+            id: updatedInstance.id,
+            name: updatedInstance.instance_name,
+            webhookUrl: updatedInstance.webhook_url,
+            previousWebhookUrl: instance.current_webhook_url,
+            updatedAt: updatedInstance.updated_at
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al actualizar webhook URL:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Regenerar workflow N8N para una instancia
+   * POST /api/instances/:id/regenerate-workflow
+   */
+  async regenerateWorkflow(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+
+      // Verificar que la instancia pertenece a la empresa
+      const instanceQuery = await pool.query(`
+        SELECT 
+          id,
+          instance_name,
+          evolution_instance_name,
+          company_id,
+          n8n_workflow_id,
+          webhook_url as current_webhook_url
+        FROM whatsapp_bot.whatsapp_instances 
+        WHERE id = $1 AND company_id = $2
+      `, [id, companyId]);
+
+      if (instanceQuery.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Instancia no encontrada o no tienes acceso a ella'
+        });
+      }
+
+      const instance = instanceQuery.rows[0];
+
+      console.log(`[Controller] Regenerating N8N workflow for instance: ${instance.instance_name}`);
+
+      // Si existe workflow anterior, intentar eliminarlo
+      if (instance.n8n_workflow_id) {
+        try {
+          await n8nService.deleteWorkflow(instance.n8n_workflow_id);
+          console.log(`[Controller] Previous workflow deleted: ${instance.n8n_workflow_id}`);
+        } catch (deleteError) {
+          console.error(`[Controller] Failed to delete previous workflow:`, deleteError.message);
+          // Continuar aunque falle la eliminación
+        }
+      }
+
+      // Crear nuevo workflow
+      const n8nWorkflow = await n8nService.createWorkflowForInstance({
+        id: instance.id,
+        evolution_instance_name: instance.evolution_instance_name,
+        instance_name: instance.instance_name,
+        company_id: instance.company_id
+      });
+
+      const newWebhookUrl = n8nWorkflow.workflow.webhookUrl;
+
+      // Actualizar Evolution API con nueva URL
+      await evolutionService.updateInstanceWebhook(
+        instance.evolution_instance_name,
+        newWebhookUrl
+      );
+
+      // Actualizar en base de datos
+      const updateQuery = `
+        UPDATE whatsapp_bot.whatsapp_instances 
+        SET 
+          webhook_url = $2,
+          n8n_workflow_id = $3,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+      `;
+      
+      const result = await pool.query(updateQuery, [
+        id, 
+        newWebhookUrl, 
+        n8nWorkflow.workflow.id
+      ]);
+      
+      const updatedInstance = result.rows[0];
+
+      res.json({
+        success: true,
+        message: 'Workflow N8N regenerado exitosamente',
+        data: {
+          instance: {
+            id: updatedInstance.id,
+            name: updatedInstance.instance_name,
+            webhookUrl: updatedInstance.webhook_url,
+            previousWebhookUrl: instance.current_webhook_url,
+            n8nWorkflow: {
+              id: n8nWorkflow.workflow.id,
+              name: n8nWorkflow.workflow.name,
+              isActive: n8nWorkflow.workflow.isActive,
+              regenerated: true
+            },
+            updatedAt: updatedInstance.updated_at
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al regenerar workflow:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
   // Métodos auxiliares
 
   /**
@@ -990,5 +1291,7 @@ module.exports = {
   getInstanceStatus: instanceController.getInstanceStatus.bind(instanceController),
   deleteInstance: instanceController.deleteInstance.bind(instanceController),
   syncInstanceState: instanceController.syncInstanceState.bind(instanceController),
-  syncAllInstancesState: instanceController.syncAllInstancesState.bind(instanceController)
+  syncAllInstancesState: instanceController.syncAllInstancesState.bind(instanceController),
+  updateWebhookUrl: instanceController.updateWebhookUrl.bind(instanceController),
+  regenerateWorkflow: instanceController.regenerateWorkflow.bind(instanceController)
 };
