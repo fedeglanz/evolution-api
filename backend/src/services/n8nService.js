@@ -8,14 +8,17 @@ class N8NService {
     this.n8nApiUrl = `${this.n8nBaseUrl}/api/v1`;
     this.n8nUsername = process.env.N8N_USERNAME || 'admin';
     this.n8nPassword = process.env.N8N_PASSWORD || 'password';
+    this.n8nApiKey = process.env.N8N_API_KEY || '';
     
-    // Headers para autenticación básica
+    // Headers para autenticación N8N (API Key + Basic Auth)
     this.authHeaders = {
       'Authorization': `Basic ${Buffer.from(`${this.n8nUsername}:${this.n8nPassword}`).toString('base64')}`,
+      'X-N8N-API-KEY': this.n8nApiKey,
       'Content-Type': 'application/json'
     };
     
     console.log(`[N8N Service] Initialized with base URL: ${this.n8nBaseUrl}`);
+    console.log(`[N8N Service] API Key configured: ${this.n8nApiKey ? 'Yes' : 'No'}`);
   }
 
   /**
