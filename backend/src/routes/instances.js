@@ -146,8 +146,9 @@ router.get('/:id/bot-config', botConfigController.getBotConfig);
 /**
  * POST /api/instances/:id/bot-config
  * Crear configuración del bot para la instancia
+ * TODO: Implementar createBotConfig method en botConfigController
  */
-router.post('/:id/bot-config', validateCreateBotConfig, botConfigController.createBotConfig);
+// router.post('/:id/bot-config', validateCreateBotConfig, botConfigController.createBotConfig);
 
 /**
  * PUT /api/instances/:id/bot-config
