@@ -156,254 +156,291 @@ class N8NService {
    */
   createWorkflowTemplate(config) {
     const { instanceName, workflowName, webhookPath, companyId, instanceId } = config;
-    const backendUrl = process.env.BACKEND_URL || 'https://whatsapp-bot-backend.onrender.com';
-    const evolutionApiUrl = process.env.EVOLUTION_API_URL || 'https://evolution-api.tu-dominio.com';
-    const backendApiKey = process.env.N8N_BACKEND_API_KEY || 'n8n-backend-integration-key';
     
     return {
       name: workflowName,
       nodes: [
         {
-          id: "webhook-node",
-          name: "WhatsApp Webhook",
-          type: "n8n-nodes-base.webhook",
-          position: [100, 200],
           parameters: {
-            path: webhookPath,
             httpMethod: "POST",
-            responseMode: "responseNode"
-          }
+            path: webhookPath,
+            options: {}
+          },
+          type: "n8n-nodes-base.webhook",
+          typeVersion: 1,
+          position: [-1000, 260],
+          id: "30a246c9-043e-44d5-8ff4-595e2433cd4c",
+          name: "Webhook WhatsApp Production",
+          webhookId: "auto-generated"
         },
         {
-          id: "filter-node", 
-          name: "Filter Valid Messages",
-          type: "n8n-nodes-base.if",
-          position: [300, 200],
           parameters: {
             conditions: {
               string: [
                 {
-                  value1: "={{ $json.event }}",
-                  operation: "equal",
+                  value1: "={{ $json.body.event }}",
                   value2: "messages.upsert"
-                },
+                }
+              ],
+              boolean: [
                 {
-                  value1: "={{ $json.data?.key?.fromMe }}",
-                  operation: "equal",
-                  value2: false
-                },
-                {
-                  value1: "={{ $json.data?.key?.remoteJid }}",
-                  operation: "notContains", 
-                  value2: "@g.us"
+                  value1: "={{ $json.body.data.key.fromMe }}"
                 }
               ]
-            },
-            combineOperation: "all"
-          }
+            }
+          },
+          type: "n8n-nodes-base.if",
+          typeVersion: 1,
+          position: [-740, 260],
+          id: "42735bbe-3d11-4316-9613-809e869e0bb2",
+          name: "Filter Incoming Messages"
         },
         {
-          id: "extract-node",
-          name: "Extract Message Data", 
-          type: "n8n-nodes-base.function",
-          position: [500, 200],
           parameters: {
-            functionCode: `
-// Extraer datos del mensaje
-const messageData = $input.first().json.data;
-const phone = messageData.key.remoteJid;
-const message = messageData.message?.conversation || 
-                messageData.message?.extendedTextMessage?.text || '';
-const instance = $input.first().json.instance;
-
-return {
-  instance_key: instance,
-  from: phone, 
-  message: message,
-  message_type: 'text',
-  timestamp: new Date(messageData.messageTimestamp * 1000).toISOString(),
-  sender_name: messageData.pushName || 'Usuario',
-  message_id: messageData.key.id
-};
-            `
-          }
+            jsCode: "// Extraer datos del mensaje de WhatsApp\nconst data = $input.first().json.body;\nconst messageData = data.data;\n\n// Extraer contenido del mensaje de diferentes tipos\nlet messageContent = '';\nif (messageData.message?.conversation) {\n  messageContent = messageData.message.conversation;\n} else if (messageData.message?.extendedTextMessage?.text) {\n  messageContent = messageData.message.extendedTextMessage.text;\n} else if (messageData.message?.imageMessage?.caption) {\n  messageContent = messageData.message.imageMessage.caption || '[Imagen]';\n} else if (messageData.message?.audioMessage) {\n  messageContent = '[Audio]';\n} else if (messageData.message?.documentMessage) {\n  messageContent = messageData.message.documentMessage.fileName || '[Documento]';\n} else {\n  messageContent = '[Mensaje no compatible]';\n}\n\n// Retornar datos estructurados\nreturn {\n  // Datos básicos del mensaje\n  phone: messageData.key.remoteJid.replace('@s.whatsapp.net', ''),\n  message: messageContent,\n  instance: data.instance,\n  timestamp: data.date_time,\n  messageId: messageData.key.id,\n  senderName: messageData.pushName || 'Usuario',\n  \n  // URLs del sistema\n  evolutionApiUrl: data.server_url,\n  backendUrl: 'https://whatsapp-bot-backend-fnte.onrender.com',\n  \n  // Tipo de mensaje\n  messageType: Object.keys(messageData.message || {})[0] || 'text',\n  \n  // Para Evolution API response\n  remoteJid: messageData.key.remoteJid,\n  isGroup: messageData.key.remoteJid.includes('@g.us'),\n  \n  // Debug info\n  rawEventType: data.event,\n  hasMessage: !!messageContent\n};"
+          },
+          type: "n8n-nodes-base.code",
+          typeVersion: 1,
+          position: [-480, 160],
+          id: "2a622423-cbf5-42f9-a788-fde76a9df1bc",
+          name: "Extract Message Data"
         },
         {
-          id: "backend-node",
-          name: "Backend RAG Process",
-          type: "n8n-nodes-base.httpRequest", 
-          position: [700, 200],
           parameters: {
-            url: `${backendUrl}/api/bot/process-message`,
-            method: "POST",
-            authentication: "predefinedCredentialType",
-            nodeCredentialType: "httpHeaderAuth",
-            sendHeaders: true,
-            headerParameters: {
-              parameters: [
-                {
-                  name: "Content-Type",
-                  value: "application/json"
-                },
-                {
-                  name: "Authorization", 
-                  value: `Bearer ${backendApiKey}`
-                }
-              ]
+            authentication: "headerAuth",
+            requestMethod: "POST",
+            url: "https://whatsapp-bot-backend-fnte.onrender.com/api/bot/process-message",
+            options: {
+              timeout: 30000
             },
-            sendBody: true,
-            bodyParameters: {
-              parameters: [
+            bodyParametersUi: {
+              parameter: [
                 {
-                  name: "instance_key",
-                  value: "={{ $json.instance_key }}"
+                  name: "instance",
+                  value: "={{ $json.instance }}"
                 },
                 {
-                  name: "from",
-                  value: "={{ $json.from }}"
+                  name: "phone",
+                  value: "={{ $json.phone }}"
                 },
                 {
-                  name: "message", 
+                  name: "message",
                   value: "={{ $json.message }}"
                 },
                 {
-                  name: "message_type",
-                  value: "={{ $json.message_type }}"
+                  name: "senderName",
+                  value: "={{ $json.senderName }}"
                 },
                 {
-                  name: "timestamp",
-                  value: "={{ $json.timestamp }}"
+                  name: "messageType",
+                  value: "={{ $json.messageType }}"
+                },
+                {
+                  name: "messageId",
+                  value: "={{ $json.messageId }}"
                 }
               ]
-            },
-            options: {
-              timeout: 30000
+            }
+          },
+          type: "n8n-nodes-base.httpRequest",
+          typeVersion: 1,
+          position: [-240, 160],
+          id: "8bc15ce4-f0ae-4f76-9b9b-db104e5319ea",
+          name: "Backend: Process Message",
+          credentials: {
+            httpHeaderAuth: {
+              id: "4gqWh89TP60cGGCa",
+              name: "Evolution Backend API Key"
             }
           }
         },
         {
-          id: "check-response-node",
-          name: "Should Respond?",
-          type: "n8n-nodes-base.if",
-          position: [900, 200], 
           parameters: {
             conditions: {
               boolean: [
                 {
-                  value1: "={{ $json.data?.response !== undefined && $json.data?.response !== null && $json.data?.response !== '' }}",
-                  operation: "equal",
+                  value1: "={{ $json.shouldRespond === true }}",
                   value2: true
                 }
               ]
             }
-          }
+          },
+          type: "n8n-nodes-base.if",
+          typeVersion: 1,
+          position: [-20, 160],
+          id: "cc60979e-5fa3-4251-b767-5753caec633f",
+          name: "Should Respond?"
         },
         {
-          id: "send-response-node",
-          name: "Send WhatsApp Response",
-          type: "n8n-nodes-base.httpRequest",
-          position: [1100, 160],
           parameters: {
-            url: `${evolutionApiUrl}/message/sendText/${instanceName}`,
-            method: "POST", 
-            authentication: "predefinedCredentialType",
-            nodeCredentialType: "httpHeaderAuth",
-            sendHeaders: true,
-            headerParameters: {
-              parameters: [
-                {
-                  name: "Content-Type",
-                  value: "application/json"
-                },
-                {
-                  name: "apikey",
-                  value: process.env.EVOLUTION_API_KEY || "evolution-api-key"
-                }
-              ]
+            authentication: "headerAuth",
+            requestMethod: "POST",
+            url: "={{ $('Extract Message Data').first().json.evolutionApiUrl }}/message/sendText/{{ $('Extract Message Data').first().json.instance }}",
+            options: {
+              timeout: 15000
             },
-            sendBody: true,
-            bodyParameters: {
-              parameters: [
-                {
-                  name: "number",
-                  value: "={{ $('Extract Message Data').item.json.from }}"
-                },
+            bodyParametersUi: {
+              parameter: [
                 {
                   name: "text",
-                  value: "={{ $('Backend RAG Process').item.json.data.response }}"
-                }
-              ]
-            }
-          }
-        },
-        {
-          id: "log-analytics-node",
-          name: "Log Analytics",
-          type: "n8n-nodes-base.httpRequest",
-          position: [1300, 160],
-          parameters: {
-            url: `${backendUrl}/api/analytics/log-interaction`,
-            method: "POST",
-            authentication: "predefinedCredentialType", 
-            nodeCredentialType: "httpHeaderAuth",
-            continueOnFail: true,
-            sendBody: true,
-            bodyParameters: {
-              parameters: [
-                {
-                  name: "instance_key",
-                  value: "={{ $('Extract Message Data').item.json.instance_key }}"
+                  value: "={{ $('Backend: Process Message').first().json.response }}"
                 },
                 {
-                  name: "interaction_data",
-                  value: "={{ $('Backend RAG Process').item.json.data }}"
+                  name: "number",
+                  value: "={{ $('Extract Message Data').first().json.remoteJid }}"
                 }
               ]
+            }
+          },
+          type: "n8n-nodes-base.httpRequest",
+          typeVersion: 1,
+          position: [200, 160],
+          id: "86d53d5b-9434-4365-9013-687e87961b3a",
+          name: "Send WhatsApp Response",
+          credentials: {
+            httpHeaderAuth: {
+              id: "mxZT2f13tOsMe4c0",
+              name: "Evolution API "
             }
           }
         },
         {
-          id: "webhook-response-node",
-          name: "Webhook Response",
-          type: "n8n-nodes-base.respondToWebhook",
-          position: [1500, 200],
           parameters: {
-            respondWith: "text",
-            responseBody: "OK"
+            authentication: "headerAuth",
+            requestMethod: "POST",
+            url: "https://whatsapp-bot-backend-fnte.onrender.com/api/bot/log-interaction",
+            options: {
+              timeout: 10000
+            },
+            bodyParametersUi: {
+              parameter: [
+                {
+                  name: "instance",
+                  value: "={{ $('Extract Message Data').first().json.instance }}"
+                },
+                {
+                  name: "phone",
+                  value: "={{ $('Extract Message Data').first().json.phone }}"
+                },
+                {
+                  name: "userMessage",
+                  value: "={{ $('Extract Message Data').first().json.message }}"
+                },
+                {
+                  name: "botResponse",
+                  value: "={{ $('Backend: Process Message').first().json.response }}"
+                },
+                {
+                  name: "responseTime",
+                  value: "={{ $('Backend: Process Message').first().json.metadata?.responseTime || 0 }}"
+                },
+                {
+                  name: "tokensUsed",
+                  value: "={{ $('Backend: Process Message').first().json.metadata?.tokensUsed || 0 }}"
+                }
+              ]
+            }
+          },
+          type: "n8n-nodes-base.httpRequest",
+          typeVersion: 1,
+          position: [420, 160],
+          id: "6e364dcb-e527-4958-adb9-560a3ef074f2",
+          name: "Backend: Log Interaction",
+          credentials: {
+            httpHeaderAuth: {
+              id: "4gqWh89TP60cGGCa",
+              name: "Evolution Backend API Key"
+            }
           }
         },
         {
-          id: "no-response-node",
-          name: "No Response Needed",
-          type: "n8n-nodes-base.noOp", 
-          position: [1100, 280],
-          parameters: {}
+          parameters: {
+            jsCode: "// Log final del flujo completado\nconst extractedData = $('Extract Message Data').first().json;\nconst backendResponse = $('Backend: Process Message').first().json;\nconst whatsappResponse = $('Send WhatsApp Response').first().json;\n\nconsole.log('✅ Flujo completado exitosamente:');\nconsole.log('📱 De:', extractedData.phone, '(' + extractedData.senderName + ')');\nconsole.log('💬 Mensaje:', extractedData.message.substring(0, 50) + '...');\nconsole.log('🤖 Respuesta:', backendResponse.response.substring(0, 50) + '...');\nconsole.log('⚡ Tokens:', backendResponse.metadata?.tokensUsed || 0);\nconsole.log('⏱️ Tiempo:', backendResponse.metadata?.responseTime + 'ms');\nconsole.log('📤 Enviado vía Evolution:', whatsappResponse.message || 'OK');\n\nreturn {\n  success: true,\n  summary: {\n    phone: extractedData.phone,\n    userMessage: extractedData.message,\n    botResponse: backendResponse.response,\n    tokensUsed: backendResponse.metadata?.tokensUsed || 0,\n    responseTime: backendResponse.metadata?.responseTime || 0,\n    timestamp: new Date().toISOString()\n  }\n};"
+          },
+          type: "n8n-nodes-base.code",
+          typeVersion: 1,
+          position: [640, 160],
+          id: "4ca95340-bc3f-4a9b-83e2-6c19d8fe1481",
+          name: "Final Success Log"
         }
       ],
       connections: {
-        "WhatsApp Webhook": {
-          main: [["Filter Valid Messages"]]
+        "Webhook WhatsApp Production": {
+          main: [
+            [
+              {
+                node: "Filter Incoming Messages",
+                type: "main",
+                index: 0
+              }
+            ]
+          ]
         },
-        "Filter Valid Messages": {
-          main: [["Extract Message Data"]]
+        "Filter Incoming Messages": {
+          main: [
+            [
+              {
+                node: "Extract Message Data",
+                type: "main",
+                index: 0
+              }
+            ]
+          ]
         },
         "Extract Message Data": {
-          main: [["Backend RAG Process"]]
+          main: [
+            [
+              {
+                node: "Backend: Process Message",
+                type: "main",
+                index: 0
+              }
+            ]
+          ]
         },
-        "Backend RAG Process": {
-          main: [["Should Respond?"]]
+        "Backend: Process Message": {
+          main: [
+            [
+              {
+                node: "Should Respond?",
+                type: "main",
+                index: 0
+              }
+            ]
+          ]
         },
         "Should Respond?": {
-          main: [["Send WhatsApp Response"], ["No Response Needed"]]
+          main: [
+            [
+              {
+                node: "Send WhatsApp Response",
+                type: "main",
+                index: 0
+              }
+            ]
+          ]
         },
         "Send WhatsApp Response": {
-          main: [["Log Analytics"]]
+          main: [
+            [
+              {
+                node: "Backend: Log Interaction",
+                type: "main",
+                index: 0
+              }
+            ]
+          ]
         },
-        "Log Analytics": {
-          main: [["Webhook Response"]]
-        },
-        "No Response Needed": {
-          main: [["Webhook Response"]]
+        "Backend: Log Interaction": {
+          main: [
+            [
+              {
+                node: "Final Success Log",
+                type: "main",
+                index: 0
+              }
+            ]
+          ]
         }
       },
       settings: {
