@@ -113,9 +113,9 @@ class N8NService {
     try {
       console.log(`[N8N API] Activating workflow: ${workflowId}`);
       
-      await axios.patch(
+      await axios.post(
         `${this.n8nApiUrl}/workflows/${workflowId}/activate`,
-        { active: true },
+        {},
         { headers: this.authHeaders }
       );
       
@@ -123,6 +123,28 @@ class N8NService {
       
     } catch (error) {
       console.error(`[N8N API] Error activating workflow:`, error.response?.data);
+      throw error;
+    }
+  }
+
+  /**
+   * Desactivar workflow en N8N
+   * @param {string} workflowId - ID del workflow
+   */
+  async deactivateWorkflow(workflowId) {
+    try {
+      console.log(`[N8N API] Deactivating workflow: ${workflowId}`);
+      
+      await axios.post(
+        `${this.n8nApiUrl}/workflows/${workflowId}/deactivate`,
+        {},
+        { headers: this.authHeaders }
+      );
+      
+      console.log(`[N8N API] Workflow deactivated successfully`);
+      
+    } catch (error) {
+      console.error(`[N8N API] Error deactivating workflow:`, error.response?.data);
       throw error;
     }
   }
@@ -140,7 +162,6 @@ class N8NService {
     
     return {
       name: workflowName,
-      active: false, // Se activará después
       nodes: [
         {
           id: "webhook-node",
@@ -387,8 +408,7 @@ return {
       },
       settings: {
         executionOrder: "v1"
-      },
-      tags: [`whatsapp`, `bot`, `company-${companyId}`, `instance-${instanceId}`]
+      }
     };
   }
   

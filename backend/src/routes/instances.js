@@ -112,6 +112,18 @@ router.put('/:id/webhook', instanceController.updateWebhookUrl);
 router.post('/:id/regenerate-workflow', instanceController.regenerateWorkflow);
 
 /**
+ * POST /api/instances/:id/activate-workflow
+ * Activar automatización N8N para una instancia
+ */
+router.post('/:id/activate-workflow', instanceController.activateWorkflow);
+
+/**
+ * POST /api/instances/:id/deactivate-workflow
+ * Desactivar automatización N8N para una instancia
+ */
+router.post('/:id/deactivate-workflow', instanceController.deactivateWorkflow);
+
+/**
  * GET /api/instances/:id/qr
  * Obtener código QR de vinculación
  */

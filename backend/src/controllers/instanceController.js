@@ -1210,6 +1210,136 @@ class InstanceController {
     }
   }
 
+  /**
+   * Activar automatización N8N para una instancia
+   * POST /api/instances/:id/activate-workflow
+   */
+  async activateWorkflow(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+
+      // Verificar que la instancia pertenece a la empresa
+      const instanceQuery = await pool.query(`
+        SELECT 
+          id,
+          instance_name,
+          n8n_workflow_id,
+          webhook_url
+        FROM whatsapp_bot.whatsapp_instances 
+        WHERE id = $1 AND company_id = $2
+      `, [id, companyId]);
+
+      if (instanceQuery.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Instancia no encontrada o no tienes acceso a ella'
+        });
+      }
+
+      const instance = instanceQuery.rows[0];
+
+      if (!instance.n8n_workflow_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'La instancia no tiene un workflow N8N asignado. Regenera la automatización primero.'
+        });
+      }
+
+      console.log(`[Controller] Activating N8N workflow: ${instance.n8n_workflow_id}`);
+
+      // Activar workflow en N8N
+      await n8nService.activateWorkflow(instance.n8n_workflow_id);
+
+      res.json({
+        success: true,
+        message: 'Automatización activada exitosamente',
+        data: {
+          instance: {
+            id: instance.id,
+            name: instance.instance_name,
+            workflowId: instance.n8n_workflow_id,
+            webhookUrl: instance.webhook_url,
+            automationStatus: 'active'
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al activar workflow:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Desactivar automatización N8N para una instancia
+   * POST /api/instances/:id/deactivate-workflow
+   */
+  async deactivateWorkflow(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+
+      // Verificar que la instancia pertenece a la empresa
+      const instanceQuery = await pool.query(`
+        SELECT 
+          id,
+          instance_name,
+          n8n_workflow_id,
+          webhook_url
+        FROM whatsapp_bot.whatsapp_instances 
+        WHERE id = $1 AND company_id = $2
+      `, [id, companyId]);
+
+      if (instanceQuery.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Instancia no encontrada o no tienes acceso a ella'
+        });
+      }
+
+      const instance = instanceQuery.rows[0];
+
+      if (!instance.n8n_workflow_id) {
+        return res.status(400).json({
+          success: false,
+          message: 'La instancia no tiene un workflow N8N asignado'
+        });
+      }
+
+      console.log(`[Controller] Deactivating N8N workflow: ${instance.n8n_workflow_id}`);
+
+      // Desactivar workflow en N8N
+      await n8nService.deactivateWorkflow(instance.n8n_workflow_id);
+
+      res.json({
+        success: true,
+        message: 'Automatización desactivada exitosamente',
+        data: {
+          instance: {
+            id: instance.id,
+            name: instance.instance_name,
+            workflowId: instance.n8n_workflow_id,
+            webhookUrl: instance.webhook_url,
+            automationStatus: 'inactive'
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al desactivar workflow:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
   // Métodos auxiliares
 
   /**
@@ -1293,5 +1423,7 @@ module.exports = {
   syncInstanceState: instanceController.syncInstanceState.bind(instanceController),
   syncAllInstancesState: instanceController.syncAllInstancesState.bind(instanceController),
   updateWebhookUrl: instanceController.updateWebhookUrl.bind(instanceController),
-  regenerateWorkflow: instanceController.regenerateWorkflow.bind(instanceController)
+  regenerateWorkflow: instanceController.regenerateWorkflow.bind(instanceController),
+  activateWorkflow: instanceController.activateWorkflow.bind(instanceController),
+  deactivateWorkflow: instanceController.deactivateWorkflow.bind(instanceController)
 };
