@@ -502,7 +502,7 @@ class ScheduledMessageController {
     try {
       console.log('[ScheduledMessages] Iniciando procesamiento de mensajes programados...');
 
-      // Obtener mensajes que deben enviarse ahora
+      // Obtener mensajes que deben enviarse ahora (considerando timezone)
       const query = `
         SELECT 
           sm.*,
@@ -513,7 +513,12 @@ class ScheduledMessageController {
         LEFT JOIN whatsapp_bot.whatsapp_instances wi ON sm.instance_id = wi.id
         LEFT JOIN whatsapp_bot.contacts c ON sm.contact_id = c.id
         WHERE sm.status = 'pending' 
-        AND sm.scheduled_for <= NOW()
+        AND (
+          -- Para timezone UTC, comparar directamente
+          (sm.timezone = 'UTC' AND sm.scheduled_for <= NOW()) OR
+          -- Para otras timezones, convertir la hora actual a esa timezone y comparar
+          (sm.timezone != 'UTC' AND sm.scheduled_for <= NOW() AT TIME ZONE sm.timezone AT TIME ZONE 'UTC')
+        )
         ORDER BY sm.scheduled_for ASC
         LIMIT 50
       `;

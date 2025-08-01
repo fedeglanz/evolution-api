@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const scheduledMessageController = require('../controllers/scheduledMessageController');
 const { authenticate } = require('../middleware/auth');
+const schedulerService = require('../services/schedulerService');
 
 // Aplicar autenticación a todas las rutas
 router.use(authenticate);
@@ -19,6 +20,19 @@ router.get('/stats', scheduledMessageController.getScheduledMessagesStats);
  * @access Private
  */
 router.post('/process', scheduledMessageController.processScheduledMessages);
+
+/**
+ * @route GET /api/scheduled-messages/scheduler-status
+ * @desc Obtener estado del scheduler automático
+ * @access Private
+ */
+router.get('/scheduler-status', (req, res) => {
+  const status = schedulerService.getStatus();
+  res.json({
+    success: true,
+    scheduler: status
+  });
+});
 
 /**
  * @route GET /api/scheduled-messages

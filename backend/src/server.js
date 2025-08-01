@@ -1,6 +1,7 @@
 const app = require('./app');
 const config = require('./config');
 const database = require('./database');
+const schedulerService = require('./services/schedulerService');
 
 // Port configuration
 const PORT = config.PORT || 3000;
@@ -43,6 +44,10 @@ const startServer = async () => {
         console.log('   GET  /api/contacts - Contactos');
         console.log('   GET  /api/bot-config - Configuración del bot');
       }
+
+      // Iniciar scheduler automático de mensajes programados
+      console.log('\n🕐 Iniciando servicios automáticos...');
+      schedulerService.start();
     });
     
     // Handle server errors
@@ -82,6 +87,9 @@ const gracefulShutdown = async (signal) => {
       console.log('🔄 Cerrando conexiones HTTP...');
       
       try {
+        // Stop scheduler service
+        schedulerService.stop();
+        
         // Close database connections
         await database.close();
         console.log('✅ Conexiones de base de datos cerradas');
