@@ -569,4 +569,14 @@ class QuickReplyController {
   }
 }
 
-module.exports = new QuickReplyController(); 
+// Exportar una instancia con métodos bound
+const quickReplyController = new QuickReplyController();
+
+// Bind all methods to preserve 'this' context
+Object.getOwnPropertyNames(Object.getPrototypeOf(quickReplyController))
+  .filter(name => name !== 'constructor' && typeof quickReplyController[name] === 'function')
+  .forEach(name => {
+    quickReplyController[name] = quickReplyController[name].bind(quickReplyController);
+  });
+
+module.exports = quickReplyController; 

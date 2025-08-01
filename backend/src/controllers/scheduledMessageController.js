@@ -623,4 +623,14 @@ class ScheduledMessageController {
   }
 }
 
-module.exports = new ScheduledMessageController(); 
+// Exportar una instancia con métodos bound
+const scheduledMessageController = new ScheduledMessageController();
+
+// Bind all methods to preserve 'this' context
+Object.getOwnPropertyNames(Object.getPrototypeOf(scheduledMessageController))
+  .filter(name => name !== 'constructor' && typeof scheduledMessageController[name] === 'function')
+  .forEach(name => {
+    scheduledMessageController[name] = scheduledMessageController[name].bind(scheduledMessageController);
+  });
+
+module.exports = scheduledMessageController; 

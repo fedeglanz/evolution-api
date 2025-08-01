@@ -676,4 +676,14 @@ class MessageAttachmentController {
   }
 }
 
-module.exports = new MessageAttachmentController(); 
+// Exportar una instancia con métodos bound
+const messageAttachmentController = new MessageAttachmentController();
+
+// Bind all methods to preserve 'this' context
+Object.getOwnPropertyNames(Object.getPrototypeOf(messageAttachmentController))
+  .filter(name => name !== 'constructor' && typeof messageAttachmentController[name] === 'function')
+  .forEach(name => {
+    messageAttachmentController[name] = messageAttachmentController[name].bind(messageAttachmentController);
+  });
+
+module.exports = messageAttachmentController; 

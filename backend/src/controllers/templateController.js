@@ -26,29 +26,29 @@ class TemplateController {
       const offset = (pageNum - 1) * limitNum;
 
       // Construir query base
-      let whereClause = 'WHERE company_id = $1';
+      let whereClause = 'WHERE t.company_id = $1';
       let params = [companyId];
       let paramIndex = 2;
 
       // Filtro por búsqueda (nombre o contenido)
       if (search.trim()) {
-        whereClause += ` AND (name ILIKE $${paramIndex} OR content ILIKE $${paramIndex})`;
+        whereClause += ` AND (t.name ILIKE $${paramIndex} OR t.content ILIKE $${paramIndex})`;
         params.push(`%${search.trim()}%`);
         paramIndex++;
       }
 
       // Filtro por categoría
       if (category.trim()) {
-        whereClause += ` AND category = $${paramIndex}`;
+        whereClause += ` AND t.category = $${paramIndex}`;
         params.push(category.trim());
         paramIndex++;
       }
 
       // Filtro por estado activo
       if (is_active === 'true') {
-        whereClause += ` AND is_active = true`;
+        whereClause += ` AND t.is_active = true`;
       } else if (is_active === 'false') {
-        whereClause += ` AND is_active = false`;
+        whereClause += ` AND t.is_active = false`;
       }
 
       // Validar ordenamiento
@@ -86,7 +86,7 @@ class TemplateController {
       // Query para contar total
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM whatsapp_bot.message_templates
+        FROM whatsapp_bot.message_templates t
         ${whereClause}
       `;
 
@@ -540,4 +540,14 @@ class TemplateController {
   }
 }
 
-module.exports = new TemplateController(); 
+// Exportar una instancia con métodos bound
+const templateController = new TemplateController();
+
+// Bind all methods to preserve 'this' context
+Object.getOwnPropertyNames(Object.getPrototypeOf(templateController))
+  .filter(name => name !== 'constructor' && typeof templateController[name] === 'function')
+  .forEach(name => {
+    templateController[name] = templateController[name].bind(templateController);
+  });
+
+module.exports = templateController; 
