@@ -96,7 +96,7 @@ class ScheduledMessageController {
           sm.error_message,
           sm.created_at,
           sm.updated_at,
-          wi.name as instance_name,
+          wi.instance_name,
           c.name as contact_name,
           u.email as created_by_email
         FROM whatsapp_bot.scheduled_messages sm
@@ -167,7 +167,7 @@ class ScheduledMessageController {
       const query = `
         SELECT 
           sm.*,
-          wi.name as instance_name,
+          wi.instance_name,
           wi.evolution_instance_name,
           c.name as contact_name,
           u.email as created_by_email
