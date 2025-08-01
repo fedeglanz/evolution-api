@@ -163,20 +163,20 @@ class MessageAttachmentController {
       const offset = (pageNum - 1) * limitNum;
 
       // Construir query base
-      let whereClause = 'WHERE company_id = $1';
+      let whereClause = 'WHERE a.company_id = $1';
       let params = [companyId];
       let paramIndex = 2;
 
       // Filtro por tipo de archivo
       if (file_type.trim()) {
-        whereClause += ` AND file_type = $${paramIndex}`;
+        whereClause += ` AND a.file_type = $${paramIndex}`;
         params.push(file_type.trim());
         paramIndex++;
       }
 
       // Filtro por búsqueda (nombre original)
       if (search.trim()) {
-        whereClause += ` AND original_filename ILIKE $${paramIndex}`;
+        whereClause += ` AND a.original_filename ILIKE $${paramIndex}`;
         params.push(`%${search.trim()}%`);
         paramIndex++;
       }
@@ -214,7 +214,7 @@ class MessageAttachmentController {
       // Query para contar total
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM whatsapp_bot.message_attachments
+        FROM whatsapp_bot.message_attachments a
         ${whereClause}
       `;
 

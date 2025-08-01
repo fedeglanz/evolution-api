@@ -26,29 +26,29 @@ class QuickReplyController {
       const offset = (pageNum - 1) * limitNum;
 
       // Construir query base
-      let whereClause = 'WHERE company_id = $1';
+      let whereClause = 'WHERE q.company_id = $1';
       let params = [companyId];
       let paramIndex = 2;
 
       // Filtro por búsqueda (shortcut o mensaje)
       if (search.trim()) {
-        whereClause += ` AND (shortcut ILIKE $${paramIndex} OR message ILIKE $${paramIndex})`;
+        whereClause += ` AND (q.shortcut ILIKE $${paramIndex} OR q.message ILIKE $${paramIndex})`;
         params.push(`%${search.trim()}%`);
         paramIndex++;
       }
 
       // Filtro por categoría
       if (category.trim()) {
-        whereClause += ` AND category = $${paramIndex}`;
+        whereClause += ` AND q.category = $${paramIndex}`;
         params.push(category.trim());
         paramIndex++;
       }
 
       // Filtro por estado activo
       if (is_active === 'true') {
-        whereClause += ` AND is_active = true`;
+        whereClause += ` AND q.is_active = true`;
       } else if (is_active === 'false') {
-        whereClause += ` AND is_active = false`;
+        whereClause += ` AND q.is_active = false`;
       }
 
       // Validar ordenamiento
@@ -85,7 +85,7 @@ class QuickReplyController {
       // Query para contar total
       const countQuery = `
         SELECT COUNT(*) as total
-        FROM whatsapp_bot.quick_replies
+        FROM whatsapp_bot.quick_replies q
         ${whereClause}
       `;
 
