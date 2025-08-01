@@ -238,7 +238,7 @@ class ScheduledMessageController {
 
       // Verificar que la instancia pertenece a la empresa
       const instanceCheck = await database.query(
-        'SELECT id, name FROM whatsapp_bot.whatsapp_instances WHERE id = $1 AND company_id = $2',
+        'SELECT id, instance_name FROM whatsapp_bot.whatsapp_instances WHERE id = $1 AND company_id = $2',
         [instance_id, companyId]
       );
 
@@ -250,15 +250,39 @@ class ScheduledMessageController {
       }
 
       // Verificar que la fecha de programación sea futura
-      // Convertir la fecha programada a UTC considerando la timezone
-      const scheduledDate = new Date(scheduled_for);
-      const now = new Date();
-      
-      // Si la fecha programada es en timezone local, convertir a UTC para comparar
-      if (scheduledDate <= now) {
+      // Interpretar la fecha recibida como si fuera en la timezone especificada
+      try {
+        const scheduledDate = new Date(scheduled_for);
+        
+        // Obtener la hora actual en la timezone especificada
+        const nowInTimezone = new Date().toLocaleString('en-US', { timeZone: timezone });
+        const nowDate = new Date(nowInTimezone);
+        
+        // Agregar 1 minuto de gracia para evitar problemas de sincronización
+        const graceTime = 1 * 60 * 1000; // 1 minuto en millisegundos
+        const scheduledWithGrace = new Date(scheduledDate.getTime() - graceTime);
+        
+        console.log('Validación de fecha:', {
+          scheduled_for,
+          timezone,
+          scheduledDate: scheduledDate.toISOString(),
+          nowInTimezone,
+          nowDate: nowDate.toISOString(),
+          scheduledWithGrace: scheduledWithGrace.toISOString(),
+          isValid: scheduledWithGrace > nowDate
+        });
+        
+        if (scheduledWithGrace <= nowDate) {
+          return res.status(400).json({
+            success: false,
+            message: `La fecha de programación debe ser futura. Hora actual en ${timezone}: ${nowInTimezone}, Fecha programada: ${scheduledDate.toLocaleString('en-US', { timeZone: timezone })}`
+          });
+        }
+      } catch (error) {
+        console.error('Error validando fecha:', error);
         return res.status(400).json({
           success: false,
-          message: `La fecha de programación debe ser futura. Hora actual del servidor: ${now.toISOString()}, Fecha programada: ${scheduledDate.toISOString()}`
+          message: 'Formato de fecha o zona horaria inválido'
         });
       }
 
