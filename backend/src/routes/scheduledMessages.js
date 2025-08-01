@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const scheduledMessageController = require('../controllers/scheduledMessageController');
-const authMiddleware = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 
 // Aplicar autenticación a todas las rutas
-router.use(authMiddleware);
+router.use(authenticate);
 
 /**
  * @route GET /api/scheduled-messages/stats

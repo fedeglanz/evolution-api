@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const messageAttachmentController = require('../controllers/messageAttachmentController');
-const authMiddleware = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 
 // Aplicar autenticación a todas las rutas
-router.use(authMiddleware);
+router.use(authenticate);
 
 // Configurar multer
 const upload = messageAttachmentController.setupMulter();
