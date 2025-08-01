@@ -15,6 +15,10 @@ const planRoutes = require('./plans');
 const migrationRoutes = require('./migrations');
 const botRouter = require('./bot'); // Nueva ruta
 const webhookRoutes = require('./webhooks'); // Nuevo
+const templateRoutes = require('./templates'); // Message templates
+const quickReplyRoutes = require('./quickReplies'); // Quick replies
+const scheduledMessageRoutes = require('./scheduledMessages'); // Scheduled messages
+const attachmentRoutes = require('./attachments'); // Message attachments
 
 // Middleware de autenticación
 const { authenticateToken } = require('../middleware/auth');
@@ -233,7 +237,11 @@ router.get('/info', (req, res) => {
         plans: '/api/plans',
         migrations: '/api/migrations (solo admin)',
         workflows: '/api/workflows',
-        knowledge: '/api/knowledge'
+        knowledge: '/api/knowledge',
+        templates: '/api/templates (plantillas de mensajes)',
+        quickReplies: '/api/quick-replies (respuestas rápidas)',
+        scheduledMessages: '/api/scheduled-messages (mensajes programados)',
+        attachments: '/api/attachments (archivos multimedia)'
       }
     }
   });
@@ -252,5 +260,9 @@ router.use('/webhooks', webhookRoutes); // Nuevo - con auth
 router.use('/bot', botRouter); // Sin auth para n8n - usará API key propia
 router.use('/workflows', workflowRoutes);
 router.use('/knowledge', knowledgeRoutes);
+router.use('/templates', templateRoutes); // Message templates
+router.use('/quick-replies', quickReplyRoutes); // Quick replies
+router.use('/scheduled-messages', scheduledMessageRoutes); // Scheduled messages
+router.use('/attachments', attachmentRoutes); // Message attachments
 
 module.exports = router;
