@@ -250,10 +250,15 @@ class ScheduledMessageController {
       }
 
       // Verificar que la fecha de programación sea futura
-      if (new Date(scheduled_for) <= new Date()) {
+      // Convertir la fecha programada a UTC considerando la timezone
+      const scheduledDate = new Date(scheduled_for);
+      const now = new Date();
+      
+      // Si la fecha programada es en timezone local, convertir a UTC para comparar
+      if (scheduledDate <= now) {
         return res.status(400).json({
           success: false,
-          message: 'La fecha de programación debe ser futura'
+          message: `La fecha de programación debe ser futura. Hora actual del servidor: ${now.toISOString()}, Fecha programada: ${scheduledDate.toISOString()}`
         });
       }
 
