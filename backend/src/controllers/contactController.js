@@ -1,5 +1,6 @@
 const { pool } = require('../database');
 const config = require('../config');
+const contactSyncService = require('../services/contactSyncService');
 
 class ContactController {
 
@@ -592,6 +593,66 @@ class ContactController {
       valid: errors.length === 0,
       errors
     };
+  }
+
+  /**
+   * Sincronizar contactos desde Evolution API
+   * POST /api/contacts/sync
+   */
+  async syncContacts(req, res) {
+    try {
+      const companyId = req.user.companyId;
+
+      console.log(`[ContactController] Iniciando sincronización de contactos para empresa: ${companyId}`);
+
+      const syncResults = await contactSyncService.syncAllCompanyContacts(companyId);
+
+      res.json({
+        success: true,
+        message: 'Sincronización de contactos completada',
+        data: syncResults
+      });
+
+    } catch (error) {
+      console.error('Error al sincronizar contactos:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al sincronizar contactos',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Obtener estadísticas de sincronización
+   * GET /api/contacts/sync-stats
+   */
+  async getSyncStats(req, res) {
+    try {
+      const companyId = req.user.companyId;
+
+      const stats = await contactSyncService.getSyncStats(companyId);
+
+      res.json({
+        success: true,
+        stats: {
+          totalContacts: parseInt(stats.total_contacts || 0),
+          syncedContacts: parseInt(stats.synced_contacts || 0),
+          updatedToday: parseInt(stats.updated_today || 0),
+          lastSync: stats.last_sync,
+          syncPercentage: stats.total_contacts > 0 ? 
+            Math.round((stats.synced_contacts / stats.total_contacts) * 100) : 0
+        }
+      });
+
+    } catch (error) {
+      console.error('Error al obtener estadísticas de sincronización:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error al obtener estadísticas',
+        error: error.message
+      });
+    }
   }
 }
 

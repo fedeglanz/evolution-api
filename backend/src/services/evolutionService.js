@@ -535,6 +535,81 @@ class EvolutionService {
   }
 
   /**
+   * Obtener todos los contactos de una instancia
+   * @param {string} instanceName - Nombre de la instancia
+   * @returns {Promise<Array>} Lista de contactos
+   */
+  async getContacts(instanceName) {
+    try {
+      console.log(`[Evolution API] Getting contacts for instance: ${instanceName}`);
+
+      const response = await this.client.get(`/chat/findContacts/${instanceName}`);
+
+      if (response.data && Array.isArray(response.data)) {
+        return response.data.map(contact => ({
+          id: contact.id,
+          phone: contact.id.replace('@c.us', ''),
+          name: contact.name || contact.pushName || null,
+          pushName: contact.pushName || null,
+          profilePictureUrl: contact.profilePictureUrl || null,
+          status: contact.status || null,
+          isMyContact: contact.isMyContact || false,
+          isUser: contact.isUser || false,
+          isWAContact: contact.isWAContact || false,
+          _rawData: contact
+        }));
+      }
+
+      return [];
+
+    } catch (error) {
+      console.error(`[Evolution API] Error getting contacts for ${instanceName}:`, {
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw new Error(`Failed to get contacts: ${error.message}`);
+    }
+  }
+
+  /**
+   * Obtener foto de perfil de un contacto
+   * @param {string} instanceName - Nombre de la instancia
+   * @param {string} phoneNumber - Número de teléfono
+   * @returns {Promise<Object|null>} URL de la foto de perfil
+   */
+  async getProfilePicture(instanceName, phoneNumber) {
+    try {
+      console.log(`[Evolution API] Getting profile picture for ${phoneNumber} in instance: ${instanceName}`);
+
+      const response = await this.client.get(`/chat/getProfilePicture/${instanceName}?number=${phoneNumber}`);
+
+      if (response.data && response.data.profilePictureUrl) {
+        return {
+          url: response.data.profilePictureUrl,
+          id: response.data.id,
+          _rawData: response.data
+        };
+      }
+
+      return null;
+
+    } catch (error) {
+      // No logear como error si es 404 (contacto sin foto)
+      if (error.response?.status === 404) {
+        console.log(`[Evolution API] No profile picture found for ${phoneNumber}`);
+        return null;
+      }
+
+      console.error(`[Evolution API] Error getting profile picture for ${phoneNumber}:`, {
+        error: error.message,
+        status: error.response?.status
+      });
+      return null;
+    }
+  }
+
+  /**
    * Obtener información detallada de una instancia
    * @param {string} instanceName - Nombre de la instancia
    * @returns {Promise<Object>} Información de la instancia

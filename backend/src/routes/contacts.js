@@ -20,7 +20,9 @@ router.get('/info', (req, res) => {
       'GET /api/contacts/:id - Obtener detalle de contacto',
       'PUT /api/contacts/:id - Actualizar contacto',
       'POST /api/contacts/:id/block - Bloquear/desbloquear contacto',
-      'GET /api/contacts/:id/stats - Estadísticas del contacto'
+      'GET /api/contacts/:id/stats - Estadísticas del contacto',
+      'POST /api/contacts/sync - Sincronizar contactos desde Evolution API',
+      'GET /api/contacts/sync-stats - Estadísticas de sincronización'
     ],
     authentication: {
       required: true,
@@ -90,5 +92,17 @@ router.post('/:id/block', contactController.blockContact);
  * Obtener estadísticas de un contacto
  */
 router.get('/:id/stats', contactController.getContactStats);
+
+/**
+ * POST /api/contacts/sync
+ * Sincronizar contactos desde Evolution API
+ */
+router.post('/sync', contactController.syncContacts);
+
+/**
+ * GET /api/contacts/sync-stats
+ * Obtener estadísticas de sincronización
+ */
+router.get('/sync-stats', contactController.getSyncStats);
 
 module.exports = router;
