@@ -636,9 +636,9 @@ class ContactController {
       res.json({
         success: true,
         stats: {
-          totalContacts: parseInt(stats.total_contacts || 0),
-          syncedContacts: parseInt(stats.synced_contacts || 0),
-          updatedToday: parseInt(stats.updated_today || 0),
+          totalContacts: stats.total_contacts,
+          syncedContacts: stats.synced_contacts,
+          updatedToday: stats.updated_today,
           lastSync: stats.last_sync,
           syncPercentage: stats.total_contacts > 0 ? 
             Math.round((stats.synced_contacts / stats.total_contacts) * 100) : 0
@@ -656,4 +656,14 @@ class ContactController {
   }
 }
 
-module.exports = new ContactController();
+// Exportar una instancia con métodos bound
+const contactController = new ContactController();
+
+// Bind all methods to preserve 'this' context
+Object.getOwnPropertyNames(Object.getPrototypeOf(contactController))
+  .filter(name => name !== 'constructor' && typeof contactController[name] === 'function')
+  .forEach(name => {
+    contactController[name] = contactController[name].bind(contactController);
+  });
+
+module.exports = contactController;

@@ -267,7 +267,7 @@ class ContactSyncService {
       const statsQuery = `
         SELECT 
           COUNT(*) as total_contacts,
-          COUNT(*) FILTER (WHERE 'evolution-sync' = ANY(tags)) as synced_contacts,
+          COUNT(*) FILTER (WHERE tags IS NOT NULL AND 'evolution-sync' = ANY(tags)) as synced_contacts,
           COUNT(*) FILTER (WHERE updated_at > NOW() - INTERVAL '24 hours') as updated_today,
           MAX(updated_at) as last_sync
         FROM whatsapp_bot.contacts
@@ -275,11 +275,25 @@ class ContactSyncService {
       `;
 
       const result = await database.query(statsQuery, [companyId]);
-      return result.rows[0];
+      const stats = result.rows[0];
+      
+      // Asegurar que todos los valores sean números
+      return {
+        total_contacts: parseInt(stats.total_contacts || 0),
+        synced_contacts: parseInt(stats.synced_contacts || 0),
+        updated_today: parseInt(stats.updated_today || 0),
+        last_sync: stats.last_sync
+      };
 
     } catch (error) {
       console.error('[ContactSync] Error obteniendo estadísticas:', error);
-      throw error;
+      // Devolver estadísticas por defecto en caso de error
+      return {
+        total_contacts: 0,
+        synced_contacts: 0,
+        updated_today: 0,
+        last_sync: null
+      };
     }
   }
 }
