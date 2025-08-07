@@ -19,6 +19,7 @@ const templateRoutes = require('./templates'); // Message templates
 const quickReplyRoutes = require('./quickReplies'); // Quick replies
 const scheduledMessageRoutes = require('./scheduledMessages'); // Scheduled messages
 const attachmentRoutes = require('./attachments'); // Message attachments
+const campaignRoutes = require('./campaigns'); // WhatsApp Group Campaigns
 
 // Middleware de autenticación
 const { authenticateToken } = require('../middleware/auth');
@@ -264,5 +265,6 @@ router.use('/templates', templateRoutes); // Message templates
 router.use('/quick-replies', quickReplyRoutes); // Quick replies
 router.use('/scheduled-messages', scheduledMessageRoutes); // Scheduled messages
 router.use('/attachments', attachmentRoutes); // Message attachments
+router.use('/campaigns', campaignRoutes); // WhatsApp Group Campaigns
 
 module.exports = router;
