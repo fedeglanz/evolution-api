@@ -74,23 +74,26 @@ class CampaignService {
     try {
       const { search = '', status = '', limit = 20, offset = 0 } = filters;
 
-      let whereClause = 'WHERE c.company_id = $1';
+      // Construir condiciones WHERE y parámetros
+      let whereConditions = ['c.company_id = $1'];
       let params = [companyId];
       let paramIndex = 2;
 
       // Filtro por búsqueda
       if (search.trim()) {
-        whereClause += ` AND (c.name ILIKE $${paramIndex} OR c.description ILIKE $${paramIndex})`;
+        whereConditions.push(`(c.name ILIKE $${paramIndex} OR c.description ILIKE $${paramIndex})`);
         params.push(`%${search.trim()}%`);
         paramIndex++;
       }
 
       // Filtro por estado
       if (status.trim()) {
-        whereClause += ` AND c.status = $${paramIndex}`;
+        whereConditions.push(`c.status = $${paramIndex}`);
         params.push(status.trim());
         paramIndex++;
       }
+
+      const whereClause = 'WHERE ' + whereConditions.join(' AND ');
 
       // Query principal con estadísticas
       const query = `
@@ -108,18 +111,17 @@ class CampaignService {
         LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
-      params.push(limit, offset);
+      const queryParams = [...params, limit, offset];
+      const result = await database.query(query, queryParams);
 
-      const result = await database.query(query, params);
-
-      // Query para contar total
+      // Query para contar total (solo con los parámetros del WHERE)
       const countQuery = `
         SELECT COUNT(DISTINCT c.id) as total
         FROM whatsapp_bot.whatsapp_campaigns c
         ${whereClause}
       `;
 
-      const countResult = await database.query(countQuery, params.slice(0, paramIndex - 2));
+      const countResult = await database.query(countQuery, params);
       const total = parseInt(countResult.rows[0].total);
 
       return {
