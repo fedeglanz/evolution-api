@@ -57,26 +57,28 @@ class WhatsAppGroupService {
 
       console.log(`[WhatsAppGroup] Respuesta completa de Evolution API:`, JSON.stringify(response, null, 2));
 
-      // Manejar diferentes formatos de respuesta de Evolution API
-      if (response && (response.success !== false)) {
-        // Buscar datos del grupo en diferentes ubicaciones posibles
-        const groupData = response.group || response.data || response;
+      // Manejar formato específico de Evolution API
+      if (response && response.id) {
+        console.log(`[WhatsAppGroup] Grupo creado exitosamente: ${response.id}`);
         
-        if (groupData && (groupData.id || groupData.groupId)) {
-          const groupId = groupData.id || groupData.groupId;
-          const groupName = groupData.subject || groupData.name || groupData.groupName;
-          
-          console.log(`[WhatsAppGroup] Grupo creado exitosamente: ${groupId}`);
-          
-          return {
-            success: true,
-            groupId: groupId,
-            groupName: groupName,
-            inviteLink: null, // Se obtiene por separado
-            participants: groupData.participants || [],
-            metadata: groupData
-          };
-        }
+        return {
+          success: true,
+          groupId: response.id, // ej: "120363402385618270@g.us"
+          groupName: response.subject, // ej: "Test 02"
+          description: response.desc || null,
+          inviteLink: null, // Se obtiene por separado
+          participants: response.participants || [],
+          metadata: {
+            id: response.id,
+            subject: response.subject,
+            owner: response.owner,
+            creation: response.creation,
+            size: response.size,
+            restrict: response.restrict,
+            announce: response.announce,
+            participants: response.participants
+          }
+        };
       }
 
       // Si llegamos aquí, no pudimos extraer los datos del grupo
