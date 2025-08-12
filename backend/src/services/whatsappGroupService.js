@@ -20,11 +20,13 @@ class WhatsAppGroupService {
 
       // Preparar datos del grupo - formato Evolution API
       const groupData = {
-        subject: groupName,
-        participants: participants.length > 0 ? 
-          participants.map(phone => `${phone}@s.whatsapp.net`) : 
-          [] // Array vacío si no hay participantes
+        subject: groupName
       };
+
+      // Solo agregar participantes si hay alguno (sin @s.whatsapp.net)
+      if (participants && participants.length > 0) {
+        groupData.participants = participants;
+      }
 
       // Solo agregar descripción si no está vacía
       if (description && description.trim()) {
