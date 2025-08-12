@@ -252,20 +252,23 @@ class CampaignService {
       }
 
       const instance = instanceResult.rows[0];
+      const evolutionInstanceName = instance.evolution_instance_name || instance.instance_name;
+      
       console.log(`[Campaign] Instancia en BD:`, {
         id: instance.id,
         instance_name: instance.instance_name,
+        evolution_instance_name: evolutionInstanceName,
         status: instance.status
       });
 
       // Verificar que la instancia esté conectada en Evolution API
       try {
-        await evolutionService.getInstanceInfo(instance.instance_name);
-        console.log(`[Campaign] Instancia ${instance.instance_name} verificada en Evolution API`);
+        await evolutionService.getInstanceInfo(evolutionInstanceName);
+        console.log(`[Campaign] Instancia ${evolutionInstanceName} verificada en Evolution API`);
       } catch (evolutionError) {
-        console.error(`[Campaign] Error verificando instancia ${instance.instance_name}:`, evolutionError);
+        console.error(`[Campaign] Error verificando instancia ${evolutionInstanceName}:`, evolutionError);
         console.error(`[Campaign] Instancia esperada en Evolution API: algo como "2ea324e7-7ea7-437e-8e44-14c4002c72eb_federico_esp"`);
-        throw new Error(`Instancia no encontrada en Evolution API. BD tiene: "${instance.instance_name}", Evolution espera formato UUID_nombre`);
+        throw new Error(`Instancia no encontrada en Evolution API. BD tiene: "${instance.instance_name}", Evolution espera: "${evolutionInstanceName}"`);
       }
 
       // Obtener el siguiente número de grupo
@@ -280,7 +283,7 @@ class CampaignService {
 
       // Crear grupo en WhatsApp
       const whatsappGroup = await whatsappGroupService.createGroup(
-        instance.instance_name,
+        evolutionInstanceName,
         groupName,
         campaign.group_description || ''
       );
@@ -289,7 +292,7 @@ class CampaignService {
       let inviteLink = null;
       try {
         inviteLink = await whatsappGroupService.getGroupInviteLink(
-          instance.instance_name,
+          evolutionInstanceName,
           whatsappGroup.groupId
         );
       } catch (error) {
