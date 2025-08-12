@@ -1,6 +1,7 @@
 const campaignService = require('../services/campaignService');
 const groupBulkUpdateService = require('../services/groupBulkUpdateService');
 const database = require('../database');
+const whatsappGroupService = require('../services/whatsappGroupService');
 
 class CampaignController {
   /**
@@ -625,6 +626,137 @@ class CampaignController {
 
     } catch (error) {
       console.error('Error obteniendo estadísticas:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Obtener grupos de una campaña
+   * GET /api/campaigns/:id/groups
+   */
+  async getCampaignGroups(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+
+      // Verificar que la campaña pertenece a la empresa
+      const campaignExists = await campaignService.getCampaign(id, companyId);
+      if (!campaignExists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Campaña no encontrada'
+        });
+      }
+
+      const result = await database.query(`
+        SELECT 
+          cg.id,
+          cg.group_name,
+          cg.group_number,
+          cg.current_members,
+          cg.max_members,
+          cg.is_active_for_distribution,
+          cg.status,
+          cg.group_invite_link,
+          cg.created_at,
+          wi.instance_name,
+          wi.evolution_instance_name
+        FROM whatsapp_bot.whatsapp_campaign_groups cg
+        JOIN whatsapp_bot.whatsapp_instances wi ON cg.instance_id = wi.id
+        WHERE cg.campaign_id = $1 
+          AND cg.status = 'active'
+        ORDER BY cg.group_number
+      `, [id]);
+
+      res.json({
+        success: true,
+        data: result.rows
+      });
+
+    } catch (error) {
+      console.error('Error obteniendo grupos:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Cambiar grupo activo para distribución
+   * PUT /api/campaigns/:campaignId/groups/:groupId/active
+   */
+  async setActiveGroup(req, res) {
+    try {
+      const { campaignId, groupId } = req.params;
+      const companyId = req.user.companyId;
+
+      // Verificar que la campaña pertenece a la empresa
+      const campaignExists = await campaignService.getCampaign(campaignId, companyId);
+      if (!campaignExists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Campaña no encontrada'
+        });
+      }
+
+      // Verificar que el grupo pertenece a la campaña
+      const groupCheck = await database.query(`
+        SELECT id FROM whatsapp_bot.whatsapp_campaign_groups 
+        WHERE id = $1 AND campaign_id = $2 AND status = 'active'
+      `, [groupId, campaignId]);
+
+      if (groupCheck.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Grupo no encontrado en esta campaña'
+        });
+      }
+
+      // Desactivar todos los grupos de la campaña
+      await database.query(`
+        UPDATE whatsapp_bot.whatsapp_campaign_groups 
+        SET is_active_for_distribution = false, updated_at = NOW()
+        WHERE campaign_id = $1
+      `, [campaignId]);
+
+      // Activar el grupo seleccionado
+      await database.query(`
+        UPDATE whatsapp_bot.whatsapp_campaign_groups 
+        SET is_active_for_distribution = true, updated_at = NOW()
+        WHERE id = $1
+      `, [groupId]);
+
+      // Log del cambio
+      const logResult = await database.query(`
+        SELECT group_name FROM whatsapp_bot.whatsapp_campaign_groups WHERE id = $1
+      `, [groupId]);
+
+      const groupName = logResult.rows[0]?.group_name || 'Grupo';
+
+      await whatsappGroupService.logGroupEvent(
+        campaignId,
+        groupId,
+        'group_activated',
+        `${groupName} activado para distribución`,
+        { activatedBy: 'manual', userId: req.user.id }
+      );
+
+      res.json({
+        success: true,
+        message: `${groupName} activado para distribución`,
+        data: {
+          campaignId,
+          groupId,
+          groupName
+        }
+      });
+
+    } catch (error) {
+      console.error('Error activando grupo:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

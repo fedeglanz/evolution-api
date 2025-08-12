@@ -127,4 +127,16 @@ router.get('/:id/update-progress', campaignController.getUpdateProgress);
  */
 router.get('/:id/update-stats', campaignController.getUpdateStats);
 
+/**
+ * GET /api/campaigns/:id/groups
+ * Obtener grupos de una campaña
+ */
+router.get('/:id/groups', campaignController.getCampaignGroups);
+
+/**
+ * PUT /api/campaigns/:campaignId/groups/:groupId/active
+ * Establecer grupo activo para distribución
+ */
+router.put('/:campaignId/groups/:groupId/active', campaignController.setActiveGroup);
+
 module.exports = router; 

@@ -814,9 +814,45 @@ const CreateCampaignModal = ({ onClose, onSubmit, isLoading }) => {
 
 // Modal para detalles de campaña
 const CampaignDetailsModal = ({ campaign, onClose }) => {
+  const [groups, setGroups] = useState([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Cargar grupos de la campaña
+  useEffect(() => {
+    if (campaign?.id) {
+      loadCampaignGroups();
+    }
+  }, [campaign]);
+
+  const loadCampaignGroups = async () => {
+    try {
+      setLoadingGroups(true);
+      const response = await api.get(`/campaigns/${campaign.id}/groups`);
+      setGroups(response.data.data || []);
+    } catch (error) {
+      console.error('Error cargando grupos:', error);
+      toast.error('Error cargando grupos de la campaña');
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
+
+  const setActiveGroup = async (groupId, groupName) => {
+    try {
+      await api.put(`/campaigns/${campaign.id}/groups/${groupId}/active`);
+      toast.success(`${groupName} activado para distribución`);
+      loadCampaignGroups(); // Recargar lista
+      queryClient.invalidateQueries(['campaigns']); // Actualizar lista principal
+    } catch (error) {
+      console.error('Error activando grupo:', error);
+      toast.error('Error activando grupo');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-medium text-gray-900">{campaign.name}</h3>
@@ -825,7 +861,8 @@ const CampaignDetailsModal = ({ campaign, onClose }) => {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Información General */}
             <div>
               <h4 className="font-medium text-gray-900 mb-2">Información General</h4>
               <div className="space-y-2 text-sm">
@@ -836,6 +873,57 @@ const CampaignDetailsModal = ({ campaign, onClose }) => {
               </div>
             </div>
 
+            {/* Gestión de Grupos */}
+            <div>
+              <h4 className="font-medium text-gray-900 mb-2 flex items-center">
+                <Users className="h-4 w-4 mr-2 text-purple-600" />
+                Gestión de Grupos
+              </h4>
+              {loadingGroups ? (
+                <div className="text-sm text-gray-500">Cargando grupos...</div>
+              ) : groups.length === 0 ? (
+                <div className="text-sm text-gray-500">No hay grupos creados</div>
+              ) : (
+                <div className="space-y-2">
+                  {groups.map(group => (
+                    <div 
+                      key={group.id} 
+                      className={`p-3 rounded border ${
+                        group.is_active_for_distribution 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-sm">
+                            {group.group_name}
+                            {group.is_active_for_distribution && (
+                              <span className="ml-2 text-green-600">🟢 ACTIVO</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {group.current_members}/{group.max_members} miembros
+                          </div>
+                        </div>
+                        {!group.is_active_for_distribution && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setActiveGroup(group.id, group.group_name)}
+                            className="text-xs"
+                          >
+                            Activar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Links de Distribución */}
             <div className="space-y-6">
               {/* Link con Formulario */}
               <div>
