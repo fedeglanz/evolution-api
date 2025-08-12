@@ -12,21 +12,35 @@ class WhatsAppGroupService {
    * @param {string} groupName - Nombre del grupo
    * @param {string} description - Descripción del grupo
    * @param {string[]} participants - Array de números de teléfono (opcional)
+   * @param {string} adminPhone - Número de teléfono del admin/creador (obligatorio)
    * @returns {Promise<Object>} Información del grupo creado
    */
-  async createGroup(instanceName, groupName, description = '', participants = []) {
+  async createGroup(instanceName, groupName, description = '', participants = [], adminPhone = null) {
     try {
       console.log(`[WhatsAppGroup] Creando grupo "${groupName}" en instancia ${instanceName}`);
 
+      // Preparar lista de participantes (siempre incluir admin)
+      let allParticipants = [];
+      
+      // Agregar admin como participante obligatorio
+      if (adminPhone) {
+        allParticipants.push(adminPhone);
+      }
+      
+      // Agregar participantes adicionales (evitar duplicados)
+      if (participants && participants.length > 0) {
+        participants.forEach(phone => {
+          if (!allParticipants.includes(phone)) {
+            allParticipants.push(phone);
+          }
+        });
+      }
+
       // Preparar datos del grupo - formato Evolution API
       const groupData = {
-        subject: groupName
+        subject: groupName,
+        participants: allParticipants // Siempre enviar al menos el admin
       };
-
-      // Solo agregar participantes si hay alguno (sin @s.whatsapp.net)
-      if (participants && participants.length > 0) {
-        groupData.participants = participants;
-      }
 
       // Solo agregar descripción si no está vacía
       if (description && description.trim()) {

@@ -281,11 +281,19 @@ class CampaignService {
       // Generar nombre del grupo
       const groupName = campaign.group_name_template.replace('#{group_number}', groupNumber);
 
-      // Crear grupo en WhatsApp
+      // Crear grupo en WhatsApp (incluyendo admin como participante)
+      const adminPhone = instance.phone_number ? instance.phone_number.replace('+', '') : null;
+      
+      if (!adminPhone) {
+        throw new Error('La instancia no tiene número de teléfono configurado');
+      }
+
       const whatsappGroup = await whatsappGroupService.createGroup(
         evolutionInstanceName,
         groupName,
-        campaign.group_description || ''
+        campaign.group_description || '',
+        [], // Sin participantes adicionales por ahora
+        adminPhone // Admin obligatorio
       );
 
       // Obtener link de invitación
