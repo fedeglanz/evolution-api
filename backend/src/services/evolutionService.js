@@ -673,9 +673,18 @@ class EvolutionService {
       console.error(`[Evolution API] Error making ${method} request to ${endpoint}:`, {
         error: error.message,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
+        fullResponse: error.response
       });
-      throw error;
+      
+      // Mejorar mensaje de error con detalles específicos
+      if (error.response?.data?.message) {
+        throw new Error(`Solicitud inválida: ${JSON.stringify(error.response.data.message)}`);
+      } else if (error.response?.status === 400) {
+        throw new Error(`Solicitud inválida: Datos incorrectos`);
+      } else {
+        throw error;
+      }
     }
   }
 }
