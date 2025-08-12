@@ -785,12 +785,12 @@ class CampaignController {
       console.log(`[Manual Sync] 🔄 Iniciando sincronización manual para campaña: ${campaign.name}`);
 
       // Importar servicios necesarios
-      const groupSyncService = require('../services/groupSyncService');
+      const { syncSpecificCampaign } = require('../services/groupSyncService');
       const autoGroupService = require('../services/autoGroupService');
 
       // 1. Sincronizar todos los grupos de la campaña
       console.log(`[Manual Sync] 📊 Sincronizando grupos...`);
-      await groupSyncService.syncSpecificCampaign(id);
+      await syncSpecificCampaign(id);
 
       // 2. Verificar si hay grupos llenos y crear nuevos si es necesario
       console.log(`[Manual Sync] 🏗️ Verificando capacidad y auto-creación...`);
