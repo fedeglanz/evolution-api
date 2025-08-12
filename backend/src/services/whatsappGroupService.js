@@ -27,8 +27,8 @@ class WhatsAppGroupService {
       };
 
       const response = await evolutionService.makeRequest(
-        `/group/create/${instanceName}`,
         'POST',
+        `/group/create/${instanceName}`,
         groupData
       );
 
@@ -64,8 +64,8 @@ class WhatsAppGroupService {
       console.log(`[WhatsAppGroup] Obteniendo link de invitación para grupo ${groupId}`);
 
       const response = await evolutionService.makeRequest(
-        `/group/invite/${instanceName}`,
         'POST',
+        `/group/invite/${instanceName}`,
         { groupJid: groupId }
       );
 
@@ -90,8 +90,8 @@ class WhatsAppGroupService {
   async getGroupInfo(instanceName, groupId) {
     try {
       const response = await evolutionService.makeRequest(
-        `/group/findGroup/${instanceName}`,
         'POST',
+        `/group/findGroup/${instanceName}`,
         { groupJid: groupId }
       );
 
@@ -131,8 +131,8 @@ class WhatsAppGroupService {
       }));
 
       const response = await evolutionService.makeRequest(
-        `/group/updateParticipant/${instanceName}`,
         'POST',
+        `/group/updateParticipant/${instanceName}`,
         {
           groupJid: groupId,
           action: 'add',
@@ -169,8 +169,8 @@ class WhatsAppGroupService {
       if (updates.subject) {
         promises.push(
           evolutionService.makeRequest(
-            `/group/updateGroupSubject/${instanceName}`,
             'POST',
+            `/group/updateGroupSubject/${instanceName}`,
             {
               groupJid: groupId,
               subject: updates.subject
@@ -183,8 +183,8 @@ class WhatsAppGroupService {
       if (updates.description !== undefined) {
         promises.push(
           evolutionService.makeRequest(
-            `/group/updateGroupDescription/${instanceName}`,
             'POST',
+            `/group/updateGroupDescription/${instanceName}`,
             {
               groupJid: groupId,
               description: updates.description
@@ -218,8 +218,8 @@ class WhatsAppGroupService {
       console.log(`[WhatsAppGroup] Enviando mensaje al grupo ${groupId}`);
 
       const response = await evolutionService.makeRequest(
-        `/message/sendText/${instanceName}`,
         'POST',
+        `/message/sendText/${instanceName}`,
         {
           number: groupId,
           text: message
@@ -274,8 +274,8 @@ class WhatsAppGroupService {
       console.log(`[WhatsAppGroup] Obteniendo grupos de instancia ${instanceName}`);
 
       const response = await evolutionService.makeRequest(
-        `/group/fetchAllGroups/${instanceName}`,
-        'GET'
+        'GET',
+        `/group/fetchAllGroups/${instanceName}`
       );
 
       if (response.success && Array.isArray(response.groups)) {
