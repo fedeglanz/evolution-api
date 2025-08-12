@@ -368,6 +368,47 @@ class WhatsAppGroupService {
       // No lanzar error para no afectar el flujo principal
     }
   }
+
+  /**
+   * Agregar un participante a un grupo
+   * @param {string} instanceName - Nombre de la instancia
+   * @param {string} groupId - ID del grupo
+   * @param {string} phone - Número de teléfono del participante (sin @s.whatsapp.net)
+   * @returns {Promise<Object>} Resultado de la operación
+   */
+  async addParticipant(instanceName, groupId, phone) {
+    try {
+      console.log(`[WhatsAppGroup] Agregando participante ${phone} al grupo ${groupId}`);
+
+      // Formatear el número de teléfono (asegurar que no tenga + al inicio)
+      const formattedPhone = phone.replace(/^\+/, '');
+
+      const response = await evolutionService.makeRequest(
+        'POST',
+        `/group/updateGParticipant/${instanceName}`,
+        {
+          groupJid: groupId,
+          action: 'add',
+          participants: [formattedPhone]
+        }
+      );
+
+      console.log(`[WhatsAppGroup] Participante agregado exitosamente:`, response);
+      
+      return {
+        success: true,
+        participant: formattedPhone,
+        response: response
+      };
+
+    } catch (error) {
+      console.error(`[WhatsAppGroup] Error agregando participante:`, error);
+      
+      // Si es un error específico de WhatsApp, proporcionamos más contexto
+      const evolutionError = evolutionService.handleApiError(error);
+      throw evolutionError;
+    }
+  }
 }
 
 module.exports = new WhatsAppGroupService(); 

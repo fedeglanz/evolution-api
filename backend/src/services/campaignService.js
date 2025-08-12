@@ -551,6 +551,42 @@ class CampaignService {
         WHERE id = $1
       `, [activeGroup.group_id]);
 
+      // Intentar agregar automáticamente al grupo de WhatsApp
+      let addedToGroup = false;
+      try {
+        // Obtener información de la instancia para la invitación
+        const instanceQuery = await database.query(`
+          SELECT wi.evolution_instance_name, cg.whatsapp_group_id
+          FROM whatsapp_bot.whatsapp_instances wi
+          JOIN whatsapp_bot.whatsapp_campaign_groups cg ON wi.id = cg.instance_id
+          WHERE cg.id = $1
+        `, [activeGroup.group_id]);
+
+        if (instanceQuery.rows.length > 0) {
+          const { evolution_instance_name, whatsapp_group_id } = instanceQuery.rows[0];
+          
+          // Agregar participante al grupo
+          await whatsappGroupService.addParticipant(
+            evolution_instance_name,
+            whatsapp_group_id,
+            phone
+          );
+          
+          addedToGroup = true;
+          console.log(`[Campaign] Miembro ${phone} agregado automáticamente al grupo`);
+          
+          // Actualizar estado del miembro
+          await database.query(`
+            UPDATE whatsapp_bot.whatsapp_campaign_members 
+            SET status = 'joined', joined_at = NOW()
+            WHERE id = $1
+          `, [memberResult.rows[0].id]);
+        }
+      } catch (groupError) {
+        console.warn(`[Campaign] No se pudo agregar automáticamente al grupo: ${groupError.message}`);
+        // No lanzamos error, el usuario puede unirse manualmente con el link
+      }
+
       // Log de actividad
       await database.query(`
         INSERT INTO whatsapp_bot.whatsapp_campaign_logs 
@@ -559,17 +595,18 @@ class CampaignService {
       `, [
         activeGroup.campaign_id,
         activeGroup.group_id,
-        `Nuevo miembro registrado: ${name || phone}`,
+        `Nuevo miembro registrado: ${name || phone}${addedToGroup ? ' (agregado automáticamente)' : ' (pendiente de unión)'}`,
         JSON.stringify({
           memberId: memberResult.rows[0].id,
           phone,
           name,
           ipAddress,
-          userAgent
+          userAgent,
+          addedToGroup
         })
       ]);
 
-      console.log(`[Campaign] Miembro registrado: ${phone} en campaña ${campaignSlug}`);
+      console.log(`[Campaign] Miembro registrado: ${phone} en campaña ${campaignSlug}${addedToGroup ? ' y agregado al grupo' : ''}`);
 
       return {
         success: true,
