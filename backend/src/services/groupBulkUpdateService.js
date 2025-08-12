@@ -290,10 +290,15 @@ class GroupBulkUpdateService {
    */
   async updateGroupPicture(group, imageUrl) {
     try {
-      await axios.put(`${this.EVOLUTION_API_URL}/group/updateGroupPicture/${group.evolution_instance_name}`, {
-        groupJid: group.evolution_group_id,
+      console.log(`[BulkUpdate] 🖼️ Actualizando imagen del grupo ${group.group_name} con: ${imageUrl}`);
+      
+      // Usar el método y formato correcto según Postman collection
+      const response = await axios.post(`${this.EVOLUTION_API_URL}/group/updateGroupPicture/${group.evolution_instance_name}`, {
         image: imageUrl
       }, {
+        params: {
+          groupJid: group.evolution_group_id
+        },
         headers: {
           'apikey': this.EVOLUTION_API_KEY,
           'Content-Type': 'application/json'
@@ -301,10 +306,15 @@ class GroupBulkUpdateService {
         timeout: 20000 // Más tiempo para subida de imagen
       });
 
+      console.log(`[BulkUpdate] 📡 Respuesta de Evolution API (imagen):`, response.data);
       console.log(`[BulkUpdate] ✅ Imagen actualizada para grupo ${group.group_name}`);
 
     } catch (error) {
       console.error(`[BulkUpdate] ❌ Error actualizando imagen:`, error.message);
+      if (error.response) {
+        console.error(`[BulkUpdate] ❌ Response status:`, error.response.status);
+        console.error(`[BulkUpdate] ❌ Response data:`, error.response.data);
+      }
       throw error;
     }
   }
