@@ -199,7 +199,8 @@ class GroupSyncService {
    */
   async getGroupInfoFromEvolution(instanceName, groupId) {
     try {
-      const response = await axios.get(`${this.EVOLUTION_API_URL}/group/findGroup/${instanceName}`, {
+      // Usar el endpoint correcto: findGroupInfos en lugar de findGroup
+      const response = await axios.get(`${this.EVOLUTION_API_URL}/group/findGroupInfos/${instanceName}`, {
         params: {
           groupJid: groupId
         },
@@ -209,11 +210,20 @@ class GroupSyncService {
         timeout: 10000
       });
 
+      console.log(`[GroupSync] 📊 Respuesta de Evolution API para grupo ${groupId}:`, JSON.stringify(response.data, null, 2));
+
       if (response.data) {
+        // Manejar diferentes formatos de respuesta
+        const groupData = response.data;
+        const participantsCount = groupData.size || 
+                                 groupData.participants?.length || 
+                                 groupData.participantsCount || 
+                                 0;
+
         return {
-          participantsCount: response.data.size || response.data.participants?.length || 0,
-          participants: response.data.participants || [],
-          groupInfo: response.data
+          participantsCount,
+          participants: groupData.participants || [],
+          groupInfo: groupData
         };
       }
 
