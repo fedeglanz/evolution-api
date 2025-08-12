@@ -437,7 +437,7 @@ async function syncSpecificCampaign(campaignId) {
       SELECT 
         cg.id,
         cg.group_name,
-        cg.group_jid,
+        cg.evolution_group_id,
         cg.current_members,
         cg.max_members,
         cg.is_active_for_distribution,
@@ -466,7 +466,7 @@ async function syncSpecificCampaign(campaignId) {
         console.log(`[GroupSync] 🔄 Sincronizando: ${group.group_name}`);
 
         // Obtener info actualizada del grupo desde Evolution API
-        const groupInfo = await getGroupInfoFromEvolution(group.group_jid, group.evolution_instance_name);
+        const groupInfo = await getGroupInfoFromEvolution(group.evolution_group_id, group.evolution_instance_name);
         
         if (groupInfo && typeof groupInfo.size === 'number') {
           const currentMembers = groupInfo.size;
