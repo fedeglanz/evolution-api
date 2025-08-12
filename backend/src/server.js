@@ -2,7 +2,7 @@ const app = require('./app');
 const config = require('./config');
 const database = require('./database');
 const schedulerService = require('./services/schedulerService');
-const groupSyncService = require('./services/groupSyncService');
+const groupSyncService = require('./services/groupSyncService').default;
 
 // Port configuration
 const PORT = config.PORT || 3000;

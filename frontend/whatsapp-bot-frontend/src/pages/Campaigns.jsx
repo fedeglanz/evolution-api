@@ -138,6 +138,22 @@ const Campaigns = () => {
     refetchInterval: 2000, // Actualizar cada 2 segundos
   });
 
+  // Mutación para sincronización manual
+  const syncCampaignMutation = useMutation({
+    mutationFn: (campaignId) => api.post(`/campaigns/${campaignId}/sync`),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries(['campaigns']);
+      const data = response.data.data;
+      toast.success(
+        `Sincronización completada: ${data.stats.totalGroups} grupos, ${data.stats.totalMembers} miembros totales`
+      );
+    },
+    onError: (error) => {
+      console.error('Error sincronizando campaña:', error);
+      toast.error('Error en la sincronización');
+    }
+  });
+
   const campaigns = campaignsData?.data || [];
   const pagination = campaignsData?.pagination || {};
   const instances = instancesData?.data || [];
@@ -460,6 +476,18 @@ const Campaigns = () => {
                         title="Editar campaña y grupos"
                       >
                         <Edit className="h-4 w-4" />
+                      </Button>
+
+                      {/* Botón de Sincronización Manual */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => syncCampaignMutation.mutate(campaign.id)}
+                        disabled={syncCampaignMutation.isLoading}
+                        title="Sincronizar estado de grupos y verificar capacidad"
+                        className="text-purple-600 hover:text-purple-700"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${syncCampaignMutation.isLoading ? 'animate-spin' : ''}`} />
                       </Button>
 
                       {campaign.status === 'draft' && (

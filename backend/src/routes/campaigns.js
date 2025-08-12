@@ -139,4 +139,10 @@ router.get('/:id/groups', campaignController.getCampaignGroups);
  */
 router.put('/:campaignId/groups/:groupId/active', campaignController.setActiveGroup);
 
+/**
+ * POST /api/campaigns/:id/sync
+ * Sincronización manual de campaña
+ */
+router.post('/:id/sync', campaignController.syncCampaign);
+
 module.exports = router; 

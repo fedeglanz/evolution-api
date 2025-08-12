@@ -763,6 +763,106 @@ class CampaignController {
       });
     }
   }
+
+  /**
+   * Sincronización manual de campaña
+   * POST /api/campaigns/:id/sync
+   */
+  async syncCampaign(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+
+      // Verificar que la campaña pertenece a la empresa
+      const campaign = await campaignService.getCampaign(id, companyId);
+      if (!campaign) {
+        return res.status(404).json({
+          success: false,
+          message: 'Campaña no encontrada'
+        });
+      }
+
+      console.log(`[Manual Sync] 🔄 Iniciando sincronización manual para campaña: ${campaign.name}`);
+
+      // Importar servicios necesarios
+      const groupSyncService = require('../services/groupSyncService');
+      const autoGroupService = require('../services/autoGroupService');
+
+      // 1. Sincronizar todos los grupos de la campaña
+      console.log(`[Manual Sync] 📊 Sincronizando grupos...`);
+      await groupSyncService.syncSpecificCampaign(id);
+
+      // 2. Verificar si hay grupos llenos y crear nuevos si es necesario
+      console.log(`[Manual Sync] 🏗️ Verificando capacidad y auto-creación...`);
+      const autoResult = await autoGroupService.checkAndCreateNewGroups();
+
+      // 3. Obtener estadísticas actualizadas
+      const updatedGroups = await database.query(`
+        SELECT 
+          cg.id,
+          cg.group_name,
+          cg.current_members,
+          cg.max_members,
+          cg.is_active_for_distribution,
+          cg.status,
+          CASE 
+            WHEN cg.current_members >= cg.max_members THEN true 
+            ELSE false 
+          END as is_full
+        FROM whatsapp_bot.whatsapp_campaign_groups cg
+        WHERE cg.campaign_id = $1 AND cg.status = 'active'
+        ORDER BY cg.group_number
+      `, [id]);
+
+      const totalGroups = updatedGroups.rows.length;
+      const fullGroups = updatedGroups.rows.filter(g => g.is_full).length;
+      const activeGroup = updatedGroups.rows.find(g => g.is_active_for_distribution);
+      const totalMembers = updatedGroups.rows.reduce((sum, g) => sum + (g.current_members || 0), 0);
+
+      // 4. Log del resultado
+      await campaignService.logCampaignEvent(
+        id,
+        null,
+        'manual_sync',
+        `Sincronización manual completada`,
+        {
+          totalGroups,
+          fullGroups,
+          totalMembers,
+          activeGroup: activeGroup?.group_name || 'Ninguno',
+          autoCreationResult: autoResult,
+          syncedBy: req.user.id
+        }
+      );
+
+      console.log(`[Manual Sync] ✅ Sincronización completada para campaña: ${campaign.name}`);
+
+      res.json({
+        success: true,
+        message: 'Sincronización completada exitosamente',
+        data: {
+          campaignId: id,
+          campaignName: campaign.name,
+          stats: {
+            totalGroups,
+            fullGroups,
+            totalMembers,
+            activeGroup: activeGroup?.group_name || 'Ninguno'
+          },
+          autoCreation: autoResult,
+          groups: updatedGroups.rows
+        }
+      });
+
+    } catch (error) {
+      console.error('[Manual Sync] ❌ Error en sincronización manual:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error en la sincronización',
+        error: error.message
+      });
+    }
+  }
 }
 
 // Exportar una instancia con métodos bound

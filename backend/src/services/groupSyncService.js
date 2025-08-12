@@ -424,4 +424,102 @@ class GroupSyncService {
   }
 }
 
-module.exports = new GroupSyncService(); 
+/**
+ * Sincronizar una campaña específica (para uso manual)
+ * @param {string} campaignId - ID de la campaña a sincronizar
+ */
+async function syncSpecificCampaign(campaignId) {
+  try {
+    console.log(`[GroupSync] 🎯 Sincronizando campaña específica: ${campaignId}`);
+
+    // Obtener grupos activos de la campaña
+    const result = await database.query(`
+      SELECT 
+        cg.id,
+        cg.group_name,
+        cg.group_jid,
+        cg.current_members,
+        cg.max_members,
+        cg.is_active_for_distribution,
+        wi.evolution_instance_name,
+        c.name as campaign_name
+      FROM whatsapp_bot.whatsapp_campaign_groups cg
+      JOIN whatsapp_bot.whatsapp_instances wi ON cg.instance_id = wi.id
+      JOIN whatsapp_bot.whatsapp_campaigns c ON cg.campaign_id = c.id
+      WHERE cg.campaign_id = $1 AND cg.status = 'active'
+      ORDER BY cg.group_number
+    `, [campaignId]);
+
+    if (result.rows.length === 0) {
+      console.log(`[GroupSync] ⚠️ No hay grupos activos para la campaña ${campaignId}`);
+      return { synced: 0, errors: 0 };
+    }
+
+    console.log(`[GroupSync] 📊 Encontrados ${result.rows.length} grupos para sincronizar`);
+
+    let syncedCount = 0;
+    let errorCount = 0;
+
+    // Sincronizar cada grupo
+    for (const group of result.rows) {
+      try {
+        console.log(`[GroupSync] 🔄 Sincronizando: ${group.group_name}`);
+
+        // Obtener info actualizada del grupo desde Evolution API
+        const groupInfo = await getGroupInfoFromEvolution(group.group_jid, group.evolution_instance_name);
+        
+        if (groupInfo && typeof groupInfo.size === 'number') {
+          const currentMembers = groupInfo.size;
+          const previousMembers = group.current_members || 0;
+
+          // Actualizar en base de datos
+          await database.query(`
+            UPDATE whatsapp_bot.whatsapp_campaign_groups 
+            SET current_members = $1, updated_at = NOW() 
+            WHERE id = $2
+          `, [currentMembers, group.id]);
+
+          console.log(`[GroupSync] ✅ ${group.group_name}: ${previousMembers} → ${currentMembers} miembros`);
+
+          // Log si está cerca del límite
+          if (currentMembers >= group.max_members) {
+            console.log(`[GroupSync] ⚠️ ${group.group_name} está lleno (${currentMembers}/${group.max_members})`);
+          }
+
+          syncedCount++;
+        } else {
+          console.log(`[GroupSync] ❌ No se pudo obtener info de: ${group.group_name}`);
+          errorCount++;
+        }
+
+        // Delay humanizado entre grupos
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      } catch (error) {
+        console.error(`[GroupSync] ❌ Error sincronizando ${group.group_name}:`, error.message);
+        errorCount++;
+      }
+    }
+
+    console.log(`[GroupSync] ✅ Sincronización específica completada: ${syncedCount} exitosos, ${errorCount} errores`);
+    
+    return { 
+      synced: syncedCount, 
+      errors: errorCount,
+      totalGroups: result.rows.length,
+      campaignName: result.rows[0]?.campaign_name || 'Desconocida'
+    };
+
+  } catch (error) {
+    console.error('[GroupSync] ❌ Error en sincronización específica:', error);
+    throw error;
+  }
+}
+
+module.exports = {
+  GroupSyncService,
+  syncSpecificCampaign
+};
+
+// Mantener compatibilidad con imports existentes
+module.exports.default = new GroupSyncService(); 
