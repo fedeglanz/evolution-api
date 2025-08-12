@@ -251,6 +251,11 @@ class CampaignService {
       }
 
       const instance = instanceResult.rows[0];
+      console.log(`[Campaign] Instancia en BD:`, {
+        id: instance.id,
+        instance_name: instance.instance_name,
+        status: instance.status
+      });
 
       // Verificar que la instancia esté conectada en Evolution API
       try {
@@ -258,7 +263,8 @@ class CampaignService {
         console.log(`[Campaign] Instancia ${instance.instance_name} verificada en Evolution API`);
       } catch (evolutionError) {
         console.error(`[Campaign] Error verificando instancia ${instance.instance_name}:`, evolutionError);
-        throw new Error(`Instancia no encontrada en Evolution API: ${evolutionError.message}`);
+        console.error(`[Campaign] Instancia esperada en Evolution API: algo como "2ea324e7-7ea7-437e-8e44-14c4002c72eb_federico_esp"`);
+        throw new Error(`Instancia no encontrada en Evolution API. BD tiene: "${instance.instance_name}", Evolution espera formato UUID_nombre`);
       }
 
       // Obtener el siguiente número de grupo
