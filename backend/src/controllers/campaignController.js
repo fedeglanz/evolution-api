@@ -423,6 +423,65 @@ class CampaignController {
       });
     }
   }
+
+  /**
+   * Obtener link directo al grupo activo (sin formulario)
+   * GET /api/campaigns/direct/:slug
+   */
+  async getDirectGroupLink(req, res) {
+    try {
+      const { slug } = req.params;
+
+      // Obtener grupo activo
+      const activeGroup = await campaignService.getActiveGroupForDistribution(slug);
+
+      if (!activeGroup) {
+        return res.status(404).json({
+          success: false,
+          message: 'No hay grupos disponibles para esta campaña'
+        });
+      }
+
+      // Verificar si el grupo está lleno
+      if (activeGroup.current_members >= activeGroup.max_members) {
+        // TODO: Implementar creación automática de nuevo grupo
+        return res.status(503).json({
+          success: false,
+          message: 'Grupo lleno. Pronto abriremos un nuevo grupo.'
+        });
+      }
+
+      // Log de acceso directo
+      await campaignService.logCampaignEvent(
+        activeGroup.campaign_id,
+        activeGroup.group_id,
+        'direct_access',
+        'Acceso directo al grupo solicitado',
+        {
+          userAgent: req.headers['user-agent'],
+          ipAddress: req.ip,
+          timestamp: new Date().toISOString()
+        }
+      );
+
+      // Redirigir directamente al grupo de WhatsApp
+      if (activeGroup.group_invite_link) {
+        res.redirect(302, activeGroup.group_invite_link);
+      } else {
+        res.status(503).json({
+          success: false,
+          message: 'Link de invitación no disponible temporalmente'
+        });
+      }
+
+    } catch (error) {
+      console.error('Error obteniendo link directo:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
 }
 
 // Exportar una instancia con métodos bound

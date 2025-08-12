@@ -621,6 +621,27 @@ class CampaignService {
       throw error;
     }
   }
+
+  /**
+   * Registrar evento de campaña
+   * @param {string} campaignId - ID de la campaña
+   * @param {string} groupId - ID del grupo
+   * @param {string} eventType - Tipo de evento
+   * @param {string} description - Descripción del evento
+   * @param {Object} metadata - Metadatos adicionales
+   */
+  async logCampaignEvent(campaignId, groupId, eventType, description, metadata = {}) {
+    try {
+      await database.query(`
+        INSERT INTO whatsapp_bot.whatsapp_campaign_logs 
+        (campaign_id, group_id, event_type, description, metadata)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [campaignId, groupId, eventType, description, JSON.stringify(metadata)]);
+    } catch (error) {
+      console.error('[Campaign] Error logging evento:', error);
+      // No lanzar error para no afectar el flujo principal
+    }
+  }
 }
 
 module.exports = new CampaignService(); 

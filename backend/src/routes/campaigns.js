@@ -54,6 +54,12 @@ router.get('/public/:slug', campaignController.getPublicCampaign);
  */
 router.post('/public/:slug/register', campaignController.registerMember);
 
+/**
+ * GET /api/campaigns/direct/:slug
+ * Redirigir directamente al grupo de WhatsApp activo
+ */
+router.get('/direct/:slug', campaignController.getDirectGroupLink);
+
 // =====================================================
 // RUTAS PRIVADAS (CON AUTENTICACIÓN)
 // =====================================================
