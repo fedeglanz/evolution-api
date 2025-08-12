@@ -1,5 +1,6 @@
 const database = require('../database');
 const whatsappGroupService = require('./whatsappGroupService');
+const evolutionService = require('./evolutionService');
 
 class CampaignService {
   constructor() {
