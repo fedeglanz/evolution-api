@@ -379,7 +379,7 @@ class CampaignService {
         JOIN whatsapp_bot.whatsapp_campaign_groups cg ON c.id = cg.campaign_id
         JOIN whatsapp_bot.whatsapp_instances wi ON cg.instance_id = wi.id
         WHERE c.distributor_slug = $1 
-          AND c.status = 'active'
+          AND c.status IN ('active', 'draft')
           AND cg.status = 'active'
           AND cg.is_active_for_distribution = true
           AND cg.current_members < cg.max_members
