@@ -25,7 +25,8 @@ class CampaignService {
         autoCreateNewGroups = true,
         distributorTitle,
         distributorWelcomeMessage,
-        onlyAdminsCanSend = false
+        onlyAdminsCanSend = false,
+        syncIntervalSeconds = 30
       } = campaignData;
 
       // Generar slug único
@@ -36,8 +37,8 @@ class CampaignService {
           company_id, name, description, group_name_template, group_description,
           group_image_url, max_members_per_group, auto_create_new_groups,
           distributor_slug, distributor_title, distributor_welcome_message,
-          only_admins_can_send
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          only_admins_can_send, sync_interval_seconds
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `;
 
@@ -45,7 +46,7 @@ class CampaignService {
         companyId, name, description, groupNameTemplate, groupDescription,
         groupImageUrl, maxMembersPerGroup, autoCreateNewGroups,
         distributorSlug, distributorTitle, distributorWelcomeMessage,
-        onlyAdminsCanSend
+        onlyAdminsCanSend, syncIntervalSeconds
       ];
 
       const result = await database.query(query, values);

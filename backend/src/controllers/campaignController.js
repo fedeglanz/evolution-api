@@ -20,7 +20,8 @@ class CampaignController {
         autoCreateNewGroups,
         distributorTitle,
         distributorWelcomeMessage,
-        onlyAdminsCanSend
+        onlyAdminsCanSend,
+        syncIntervalSeconds
       } = req.body;
 
       // Validaciones
@@ -49,7 +50,8 @@ class CampaignController {
         autoCreateNewGroups: autoCreateNewGroups !== false,
         distributorTitle: distributorTitle?.trim() || `Únete a ${name.trim()}`,
         distributorWelcomeMessage: distributorWelcomeMessage?.trim() || `Bienvenido a ${name.trim()}`,
-        onlyAdminsCanSend: onlyAdminsCanSend !== false // Assuming onlyAdminsCanSend is a boolean
+        onlyAdminsCanSend: onlyAdminsCanSend !== false, // Assuming onlyAdminsCanSend is a boolean
+        syncIntervalSeconds: parseInt(syncIntervalSeconds) || 300 // Default to 5 minutes
       };
 
       const campaign = await campaignService.createCampaign(campaignData);

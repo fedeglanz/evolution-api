@@ -375,6 +375,11 @@ class GroupBulkUpdateService {
         values.push(updates.only_admins);
       }
 
+      if (updates.sync_interval_seconds !== undefined) {
+        updateFields.push(`sync_interval_seconds = $${paramIndex++}`);
+        values.push(updates.sync_interval_seconds);
+      }
+
       if (updateFields.length > 0) {
         updateFields.push(`updated_at = NOW()`);
         values.push(campaignId);
@@ -387,6 +392,13 @@ class GroupBulkUpdateService {
 
         await database.query(query, values);
         console.log(`[BulkUpdate] ✅ Campaña actualizada en DB`);
+        
+        // Aplicar configuración de sync automáticamente
+        if (updates.sync_interval_seconds !== undefined) {
+          const groupSyncService = require('./groupSyncService');
+          groupSyncService.setCampaignSyncInterval(campaignId, updates.sync_interval_seconds);
+          console.log(`[BulkUpdate] ⚙️ Configuración de sync aplicada: ${updates.sync_interval_seconds} segundos`);
+        }
       }
 
     } catch (error) {

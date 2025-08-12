@@ -178,7 +178,8 @@ const Campaigns = () => {
       only_admins: campaign.only_admins_can_send || false,
       max_members_per_group: campaign.max_members_per_group || 950,
       group_description: campaign.group_description || '',
-      group_image_url: campaign.group_image_url || ''
+      group_image_url: campaign.group_image_url || '',
+      sync_interval_seconds: campaign.sync_interval_seconds || 30
     });
     setShowEditModal(true);
   };
@@ -193,7 +194,8 @@ const Campaigns = () => {
       group_description: formData.group_description,
       only_admins: formData.only_admins,
       max_members_per_group: parseInt(formData.max_members_per_group),
-      group_image_url: formData.group_image_url
+      group_image_url: formData.group_image_url,
+      sync_interval_seconds: parseInt(formData.sync_interval_seconds)
     };
 
     // Filtrar solo campos que han cambiado
@@ -592,7 +594,8 @@ const CreateCampaignModal = ({ onClose, onSubmit, isLoading }) => {
     distributorTitle: '',
     distributorWelcomeMessage: '',
     groupImageUrl: '',
-    onlyAdminsCanSend: false
+    onlyAdminsCanSend: false,
+    sync_interval_seconds: 30
   });
 
   const handleSubmit = (e) => {
@@ -741,6 +744,26 @@ const CreateCampaignModal = ({ onClose, onSubmit, isLoading }) => {
               </label>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ⏱️ Frecuencia de Sincronización
+              </label>
+              <select
+                value={formData.sync_interval_seconds}
+                onChange={(e) => setFormData(prev => ({ ...prev, sync_interval_seconds: parseInt(e.target.value) || 30 }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={5}>🔥 Campaña Viral - Cada 5 segundos</option>
+                <option value={10}>🚀 Campaña Activa - Cada 10 segundos</option>
+                <option value={30}>📊 Campaña Normal - Cada 30 segundos</option>
+                <option value={60}>😴 Campaña Lenta - Cada 1 minuto</option>
+                <option value={300}>🐌 Campaña Muy Lenta - Cada 5 minutos</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Controla qué tan rápido se detectan nuevos miembros
+              </p>
+            </div>
+
             <div className="flex items-center">
               <input
                 type="checkbox"
@@ -753,15 +776,35 @@ const CreateCampaignModal = ({ onClose, onSubmit, isLoading }) => {
                 Crear automáticamente nuevos grupos cuando se llene uno
               </label>
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={onClose} type="button">
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? 'Creando...' : 'Crear Campaña'}
-            </Button>
+            {/* Advertencia */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-amber-900">Actualización Masiva</h4>
+                  <p className="text-sm text-amber-700 mt-1">
+                    Los cambios se aplicarán a <strong>todos los grupos</strong> de esta campaña.
+                    El proceso puede tomar varios minutos y se ejecutará en segundo plano.
+                  </p>
+                  <div className="mt-2 text-xs text-amber-600">
+                    • Se aplicarán delays humanizados entre grupos<br/>
+                    • Recibirás notificaciones del progreso<br/>
+                    • Los errores se registrarán individualmente
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex justify-end space-x-3">
+              <Button variant="outline" onClick={onClose} type="button">
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Creando...' : 'Crear Campaña'}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
@@ -915,7 +958,8 @@ const EditCampaignModal = ({ isOpen, onClose, campaign, onSubmit, isLoading, upd
     group_description: '',
     only_admins: false,
     max_members_per_group: 950,
-    group_image_url: ''
+    group_image_url: '',
+    sync_interval_seconds: 30
   });
 
   // Inicializar formulario cuando cambia la campaña
@@ -927,7 +971,8 @@ const EditCampaignModal = ({ isOpen, onClose, campaign, onSubmit, isLoading, upd
         group_description: campaign.group_description || '',
         only_admins: campaign.only_admins || false,
         max_members_per_group: campaign.max_members_per_group || 950,
-        group_image_url: campaign.group_image_url || ''
+        group_image_url: campaign.group_image_url || '',
+        sync_interval_seconds: campaign.sync_interval_seconds || 30
       });
     }
   }, [campaign]);
@@ -1095,6 +1140,34 @@ const EditCampaignModal = ({ isOpen, onClose, campaign, onSubmit, isLoading, upd
               <p className="text-xs text-gray-500 mt-1">
                 Se actualizará la imagen en todos los grupos existentes
               </p>
+            </div>
+
+            {/* Intervalo de sincronización */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ⏱️ Frecuencia de Sincronización
+              </label>
+              <select
+                value={formData.sync_interval_seconds}
+                onChange={(e) => handleChange('sync_interval_seconds', parseInt(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={5}>🔥 Campaña Viral - Cada 5 segundos</option>
+                <option value={10}>🚀 Campaña Activa - Cada 10 segundos</option>
+                <option value={30}>📊 Campaña Normal - Cada 30 segundos</option>
+                <option value={60}>😴 Campaña Lenta - Cada 1 minuto</option>
+                <option value={300}>🐌 Campaña Muy Lenta - Cada 5 minutos</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Controla qué tan rápido se detectan nuevos miembros y se crean grupos automáticamente
+              </p>
+              <div className="mt-2 text-xs">
+                <div className="flex items-center space-x-4">
+                  <span className="text-green-600">🔥 Viral: Cientos de usuarios/hora</span>
+                  <span className="text-blue-600">📊 Normal: Decenas de usuarios/hora</span>
+                  <span className="text-gray-600">😴 Lenta: Pocos usuarios/día</span>
+                </div>
+              </div>
             </div>
 
             {/* Advertencia */}
