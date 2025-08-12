@@ -1,5 +1,6 @@
 const axios = require('axios');
 const database = require('../database');
+const autoGroupService = require('./autoGroupService');
 
 class GroupSyncService {
   constructor() {
@@ -93,6 +94,16 @@ class GroupSyncService {
       }
 
       console.log(`[GroupSync] ✅ Sincronización completada: ${syncedCount} actualizados, ${errorCount} errores`);
+
+      // Verificar si hay grupos que necesitan auto-creación
+      if (syncedCount > 0) {
+        console.log('[GroupSync] 🔄 Verificando necesidad de auto-creación de grupos...');
+        try {
+          await autoGroupService.checkAndCreateNewGroups();
+        } catch (error) {
+          console.error('[GroupSync] ❌ Error en auto-creación de grupos:', error);
+        }
+      }
 
     } catch (error) {
       console.error('[GroupSync] ❌ Error en sincronización general:', error);
