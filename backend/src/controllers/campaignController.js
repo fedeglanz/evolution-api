@@ -1,4 +1,6 @@
 const campaignService = require('../services/campaignService');
+const groupBulkUpdateService = require('../services/groupBulkUpdateService');
+const database = require('../database');
 
 class CampaignController {
   /**
@@ -476,6 +478,149 @@ class CampaignController {
 
     } catch (error) {
       console.error('Error obteniendo link directo:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Actualizar campaña y todos sus grupos
+   * PUT /api/campaigns/:id
+   */
+  async updateCampaign(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+      const updates = req.body;
+
+      // Verificar que la campaña pertenece a la empresa
+      const campaignExists = await campaignService.getCampaign(id, companyId);
+      if (!campaignExists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Campaña no encontrada'
+        });
+      }
+
+      // Validaciones básicas
+      if (updates.name && updates.name.trim().length < 3) {
+        return res.status(400).json({
+          success: false,
+          message: 'El nombre debe tener al menos 3 caracteres'
+        });
+      }
+
+      if (updates.max_members_per_group && (updates.max_members_per_group < 5 || updates.max_members_per_group > 1000)) {
+        return res.status(400).json({
+          success: false,
+          message: 'El máximo de miembros debe estar entre 5 y 1000'
+        });
+      }
+
+      // Iniciar actualización masiva en background
+      groupBulkUpdateService.updateCampaignAndGroups(id, updates)
+        .then((result) => {
+          console.log(`[API] Actualización masiva completada para campaña ${id}:`, result);
+        })
+        .catch((error) => {
+          console.error(`[API] Error en actualización masiva para campaña ${id}:`, error);
+        });
+
+      res.json({
+        success: true,
+        message: 'Actualización masiva iniciada en segundo plano',
+        data: {
+          campaignId: id,
+          updates: updates,
+          timestamp: new Date().toISOString(),
+          note: 'La actualización puede tomar varios minutos dependiendo del número de grupos'
+        }
+      });
+
+    } catch (error) {
+      console.error('Error actualizando campaña:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Obtener progreso de actualización masiva
+   * GET /api/campaigns/:id/update-progress
+   */
+  async getUpdateProgress(req, res) {
+    try {
+      const { id } = req.params;
+      const progress = groupBulkUpdateService.getCurrentProgress();
+
+      if (!progress || progress.campaignId !== id) {
+        return res.json({
+          success: true,
+          data: {
+            status: 'idle',
+            message: 'No hay actualizaciones en proceso para esta campaña'
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          ...progress,
+          progressPercentage: progress.totalGroups > 0 ? 
+            Math.round((progress.processedGroups / progress.totalGroups) * 100) : 0
+        }
+      });
+
+    } catch (error) {
+      console.error('Error obteniendo progreso:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Obtener estadísticas de actualización masiva
+   * GET /api/campaigns/:id/update-stats
+   */
+  async getUpdateStats(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+
+      // Obtener logs de actualización masiva de esta campaña
+      const result = await database.query(`
+        SELECT 
+          event_type,
+          description,
+          metadata,
+          created_at
+        FROM whatsapp_bot.whatsapp_campaign_logs cl
+        JOIN whatsapp_bot.whatsapp_campaigns c ON cl.campaign_id = c.id
+        WHERE c.id = $1 
+          AND c.company_id = $2
+          AND cl.event_type IN ('bulk_update_started', 'bulk_update_completed')
+        ORDER BY cl.created_at DESC
+        LIMIT 10
+      `, [id, companyId]);
+
+      res.json({
+        success: true,
+        data: {
+          recentUpdates: result.rows,
+          isProcessing: groupBulkUpdateService.isCurrentlyProcessing(),
+          currentProgress: groupBulkUpdateService.getCurrentProgress()
+        }
+      });
+
+    } catch (error) {
+      console.error('Error obteniendo estadísticas:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'

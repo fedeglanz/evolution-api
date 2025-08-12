@@ -109,4 +109,22 @@ router.get('/:id/stats', campaignController.getCampaignStats);
  */
 router.get('/:id/logs', campaignController.getCampaignLogs);
 
+/**
+ * PUT /api/campaigns/:id
+ * Actualizar una campaña y todos sus grupos
+ */
+router.put('/:id', campaignController.updateCampaign);
+
+/**
+ * GET /api/campaigns/:id/update-progress
+ * Obtener progreso de actualización masiva
+ */
+router.get('/:id/update-progress', campaignController.getUpdateProgress);
+
+/**
+ * GET /api/campaigns/:id/update-stats
+ * Obtener estadísticas de actualización masiva
+ */
+router.get('/:id/update-stats', campaignController.getUpdateStats);
+
 module.exports = router; 
