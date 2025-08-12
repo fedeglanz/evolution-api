@@ -252,6 +252,15 @@ class CampaignService {
 
       const instance = instanceResult.rows[0];
 
+      // Verificar que la instancia esté conectada en Evolution API
+      try {
+        await evolutionService.getInstanceInfo(instance.instance_name);
+        console.log(`[Campaign] Instancia ${instance.instance_name} verificada en Evolution API`);
+      } catch (evolutionError) {
+        console.error(`[Campaign] Error verificando instancia ${instance.instance_name}:`, evolutionError);
+        throw new Error(`Instancia no encontrada en Evolution API: ${evolutionError.message}`);
+      }
+
       // Obtener el siguiente número de grupo
       const groupNumberResult = await database.query(
         'SELECT COALESCE(MAX(group_number), 0) + 1 as next_number FROM whatsapp_bot.whatsapp_campaign_groups WHERE campaign_id = $1',

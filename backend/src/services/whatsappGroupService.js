@@ -48,8 +48,20 @@ class WhatsAppGroupService {
       throw new Error(response.message || 'Error desconocido al crear grupo');
 
     } catch (error) {
-      console.error(`[WhatsAppGroup] Error creando grupo:`, error);
-      throw error;
+      console.error(`[WhatsAppGroup] Error creando grupo "${groupName}" en instancia ${instanceName}:`, {
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
+      // Mejorar mensaje de error específico
+      if (error.response?.status === 404) {
+        throw new Error(`Instancia no encontrada en Evolution API`);
+      } else if (error.response?.data?.message) {
+        throw new Error(`Error de Evolution API: ${error.response.data.message}`);
+      } else {
+        throw new Error(`Error creando grupo: ${error.message}`);
+      }
     }
   }
 
