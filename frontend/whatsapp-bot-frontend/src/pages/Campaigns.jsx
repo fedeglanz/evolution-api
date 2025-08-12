@@ -189,6 +189,7 @@ const Campaigns = () => {
     // Preparar datos para envío
     const updates = {
       name: formData.name,
+      group_name_template: formData.group_name_template,
       group_description: formData.group_description,
       only_admins: formData.only_admins,
       max_members_per_group: parseInt(formData.max_members_per_group),
@@ -910,6 +911,7 @@ const CampaignDetailsModal = ({ campaign, onClose }) => {
 const EditCampaignModal = ({ isOpen, onClose, campaign, onSubmit, isLoading, updateProgress }) => {
   const [formData, setFormData] = useState({
     name: '',
+    group_name_template: '',
     group_description: '',
     only_admins: false,
     max_members_per_group: 950,
@@ -921,6 +923,7 @@ const EditCampaignModal = ({ isOpen, onClose, campaign, onSubmit, isLoading, upd
     if (campaign) {
       setFormData({
         name: campaign.name || '',
+        group_name_template: campaign.group_name_template || '',
         group_description: campaign.group_description || '',
         only_admins: campaign.only_admins || false,
         max_members_per_group: campaign.max_members_per_group || 950,
@@ -1001,6 +1004,25 @@ const EditCampaignModal = ({ isOpen, onClose, campaign, onSubmit, isLoading, upd
               />
               <p className="text-xs text-gray-500 mt-1">
                 Se actualizará el nombre en todos los grupos existentes
+              </p>
+            </div>
+
+            {/* Título de los grupos */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🏷️ Título de los Grupos
+              </label>
+              <Input
+                value={formData.group_name_template}
+                onChange={(e) => handleChange('group_name_template', e.target.value)}
+                placeholder="Ej: Traders VIP #{group_number}"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Plantilla para los nombres de grupos. Debe incluir #{group_number}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                💡 Los grupos existentes se renombrarán automáticamente
               </p>
             </div>
 

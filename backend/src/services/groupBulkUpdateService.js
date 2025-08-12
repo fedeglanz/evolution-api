@@ -148,6 +148,17 @@ class GroupBulkUpdateService {
       }
     }
 
+    // 1.1. Actualizar template de nombre (independiente del nombre de campaña)
+    if (updates.group_name_template && updates.group_name_template !== campaignData.group_name_template) {
+      const newGroupName = updates.group_name_template
+        .replace('#{group_number}', group.group_number);
+      
+      if (newGroupName !== group.group_name) {
+        await this.updateGroupSubject(group, newGroupName);
+        results.templateUpdated = { from: group.group_name, to: newGroupName };
+      }
+    }
+
     // 2. Actualizar descripción
     if (updates.group_description !== undefined) {
       await this.updateGroupDescription(group, updates.group_description);
@@ -235,12 +246,19 @@ class GroupBulkUpdateService {
    */
   async updateGroupSettings(group, settings) {
     try {
+      console.log(`[BulkUpdate] 🔒 Configurando grupo ${group.group_name}:`, settings);
+      
       // Configurar si solo admins pueden enviar mensajes
       if (settings.onlyAdmins !== undefined) {
         // Usar el endpoint correcto y formato correcto
         const action = settings.onlyAdmins ? 'announcement' : 'not_announcement';
         
-        await axios.post(`${this.EVOLUTION_API_URL}/group/updateSetting/${group.evolution_instance_name}`, {
+        console.log(`[BulkUpdate] 📡 Enviando request a Evolution API:`);
+        console.log(`   URL: ${this.EVOLUTION_API_URL}/group/updateSetting/${group.evolution_instance_name}`);
+        console.log(`   Params: groupJid=${group.evolution_group_id}`);
+        console.log(`   Body: { action: "${action}" }`);
+        
+        const response = await axios.post(`${this.EVOLUTION_API_URL}/group/updateSetting/${group.evolution_instance_name}`, {
           action: action
         }, {
           params: {
@@ -253,11 +271,16 @@ class GroupBulkUpdateService {
           timeout: 15000
         });
 
+        console.log(`[BulkUpdate] 📡 Respuesta de Evolution API:`, response.data);
         console.log(`[BulkUpdate] ✅ Solo admins configurado: ${settings.onlyAdmins} (${action}) para grupo ${group.group_name}`);
       }
 
     } catch (error) {
       console.error(`[BulkUpdate] ❌ Error actualizando configuración:`, error.message);
+      if (error.response) {
+        console.error(`[BulkUpdate] ❌ Response status:`, error.response.status);
+        console.error(`[BulkUpdate] ❌ Response data:`, error.response.data);
+      }
       throw error;
     }
   }
@@ -315,6 +338,11 @@ class GroupBulkUpdateService {
       if (updates.name) {
         updateFields.push(`name = $${paramIndex++}`);
         values.push(updates.name);
+      }
+
+      if (updates.group_name_template) {
+        updateFields.push(`group_name_template = $${paramIndex++}`);
+        values.push(updates.group_name_template);
       }
 
       if (updates.group_description !== undefined) {
