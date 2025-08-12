@@ -55,20 +55,33 @@ class WhatsAppGroupService {
         groupData
       );
 
-      if (response.success && response.group) {
-        console.log(`[WhatsAppGroup] Grupo creado exitosamente: ${response.group.id}`);
+      console.log(`[WhatsAppGroup] Respuesta completa de Evolution API:`, JSON.stringify(response, null, 2));
+
+      // Manejar diferentes formatos de respuesta de Evolution API
+      if (response && (response.success !== false)) {
+        // Buscar datos del grupo en diferentes ubicaciones posibles
+        const groupData = response.group || response.data || response;
         
-        return {
-          success: true,
-          groupId: response.group.id,
-          groupName: response.group.subject,
-          inviteLink: null, // Se obtiene por separado
-          participants: response.group.participants || [],
-          metadata: response.group
-        };
+        if (groupData && (groupData.id || groupData.groupId)) {
+          const groupId = groupData.id || groupData.groupId;
+          const groupName = groupData.subject || groupData.name || groupData.groupName;
+          
+          console.log(`[WhatsAppGroup] Grupo creado exitosamente: ${groupId}`);
+          
+          return {
+            success: true,
+            groupId: groupId,
+            groupName: groupName,
+            inviteLink: null, // Se obtiene por separado
+            participants: groupData.participants || [],
+            metadata: groupData
+          };
+        }
       }
 
-      throw new Error(response.message || 'Error desconocido al crear grupo');
+      // Si llegamos aquí, no pudimos extraer los datos del grupo
+      console.warn(`[WhatsAppGroup] Formato de respuesta inesperado:`, response);
+      throw new Error(response?.message || 'Error procesando respuesta del grupo creado');
 
     } catch (error) {
       console.error(`[WhatsAppGroup] Error creando grupo "${groupName}" en instancia ${instanceName}:`, {
