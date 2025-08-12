@@ -33,6 +33,7 @@ class AutoGroupService {
           cg.max_members,
           cg.instance_id,
           c.name as campaign_name,
+          c.company_id,
           c.group_name_template,
           c.group_description,
           c.auto_create_new_groups,
@@ -110,7 +111,7 @@ class AutoGroupService {
       const newGroup = await campaignService.createCampaignGroup(
         currentGroup.campaign_id,
         currentGroup.instance_id,
-        nextGroupNumber
+        currentGroup.company_id
       );
 
       console.log(`[AutoGroup] ✅ Grupo creado exitosamente: ${newGroupName}`);
