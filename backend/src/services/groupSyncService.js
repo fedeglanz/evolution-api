@@ -8,7 +8,8 @@ class GroupSyncService {
     this.syncInterval = null;
     this.EVOLUTION_API_URL = 'https://evolution-api-jz3j.onrender.com';
     this.EVOLUTION_API_KEY = 'F2BC57EB8FBCB89D7BD411D5FA9F5451';
-    this.SYNC_INTERVAL_MINUTES = 5; // Sincronizar cada 5 minutos
+    this.SYNC_INTERVAL_SECONDS = 30; // Sincronizar cada 30 segundos (más rápido)
+    this.campaignIntervals = new Map(); // Intervalos específicos por campaña
   }
 
   /**
@@ -20,7 +21,7 @@ class GroupSyncService {
       return;
     }
 
-    console.log(`[GroupSync] 🚀 Iniciando sincronización automática (cada ${this.SYNC_INTERVAL_MINUTES} minutos)`);
+    console.log(`[GroupSync] 🚀 Iniciando sincronización automática (cada ${this.SYNC_INTERVAL_SECONDS} segundos)`);
     this.isRunning = true;
 
     // Ejecutar inmediatamente
@@ -29,7 +30,7 @@ class GroupSyncService {
     // Programar ejecuciones periódicas
     this.syncInterval = setInterval(() => {
       this.syncAllActiveGroups();
-    }, this.SYNC_INTERVAL_MINUTES * 60 * 1000);
+    }, this.SYNC_INTERVAL_SECONDS * 1000);
   }
 
   /**
@@ -317,9 +318,109 @@ class GroupSyncService {
   getStatus() {
     return {
       isRunning: this.isRunning,
-      syncIntervalMinutes: this.SYNC_INTERVAL_MINUTES,
-      nextSyncIn: this.isRunning ? this.SYNC_INTERVAL_MINUTES : null
+      syncIntervalSeconds: this.SYNC_INTERVAL_SECONDS,
+      nextSyncIn: this.isRunning ? this.SYNC_INTERVAL_SECONDS : null
     };
+  }
+
+  /**
+   * Configurar intervalo de sync para una campaña específica
+   * @param {string} campaignId - ID de la campaña
+   * @param {number} intervalSeconds - Intervalo en segundos
+   */
+  setCampaignSyncInterval(campaignId, intervalSeconds) {
+    console.log(`[GroupSync] ⚙️ Configurando sync de campaña ${campaignId}: cada ${intervalSeconds} segundos`);
+    this.campaignIntervals.set(campaignId, intervalSeconds);
+  }
+
+  /**
+   * Obtener intervalo para una campaña específica
+   * @param {string} campaignId - ID de la campaña
+   * @returns {number} Intervalo en segundos
+   */
+  getCampaignInterval(campaignId) {
+    return this.campaignIntervals.get(campaignId) || this.SYNC_INTERVAL_SECONDS;
+  }
+
+  /**
+   * Sync inmediato para una campaña específica
+   * @param {string} campaignId - ID de la campaña
+   */
+  async syncCampaignNow(campaignId) {
+    try {
+      console.log(`[GroupSync] 🚀 Sync inmediato para campaña ${campaignId}`);
+      
+      // Obtener grupos de esta campaña específica
+      const result = await database.query(`
+        SELECT 
+          cg.id,
+          cg.group_name,
+          cg.evolution_group_id,
+          cg.current_members,
+          cg.max_members,
+          wi.evolution_instance_name,
+          c.name as campaign_name,
+          c.distributor_slug
+        FROM whatsapp_bot.whatsapp_campaign_groups cg
+        JOIN whatsapp_bot.whatsapp_instances wi ON cg.instance_id = wi.id
+        JOIN whatsapp_bot.whatsapp_campaigns c ON cg.campaign_id = c.id
+        WHERE c.id = $1
+          AND cg.status = 'active' 
+          AND c.status IN ('active', 'draft')
+          AND cg.evolution_group_id IS NOT NULL
+        ORDER BY cg.group_number
+      `, [campaignId]);
+
+      console.log(`[GroupSync] 📊 Sincronizando ${result.rows.length} grupos de la campaña`);
+
+      let syncedCount = 0;
+      let errorCount = 0;
+
+      for (const group of result.rows) {
+        try {
+          const syncResult = await this.syncSingleGroup(group);
+          if (syncResult.updated) {
+            syncedCount++;
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(`[GroupSync] ❌ Error sincronizando grupo ${group.group_name}:`, error.message);
+        }
+      }
+
+      console.log(`[GroupSync] ✅ Sync de campaña completado: ${syncedCount} actualizados, ${errorCount} errores`);
+
+      // Verificar auto-creación si hubo cambios
+      if (syncedCount > 0) {
+        console.log('[GroupSync] 🔄 Verificando necesidad de auto-creación...');
+        try {
+          await autoGroupService.checkAndCreateNewGroups();
+        } catch (error) {
+          console.error('[GroupSync] ❌ Error en auto-creación:', error);
+        }
+      }
+
+      return { syncedCount, errorCount };
+
+    } catch (error) {
+      console.error(`[GroupSync] ❌ Error en sync de campaña ${campaignId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Configurar sync rápido para campañas activas
+   * @param {string} campaignId - ID de la campaña
+   * @param {boolean} isActive - Si está en modo campaña activa
+   */
+  setActiveCampaignMode(campaignId, isActive) {
+    if (isActive) {
+      console.log(`[GroupSync] 🔥 Modo campaña activa: sync cada 10 segundos para campaña ${campaignId}`);
+      this.setCampaignSyncInterval(campaignId, 10); // Sync cada 10 segundos
+    } else {
+      console.log(`[GroupSync] 😴 Modo normal: sync cada 30 segundos para campaña ${campaignId}`);
+      this.setCampaignSyncInterval(campaignId, 30); // Sync normal
+    }
   }
 }
 

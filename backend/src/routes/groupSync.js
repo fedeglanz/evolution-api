@@ -49,4 +49,8 @@ router.post('/force-auto-create', authenticate, groupSyncController.forceAutoCre
  */
 router.get('/auto-stats', authenticate, groupSyncController.getAutoStats);
 
+// Nuevas rutas para control avanzado
+router.post('/campaign/:campaignId', authenticate, groupSyncController.syncCampaignNow);
+router.post('/active-mode/:campaignId', authenticate, groupSyncController.setActiveCampaignMode);
+
 module.exports = router; 

@@ -1019,7 +1019,7 @@ const EditCampaignModal = ({ isOpen, onClose, campaign, onSubmit, isLoading, upd
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                Plantilla para los nombres de grupos. Debe incluir #{group_number}
+                Plantilla para los nombres de grupos. Debe incluir #&#123;group_number&#125;
               </p>
               <p className="text-xs text-blue-600 mt-1">
                 💡 Los grupos existentes se renombrarán automáticamente

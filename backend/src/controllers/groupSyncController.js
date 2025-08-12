@@ -1,5 +1,6 @@
 const groupSyncService = require('../services/groupSyncService');
 const autoGroupService = require('../services/autoGroupService');
+const database = require('../database'); // Added missing import
 
 class GroupSyncController {
   /**
@@ -195,6 +196,89 @@ class GroupSyncController {
 
     } catch (error) {
       console.error('Error obteniendo estadísticas de auto-creación:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Sync inmediato de una campaña específica
+   * POST /api/group-sync/campaign/:campaignId
+   */
+  async syncCampaignNow(req, res) {
+    try {
+      const { campaignId } = req.params;
+      const companyId = req.user.companyId;
+
+      // Verificar que la campaña pertenece a la empresa
+      const campaignCheck = await database.query(`
+        SELECT id FROM whatsapp_bot.whatsapp_campaigns 
+        WHERE id = $1 AND company_id = $2
+      `, [campaignId, companyId]);
+
+      if (campaignCheck.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Campaña no encontrada'
+        });
+      }
+
+      const result = await groupSyncService.syncCampaignNow(campaignId);
+
+      res.json({
+        success: true,
+        message: 'Sincronización inmediata completada',
+        data: result
+      });
+
+    } catch (error) {
+      console.error('Error en sync inmediato:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Configurar modo campaña activa
+   * POST /api/group-sync/active-mode/:campaignId
+   */
+  async setActiveCampaignMode(req, res) {
+    try {
+      const { campaignId } = req.params;
+      const { isActive } = req.body;
+      const companyId = req.user.companyId;
+
+      // Verificar que la campaña pertenece a la empresa
+      const campaignCheck = await database.query(`
+        SELECT id FROM whatsapp_bot.whatsapp_campaigns 
+        WHERE id = $1 AND company_id = $2
+      `, [campaignId, companyId]);
+
+      if (campaignCheck.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Campaña no encontrada'
+        });
+      }
+
+      groupSyncService.setActiveCampaignMode(campaignId, isActive);
+
+      res.json({
+        success: true,
+        message: `Modo ${isActive ? 'campaña activa' : 'normal'} configurado`,
+        data: {
+          campaignId,
+          isActive,
+          syncInterval: groupSyncService.getCampaignInterval(campaignId)
+        }
+      });
+
+    } catch (error) {
+      console.error('Error configurando modo activo:', error);
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'
