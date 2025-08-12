@@ -18,21 +18,17 @@ class WhatsAppGroupService {
     try {
       console.log(`[WhatsAppGroup] Creando grupo "${groupName}" en instancia ${instanceName}`);
 
-      // Preparar datos del grupo
+      // Preparar datos del grupo - formato Evolution API
       const groupData = {
-        subject: groupName
+        subject: groupName,
+        participants: participants.length > 0 ? 
+          participants.map(phone => `${phone}@s.whatsapp.net`) : 
+          [] // Array vacío si no hay participantes
       };
 
       // Solo agregar descripción si no está vacía
       if (description && description.trim()) {
         groupData.description = description.trim();
-      }
-
-      // Solo agregar participantes si hay alguno
-      if (participants && participants.length > 0) {
-        groupData.participants = participants.map(phone => ({
-          id: `${phone}@s.whatsapp.net`
-        }));
       }
 
       console.log(`[WhatsAppGroup] Datos enviados:`, JSON.stringify(groupData, null, 2));

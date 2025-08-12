@@ -35,7 +35,12 @@ class EvolutionService {
         return response;
       },
       (error) => {
-        console.error('[Evolution API] Response error:', error.response?.data || error.message);
+        console.error('[Evolution API] Response error:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message
+        });
         return Promise.reject(this.handleApiError(error));
       }
     );
@@ -50,7 +55,16 @@ class EvolutionService {
       
       switch (status) {
         case 400:
-          return new Error(`Solicitud inválida: ${data.message || 'Datos incorrectos'}`);
+          // Intentar extraer mensaje específico del array
+          let specificMessage = 'Datos incorrectos';
+          if (data?.message) {
+            if (Array.isArray(data.message)) {
+              specificMessage = JSON.stringify(data.message);
+            } else {
+              specificMessage = data.message;
+            }
+          }
+          return new Error(`Solicitud inválida (400): ${specificMessage}`);
         case 401:
           return new Error('API Key inválida o no autorizada');
         case 404:
@@ -62,7 +76,7 @@ class EvolutionService {
         case 500:
           return new Error('Error interno en Evolution API');
         default:
-          return new Error(`Error en Evolution API (${status}): ${data.message || error.message}`);
+          return new Error(`Error en Evolution API (${status}): ${data?.message || error.message}`);
       }
     } else if (error.request) {
       return new Error('No se pudo conectar con Evolution API - Verificar conectividad');
