@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { Link, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
@@ -7,10 +7,17 @@ import {
   Phone, 
   Users, 
   MessageCircle,
+  MessageSquare,
+  Zap,
+  Clock,
+  Paperclip,
+  Target,
   Settings,
   X,
   Bot,
-  Brain
+  Brain,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 
 const navigation = [
@@ -20,17 +27,40 @@ const navigation = [
   { name: 'Knowledge Base', href: '/knowledge', icon: Brain },
   { name: 'Contactos', href: '/contacts', icon: Users },
   { name: 'Conversaciones', href: '/conversations', icon: MessageCircle },
+  { 
+    name: 'Mensajería', 
+    icon: MessageSquare,
+    submenu: [
+      { name: 'Templates', href: '/templates', icon: MessageSquare },
+      { name: 'Respuestas Rápidas', href: '/quick-replies', icon: Zap },
+      { name: 'Mensajes Programados', href: '/scheduled-messages', icon: Clock },
+      { name: 'Archivos Multimedia', href: '/attachments', icon: Paperclip },
+    ]
+  },
+  { name: 'Campañas de Grupos', href: '/campaigns', icon: Target },
   { name: 'Configuración', href: '/settings', icon: Settings },
 ];
 
 const Sidebar = ({ open, setOpen }) => {
   const location = useLocation();
+  const [expandedItems, setExpandedItems] = useState({});
+
+  const toggleExpanded = (itemName) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [itemName]: !prev[itemName]
+    }));
+  };
+
+  const isSubmenuActive = (submenu) => {
+    return submenu?.some(subitem => location.pathname === subitem.href);
+  };
 
   const SidebarContent = () => (
     <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gray-900 px-6 pb-4">
       <div className="flex h-16 shrink-0 items-center">
         <div className="flex items-center">
-          <Bot className="h-8 w-8 text-primary-400" />
+          <Bot className="h-8 w-8 text-blue-400" />
           <span className="ml-2 text-white font-bold text-lg">
             WhatsApp Bot
           </span>
@@ -42,25 +72,82 @@ const Sidebar = ({ open, setOpen }) => {
           <li>
             <ul role="list" className="-mx-2 space-y-1">
               {navigation.map((item) => {
-                const isActive = location.pathname === item.href;
-                
-                return (
-                  <li key={item.name}>
-                    <Link
-                      to={item.href}
-                      className={clsx(
-                        isActive
-                          ? 'bg-gray-800 text-white'
-                          : 'text-gray-400 hover:text-white hover:bg-gray-800',
-                        'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors'
+                // Si tiene submenú
+                if (item.submenu) {
+                  const isExpanded = expandedItems[item.name];
+                  const hasActiveSubmenu = isSubmenuActive(item.submenu);
+                  
+                  return (
+                    <li key={item.name}>
+                      {/* Item principal con submenú */}
+                      <button
+                        onClick={() => toggleExpanded(item.name)}
+                        className={clsx(
+                          hasActiveSubmenu
+                            ? 'bg-gray-800 text-white'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                          'group flex w-full items-center gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors'
+                        )}
+                      >
+                        <item.icon className="h-6 w-6 shrink-0" />
+                        <span className="flex-1 text-left">{item.name}</span>
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0" />
+                        )}
+                      </button>
+                      
+                      {/* Submenú */}
+                      {isExpanded && (
+                        <ul className="mt-1 ml-6 space-y-1">
+                          {item.submenu.map((subitem) => {
+                            const isSubActive = location.pathname === subitem.href;
+                            
+                            return (
+                              <li key={subitem.name}>
+                                <Link
+                                  to={subitem.href}
+                                  className={clsx(
+                                    isSubActive
+                                      ? 'bg-gray-800 text-white'
+                                      : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                                    'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-medium transition-colors'
+                                  )}
+                                  onClick={() => setOpen && setOpen(false)}
+                                >
+                                  <subitem.icon className="h-5 w-5 shrink-0" />
+                                  {subitem.name}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       )}
-                      onClick={() => setOpen && setOpen(false)}
-                    >
-                      <item.icon className="h-6 w-6 shrink-0" />
-                      {item.name}
-                    </Link>
-                  </li>
-                );
+                    </li>
+                  );
+                } else {
+                  // Item normal sin submenú
+                  const isActive = location.pathname === item.href;
+                  
+                  return (
+                    <li key={item.name}>
+                      <Link
+                        to={item.href}
+                        className={clsx(
+                          isActive
+                            ? 'bg-gray-800 text-white'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800',
+                          'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors'
+                        )}
+                        onClick={() => setOpen && setOpen(false)}
+                      >
+                        <item.icon className="h-6 w-6 shrink-0" />
+                        {item.name}
+                      </Link>
+                    </li>
+                  );
+                }
               })}
             </ul>
           </li>

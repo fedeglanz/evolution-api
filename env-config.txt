@@ -1,0 +1,89 @@
+# CONFIGURACIÓN BÁSICA EVOLUTION API
+# ===================================
+# Copia este contenido en un archivo .env en la raíz del proyecto
+
+# Configuración del servidor
+SERVER_TYPE=http
+SERVER_PORT=8080
+SERVER_URL=http://localhost:8080
+
+# Configuración de la base de datos (PostgreSQL)
+DATABASE_CONNECTION_URI=postgresql://user:pass@postgres:5432/evolution?schema=public
+DATABASE_PROVIDER=postgresql
+DATABASE_CONNECTION_CLIENT_NAME=evolution
+DATABASE_SAVE_DATA_INSTANCE=true
+DATABASE_SAVE_DATA_NEW_MESSAGE=true
+DATABASE_SAVE_DATA_CONTACTS=true
+DATABASE_SAVE_DATA_CHATS=true
+
+# Configuración de Redis (Cache)
+CACHE_REDIS_ENABLED=true
+CACHE_REDIS_URI=redis://redis:6379
+CACHE_REDIS_PREFIX_KEY=evolution
+CACHE_REDIS_TTL=604800
+
+# Configuración de autenticación
+AUTHENTICATION_API_KEY=evolution-api-key-123
+
+# Configuración de logs
+LOG_LEVEL=ERROR,WARN,INFO,DEBUG
+LOG_COLOR=true
+LOG_BAILEYS=error
+
+# Configuración CORS
+CORS_ORIGIN=*
+CORS_METHODS=POST,GET,PUT,DELETE
+CORS_CREDENTIALS=true
+
+# Configuración de Webhooks (deshabilitado por defecto)
+WEBHOOK_GLOBAL_ENABLED=false
+WEBHOOK_GLOBAL_URL=
+
+# Configuración de WebSocket
+WEBSOCKET_ENABLED=true
+WEBSOCKET_GLOBAL_EVENTS=true
+
+# Configuración de QR Code
+QRCODE_LIMIT=30
+QRCODE_COLOR=#198754
+
+# Configuración de instancias
+DEL_INSTANCE=false
+DEL_TEMP_INSTANCES=true
+
+# Configuración de idioma
+LANGUAGE=es
+
+# Configuración de sesión de teléfono
+CONFIG_SESSION_PHONE_CLIENT=Evolution API
+CONFIG_SESSION_PHONE_NAME=Chrome
+
+# Configuración de integraciones (todas deshabilitadas por defecto)
+TYPEBOT_ENABLED=false
+CHATWOOT_ENABLED=false
+OPENAI_ENABLED=false
+DIFY_ENABLED=false
+N8N_ENABLED=true
+EVOAI_ENABLED=false
+FLOWISE_ENABLED=false
+
+# Configuración de almacenamiento S3/Minio (deshabilitado por defecto)
+S3_ENABLED=false
+
+# Configuración de colas de mensajes (deshabilitadas por defecto)
+RABBITMQ_ENABLED=false
+NATS_ENABLED=false
+SQS_ENABLED=false
+PUSHER_ENABLED=false
+
+# Configuración de WhatsApp Business API (deshabilitado por defecto)
+WA_BUSINESS_TOKEN_WEBHOOK=evolution
+WA_BUSINESS_URL=https://graph.facebook.com
+WA_BUSINESS_VERSION=v18.0
+WA_BUSINESS_LANGUAGE=es
+
+# Configuración de Docker
+DOCKER_ENV=true
+
+# Configuración de telemetría
+TELEMETRY_ENABLED=false 

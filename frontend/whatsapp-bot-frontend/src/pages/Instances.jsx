@@ -17,7 +17,10 @@ import {
   Phone,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Settings,
+  PlayCircle,
+  StopCircle
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -31,7 +34,10 @@ import {
   useConnectInstance, 
   useDisconnectInstance,
   useSyncInstanceState,
-  useSyncAllInstancesState // Nuevos hooks
+  useSyncAllInstancesState,
+  useRegenerateWorkflow,
+  useActivateWorkflow,
+  useDeactivateWorkflow
 } from '../hooks/useInstances';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -49,6 +55,21 @@ const Instances = () => {
   const syncAllInstancesMutation = useSyncAllInstancesState({
     onSuccess: () => {
       refetch(); // Refrescar la lista después de sincronizar
+    }
+  });
+  const regenerateWorkflowMutation = useRegenerateWorkflow({
+    onSuccess: () => {
+      refetch(); // Refrescar la lista después de regenerar
+    }
+  });
+  const activateWorkflowMutation = useActivateWorkflow({
+    onSuccess: () => {
+      refetch(); // Refrescar la lista después de activar
+    }
+  });
+  const deactivateWorkflowMutation = useDeactivateWorkflow({
+    onSuccess: () => {
+      refetch(); // Refrescar la lista después de desactivar
     }
   });
 
@@ -121,6 +142,34 @@ const Instances = () => {
         await deleteInstanceMutation.mutateAsync(instanceId);
       } catch (error) {
         console.error('Error deleting instance:', error);
+      }
+    }
+  };
+
+  const handleRegenerateWorkflow = async (instanceId) => {
+    if (window.confirm('¿Regenerar la automatización de mensajes? Esto creará una nueva configuración automática.')) {
+      try {
+        await regenerateWorkflowMutation.mutateAsync(instanceId);
+      } catch (error) {
+        console.error('Error regenerating workflow:', error);
+      }
+    }
+  };
+
+  const handleActivateWorkflow = async (instanceId) => {
+    try {
+      await activateWorkflowMutation.mutateAsync(instanceId);
+    } catch (error) {
+      console.error('Error activating workflow:', error);
+    }
+  };
+
+  const handleDeactivateWorkflow = async (instanceId) => {
+    if (window.confirm('¿Desactivar la automatización de mensajes? Los mensajes no se procesarán automáticamente.')) {
+      try {
+        await deactivateWorkflowMutation.mutateAsync(instanceId);
+      } catch (error) {
+        console.error('Error deactivating workflow:', error);
       }
     }
   };
@@ -378,6 +427,51 @@ const Instances = () => {
                         Desconectar
                       </Button>
                     </>
+                  )}
+
+                  {/* Botón regenerar automatización (cuando no hay workflow o hay problemas) */}
+                  {(!instance.n8nWorkflowId || !instance.webhookUrl) && (
+                    <Button
+                      onClick={() => handleRegenerateWorkflow(instance.id)}
+                      size="sm"
+                      variant="outline"
+                      loading={regenerateWorkflowMutation.isLoading}
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                      title="Regenerar automatización de mensajes"
+                    >
+                      <Settings className="h-4 w-4 mr-1" />
+                      Regenerar Automatización
+                    </Button>
+                  )}
+
+                  {/* Botón activar automatización (si está desactivada) */}
+                  {instance.status === 'disconnected' && (
+                    <Button
+                      onClick={() => handleActivateWorkflow(instance.id)}
+                      size="sm"
+                      variant="success"
+                      loading={activateWorkflowMutation.isLoading}
+                      className="flex-1"
+                      title="Activar automatización de mensajes"
+                    >
+                      <PlayCircle className="h-4 w-4 mr-1" />
+                      Activar Automatización
+                    </Button>
+                  )}
+
+                  {/* Botón desactivar automatización (si está activada) */}
+                  {instance.status === 'connected' && (
+                    <Button
+                      onClick={() => handleDeactivateWorkflow(instance.id)}
+                      size="sm"
+                      variant="warning"
+                      loading={deactivateWorkflowMutation.isLoading}
+                      className="flex-1"
+                      title="Desactivar automatización de mensajes"
+                    >
+                      <StopCircle className="h-4 w-4 mr-1" />
+                      Desactivar Automatización
+                    </Button>
                   )}
 
                   {/* Botón eliminar (siempre visible) */}

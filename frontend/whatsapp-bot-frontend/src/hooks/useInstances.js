@@ -204,4 +204,92 @@ export const useSyncAllInstancesState = (options = {}) => {
       options.onError?.(error, variables, context);
     },
   });
+};
+
+export const useRegenerateWorkflow = (options = {}) => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: instancesService.regenerateWorkflow,
+    onSuccess: (data, variables, context) => {
+      // Callback base del hook
+      queryClient.invalidateQueries({ queryKey: ['instances'] });
+      queryClient.invalidateQueries({ queryKey: ['instance', variables] });
+      
+      const instanceName = data.data.instance.name;
+      const webhookUrl = data.data.instance.webhookUrl;
+      
+      toast.success(
+        `Automatización regenerada exitosamente para "${instanceName}". Nueva URL: ${webhookUrl.substring(0, 50)}...`
+      );
+      
+      // Callback personalizado si se proporciona
+      options.onSuccess?.(data, variables, context);
+    },
+    onError: (error, variables, context) => {
+      // Callback base del hook
+      toast.error(error.message || 'Error al regenerar automatización');
+      
+      // Callback personalizado si se proporciona
+      options.onError?.(error, variables, context);
+    },
+  });
+};
+
+export const useActivateWorkflow = (options = {}) => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: instancesService.activateWorkflow,
+    onSuccess: (data, variables, context) => {
+      // Callback base del hook
+      queryClient.invalidateQueries({ queryKey: ['instances'] });
+      queryClient.invalidateQueries({ queryKey: ['instance', variables] });
+      
+      const instanceName = data.data.instance.name;
+      
+      toast.success(
+        `Automatización activada exitosamente para "${instanceName}"`
+      );
+      
+      // Callback personalizado si se proporciona
+      options.onSuccess?.(data, variables, context);
+    },
+    onError: (error, variables, context) => {
+      // Callback base del hook
+      toast.error(error.message || 'Error al activar automatización');
+      
+      // Callback personalizado si se proporciona
+      options.onError?.(error, variables, context);
+    },
+  });
+};
+
+export const useDeactivateWorkflow = (options = {}) => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: instancesService.deactivateWorkflow,
+    onSuccess: (data, variables, context) => {
+      // Callback base del hook
+      queryClient.invalidateQueries({ queryKey: ['instances'] });
+      queryClient.invalidateQueries({ queryKey: ['instance', variables] });
+      
+      const instanceName = data.data.instance.name;
+      
+      toast.success(
+        `Automatización desactivada exitosamente para "${instanceName}"`
+      );
+      
+      // Callback personalizado si se proporciona
+      options.onSuccess?.(data, variables, context);
+    },
+    onError: (error, variables, context) => {
+      // Callback base del hook
+      toast.error(error.message || 'Error al desactivar automatización');
+      
+      // Callback personalizado si se proporciona
+      options.onError?.(error, variables, context);
+    },
+  });
 }; 

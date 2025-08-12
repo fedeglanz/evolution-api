@@ -12,6 +12,12 @@ import Bots from './pages/Bots';
 import Knowledge from './pages/Knowledge';
 import Contacts from './pages/Contacts';
 import Conversations from './pages/Conversations';
+import Templates from './pages/Templates';
+import QuickReplies from './pages/QuickReplies';
+import ScheduledMessages from './pages/ScheduledMessages';
+import Attachments from './pages/Attachments';
+import Campaigns from './pages/Campaigns';
+import PublicCampaign from './pages/PublicCampaign';
 import Settings from './pages/Settings';
 
 const queryClient = new QueryClient({
@@ -36,6 +42,12 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
+            {/* Ruta pública (sin autenticación) */}
+            <Route 
+              path="/campaigns/public/:slug" 
+              element={<PublicCampaign />} 
+            />
+            
             <Route 
               path="/login" 
               element={
@@ -55,6 +67,11 @@ function App() {
               <Route path="knowledge" element={<Knowledge />} />
               <Route path="contacts" element={<Contacts />} />
               <Route path="conversations" element={<Conversations />} />
+              <Route path="templates" element={<Templates />} />
+              <Route path="quick-replies" element={<QuickReplies />} />
+              <Route path="scheduled-messages" element={<ScheduledMessages />} />
+              <Route path="attachments" element={<Attachments />} />
+              <Route path="campaigns" element={<Campaigns />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             

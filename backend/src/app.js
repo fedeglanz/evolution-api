@@ -42,13 +42,20 @@ const corsOptions = {
     if (config.NODE_ENV === 'production') {
       allowedOrigins.push(
         process.env.FRONTEND_URL,
-        process.env.ADMIN_URL
+        process.env.ADMIN_URL,
+        // Permitir localhost para desarrollo local contra producción
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'https://localhost:5173',
+        'https://localhost:3000'
       );
     }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.log(`[CORS] Origin rechazado: ${origin}`);
+      console.log(`[CORS] Origins permitidos:`, allowedOrigins);
       callback(new Error('No permitido por CORS'));
     }
   },

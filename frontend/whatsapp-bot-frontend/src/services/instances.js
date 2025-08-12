@@ -80,5 +80,23 @@ export const instancesService = {
   async getInstanceStats(id) {
     const response = await apiClient.get(`/instances/${id}/stats`);
     return response.data;
+  },
+
+  // Regenerar automatización (N8N workflow)
+  async regenerateWorkflow(id) {
+    const response = await apiClient.post(`/instances/${id}/regenerate-workflow`);
+    return response.data;
+  },
+
+  // Activar automatización (N8N workflow)
+  async activateWorkflow(id) {
+    const response = await apiClient.post(`/instances/${id}/activate-workflow`);
+    return response.data;
+  },
+
+  // Desactivar automatización (N8N workflow)
+  async deactivateWorkflow(id) {
+    const response = await apiClient.post(`/instances/${id}/deactivate-workflow`);
+    return response.data;
   }
 }; 

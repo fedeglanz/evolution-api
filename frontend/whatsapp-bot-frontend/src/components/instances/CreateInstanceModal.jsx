@@ -4,31 +4,34 @@ import { Fragment } from 'react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useCreateInstance } from '../../hooks/useInstances';
-import { X, Smartphone, Globe, Phone, Info } from 'lucide-react';
+import { X, Smartphone, Phone, Info, CheckCircle, ExternalLink } from 'lucide-react';
 
 const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    webhook_url: '',
-    phone_number: '' // Nuevo campo para número de teléfono
-  });
+    phone_number: '' // Campo para número de teléfono
+  }); // Removido webhook_url - se genera automáticamente
   const [errors, setErrors] = useState({});
+  const [createdInstance, setCreatedInstance] = useState(null); // Para mostrar resultado
 
   const createInstanceMutation = useCreateInstance({
     onSuccess: (data) => {
+      console.log('Instance created successfully:', data);
+      setCreatedInstance(data.data.instance);
       onSuccess?.(data);
-      handleClose();
+      // No cerrar inmediatamente, mostrar resultado primero
     },
     onError: (error) => {
       console.error('Error creating instance:', error);
-      // Manejar errores específicos aquí si es necesario
+      setCreatedInstance(null);
     }
   });
 
   const handleClose = () => {
-    setFormData({ name: '', description: '', webhook_url: '', phone_number: '' });
+    setFormData({ name: '', description: '', phone_number: '' });
     setErrors({});
+    setCreatedInstance(null);
     onClose();
   };
 
@@ -51,10 +54,6 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
       newErrors.name = 'El nombre debe tener al menos 2 caracteres';
     }
 
-    if (formData.webhook_url && !isValidUrl(formData.webhook_url)) {
-      newErrors.webhook_url = 'URL inválida';
-    }
-
     // Validar formato de número de teléfono si se proporciona
     if (formData.phone_number && !isValidPhoneNumber(formData.phone_number)) {
       newErrors.phone_number = 'Formato inválido. Debe incluir código de país (ej: +5491123456789)';
@@ -62,15 +61,6 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const isValidUrl = (url) => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const isValidPhoneNumber = (phone) => {
@@ -89,16 +79,129 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
     const instanceData = {
       name: formData.name.trim(),
       description: formData.description.trim() || undefined,
-      webhook_url: formData.webhook_url.trim() || undefined,
       phone_number: formData.phone_number.trim() || undefined
-    };
+    }; // webhook_url se genera automáticamente en el backend
 
     createInstanceMutation.mutate(instanceData);
   };
 
+  if (createdInstance) {
+    // Mostrar resultado exitoso con información del workflow
+    return (
+      <Transition appear show={isOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-10" onClose={handleClose}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-6 w-6 text-green-500" />
+                      <Dialog.Title className="text-lg font-medium text-gray-900">
+                        ¡Instancia Creada Exitosamente!
+                      </Dialog.Title>
+                    </div>
+                    <button
+                      onClick={handleClose}
+                      className="text-gray-400 hover:text-gray-500"
+                    >
+                      <X className="h-6 w-6" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Información básica */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h3 className="font-medium text-green-800 mb-2">Instancia Configurada</h3>
+                      <div className="space-y-2 text-sm text-green-700">
+                        <p><strong>Nombre:</strong> {createdInstance.name}</p>
+                        <p><strong>Estado:</strong> {createdInstance.status}</p>
+                        {createdInstance.phoneNumber && (
+                          <p><strong>Número:</strong> {createdInstance.phoneNumber}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Información del workflow N8N */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h3 className="font-medium text-blue-800 mb-2">Workflow Automático Creado</h3>
+                      <div className="space-y-2 text-sm text-blue-700">
+                        <p><strong>Webhook URL:</strong></p>
+                        <div className="bg-white border rounded p-2 font-mono text-xs break-all">
+                          {createdInstance.webhookUrl}
+                        </div>
+                        
+                        {createdInstance.n8nWorkflow && (
+                          <>
+                            <p><strong>N8N Workflow:</strong> {createdInstance.n8nWorkflow.name}</p>
+                            <p><strong>Estado:</strong> {createdInstance.n8nWorkflow.isActive ? 'Activo' : 'Inactivo'}</p>
+                            <p className="text-green-600">✓ Creado automáticamente</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* QR Code info */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h3 className="font-medium text-yellow-800 mb-2">Próximos Pasos</h3>
+                      <div className="space-y-2 text-sm text-yellow-700">
+                        <p>• Ve a la sección "Instancias" para escanear el código QR</p>
+                        <p>• El workflow automático ya está configurado</p>
+                        <p>• Una vez conectado, el bot estará listo para usar</p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end space-x-3 pt-4">
+                      <Button
+                        variant="outline" 
+                        onClick={handleClose}
+                      >
+                        Cerrar
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          handleClose();
+                          // Navegar a instancias si es necesario
+                          window.location.href = '/instances';
+                        }}
+                      >
+                        Ver Instancia
+                      </Button>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+    );
+  }
+
+  // Formulario de creación normal
   return (
     <Transition appear show={isOpen} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={handleClose}>
+      <Dialog as="div" className="relative z-10" onClose={handleClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"
@@ -108,7 +211,7 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-black bg-opacity-25" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -122,22 +225,28 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-2xl transition-all">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-whatsapp-500 to-whatsapp-600 rounded-xl flex items-center justify-center">
-                      <Smartphone className="h-5 w-5 text-white" />
-                    </div>
-                    <Dialog.Title className="text-lg font-semibold text-gray-900">
-                      Nueva Instancia WhatsApp
-                    </Dialog.Title>
-                  </div>
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                <div className="flex items-center justify-between mb-4">
+                  <Dialog.Title className="text-lg font-medium text-gray-900">
+                    Crear Nueva Instancia
+                  </Dialog.Title>
                   <button
                     onClick={handleClose}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    className="text-gray-400 hover:text-gray-500"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-6 w-6" />
                   </button>
+                </div>
+
+                {/* Info automática */}
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start space-x-2">
+                    <Info className="h-4 w-4 text-blue-500 mt-0.5" />
+                    <div className="text-sm text-blue-700">
+                      <p className="font-medium mb-1">Configuración Automática</p>
+                      <p>El workflow N8N y webhook se crearán automáticamente. No necesitas configurar URLs manualmente.</p>
+                    </div>
+                  </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -165,32 +274,7 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
 
                   <div>
                     <Input
-                      label="URL Webhook"
-                      name="webhook_url"
-                      value={formData.webhook_url}
-                      onChange={handleInputChange}
-                      placeholder="https://tu-webhook.com/whatsapp"
-                      error={errors.webhook_url}
-                      icon={<Globe className="h-4 w-4" />}
-                    />
-                  </div>
-
-                  {/* Nuevo campo para número de teléfono */}
-                  <div>
-                    <div className="mb-2">
-                      <div className="flex items-center space-x-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Número de Teléfono
-                        </label>
-                        <div className="group relative">
-                          <Info className="h-4 w-4 text-gray-400 cursor-help" />
-                          <div className="invisible group-hover:visible absolute left-6 top-0 z-10 bg-gray-800 text-white text-xs rounded-lg p-2 w-64 shadow-lg">
-                            Opcional. Si lo proporcionas, se generará un código numérico además del QR para conectar WhatsApp.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <Input
+                      label="Número de Teléfono (Opcional)"
                       name="phone_number"
                       value={formData.phone_number}
                       onChange={handleInputChange}
@@ -198,22 +282,9 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
                       error={errors.phone_number}
                       icon={<Phone className="h-4 w-4" />}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Con código de país. Ejemplo: +54 para Argentina, +1 para EE.UU.
+                    <p className="mt-1 text-xs text-gray-500">
+                      Para usar código de vinculación en lugar de QR
                     </p>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start space-x-2">
-                      <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-xs text-blue-800">
-                        <p className="font-medium mb-1">💡 Funciones de conexión:</p>
-                        <ul className="space-y-1">
-                          <li>• <strong>Sin número:</strong> Solo código QR disponible</li>
-                          <li>• <strong>Con número:</strong> QR + código numérico (8 dígitos)</li>
-                        </ul>
-                      </div>
-                    </div>
                   </div>
 
                   <div className="flex justify-end space-x-3 pt-4">
@@ -221,13 +292,13 @@ const CreateInstanceModal = ({ isOpen, onClose, onSuccess }) => {
                       type="button"
                       variant="outline"
                       onClick={handleClose}
+                      disabled={createInstanceMutation.isLoading}
                     >
                       Cancelar
                     </Button>
                     <Button
                       type="submit"
                       loading={createInstanceMutation.isLoading}
-                      disabled={createInstanceMutation.isLoading}
                     >
                       Crear Instancia
                     </Button>

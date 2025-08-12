@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Página Pública de Campaña</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(to right, #10b981, #3b82f6);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .info {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Test - Página Pública</h1>
+            <p>Probando el diseño de la página pública de campañas</p>
+        </div>
+
+        <div class="info">
+            <h3>📊 Información de la Campaña</h3>
+            <p><strong>Grupo:</strong> Traders VIP 1</p>
+            <p><strong>Cupos disponibles:</strong> 949 de 950</p>
+            <p><strong>Tipo:</strong> Grupo de WhatsApp</p>
+        </div>
+
+        <form>
+            <div class="form-group">
+                <label>👤 Nombre (opcional)</label>
+                <input type="text" placeholder="Tu nombre completo">
+            </div>
+
+            <div class="form-group">
+                <label>📱 Número de WhatsApp *</label>
+                <input type="tel" placeholder="Ej: +34 123 456 789" required>
+                <small>Incluye el código de país</small>
+            </div>
+
+            <button type="submit">
+                ✅ Unirme al Grupo
+            </button>
+        </form>
+
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #666;">
+            Al registrarte, serás agregado automáticamente al grupo de WhatsApp.<br>
+            Puedes salir del grupo en cualquier momento.
+        </div>
+    </div>
+
+    <script>
+        // Simulación básica
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('¡Registro exitoso! 🎉\n\nTe redirigiremos a WhatsApp...');
+        });
+    </script>
+</body>
+</html> 
