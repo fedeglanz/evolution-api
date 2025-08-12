@@ -2,6 +2,7 @@ const app = require('./app');
 const config = require('./config');
 const database = require('./database');
 const schedulerService = require('./services/schedulerService');
+const groupSyncService = require('./services/groupSyncService');
 
 // Port configuration
 const PORT = config.PORT || 3000;
@@ -45,9 +46,10 @@ const startServer = async () => {
         console.log('   GET  /api/bot-config - Configuración del bot');
       }
 
-      // Iniciar scheduler automático de mensajes programados
+      // Iniciar servicios automáticos
       console.log('\n🕐 Iniciando servicios automáticos...');
       schedulerService.start();
+      groupSyncService.start();
     });
     
     // Handle server errors
@@ -87,8 +89,9 @@ const gracefulShutdown = async (signal) => {
       console.log('🔄 Cerrando conexiones HTTP...');
       
       try {
-        // Stop scheduler service
+        // Stop services
         schedulerService.stop();
+        groupSyncService.stop();
         
         // Close database connections
         await database.close();
