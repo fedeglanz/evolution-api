@@ -647,6 +647,37 @@ class EvolutionService {
       throw new Error(`Failed to get instance info: ${error.message}`);
     }
   }
+
+  /**
+   * Método genérico para hacer requests a Evolution API
+   * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
+   * @param {string} endpoint - API endpoint
+   * @param {Object} data - Request data (for POST/PUT)
+   * @returns {Promise<Object>} API response
+   */
+  async makeRequest(method, endpoint, data = null) {
+    try {
+      const config = {
+        method: method.toLowerCase(),
+        url: endpoint
+      };
+
+      if (data && ['post', 'put', 'patch'].includes(method.toLowerCase())) {
+        config.data = data;
+      }
+
+      const response = await this.client.request(config);
+      return response.data;
+
+    } catch (error) {
+      console.error(`[Evolution API] Error making ${method} request to ${endpoint}:`, {
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      throw error;
+    }
+  }
 }
 
 module.exports = new EvolutionService();
