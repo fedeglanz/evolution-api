@@ -113,14 +113,21 @@ class WhatsAppGroupService {
     try {
       console.log(`[WhatsAppGroup] Obteniendo link de invitación para grupo ${groupId}`);
 
-      const response = await evolutionService.makeRequest(
-        'POST',
-        `/group/invite/${instanceName}`,
-        { groupJid: groupId }
-      );
+      // Usar la URL real de Evolution API con API key
+      const axios = require('axios');
+      const response = await axios.get(`https://evolution-api-jz3j.onrender.com/group/inviteCode/${instanceName}`, {
+        params: {
+          groupJid: groupId
+        },
+        headers: {
+          'apikey': 'F2BC57EB8FBCB89D7BD411D5FA9F5451'
+        },
+        timeout: 10000
+      });
 
-      if (response.inviteUrl) {
-        return response.inviteUrl;
+      if (response.data && response.data.inviteUrl) {
+        console.log(`[WhatsAppGroup] Link obtenido: ${response.data.inviteUrl}`);
+        return response.data.inviteUrl;
       }
 
       throw new Error('No se pudo obtener el link de invitación');
@@ -383,22 +390,26 @@ class WhatsAppGroupService {
       // Formatear el número de teléfono (asegurar que no tenga + al inicio)
       const formattedPhone = phone.replace(/^\+/, '');
 
-      const response = await evolutionService.makeRequest(
-        'POST',
-        `/group/updateGParticipant/${instanceName}`,
-        {
-          groupJid: groupId,
-          action: 'add',
-          participants: [formattedPhone]
-        }
-      );
+      // Usar la URL real de Evolution API con API key
+      const axios = require('axios');
+      const response = await axios.post(`https://evolution-api-jz3j.onrender.com/group/updateGParticipant/${instanceName}`, {
+        groupJid: groupId,
+        action: 'add',
+        participants: [formattedPhone]
+      }, {
+        headers: {
+          'apikey': 'F2BC57EB8FBCB89D7BD411D5FA9F5451',
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
 
-      console.log(`[WhatsAppGroup] Participante agregado exitosamente:`, response);
+      console.log(`[WhatsAppGroup] Participante agregado exitosamente:`, response.data);
       
       return {
         success: true,
         participant: formattedPhone,
-        response: response
+        response: response.data
       };
 
     } catch (error) {

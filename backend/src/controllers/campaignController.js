@@ -468,10 +468,10 @@ class CampaignController {
       if (activeGroup.group_invite_link) {
         res.redirect(302, activeGroup.group_invite_link);
       } else {
-        res.status(503).json({
-          success: false,
-          message: 'Link de invitación no disponible temporalmente'
-        });
+        // TEMPORAL: Redirigir al formulario si no hay link directo
+        console.log(`[Campaign] Link directo no disponible, redirigiendo al formulario para ${slug}`);
+        const formUrl = `${req.protocol}://${req.get('host')}/campaigns/public/${slug}`;
+        res.redirect(302, formUrl);
       }
 
     } catch (error) {
