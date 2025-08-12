@@ -419,6 +419,35 @@ class WhatsAppGroupService {
       throw evolutionError;
     }
   }
+
+  /**
+   * Actualizar configuración del grupo (solo admins, etc.)
+   * @param {string} instanceName - Nombre de la instancia
+   * @param {string} groupId - ID del grupo (evolution_group_id)
+   * @param {boolean} onlyAdmins - Si solo admins pueden enviar mensajes
+   * @returns {Promise<boolean>} Éxito de la operación
+   */
+  async updateGroupSettings(instanceName, groupId, onlyAdmins) {
+    try {
+      console.log(`[WhatsAppGroup] 🔒 Configurando grupo ${groupId}: solo admins = ${onlyAdmins}`);
+      
+      const action = onlyAdmins ? 'announcement' : 'not_announcement';
+      
+      const response = await evolutionService.makeRequest(
+        'POST',
+        `/group/updateSetting/${instanceName}`,
+        { action },
+        { groupJid: groupId }
+      );
+
+      console.log(`[WhatsAppGroup] ✅ Configuración aplicada: ${onlyAdmins} (${action})`);
+      return true;
+
+    } catch (error) {
+      console.error(`[WhatsAppGroup] ❌ Error actualizando configuración:`, error.message);
+      throw error;
+    }
+  }
 }
 
 module.exports = new WhatsAppGroupService(); 

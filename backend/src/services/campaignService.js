@@ -311,6 +311,21 @@ class CampaignService {
         console.warn('[Campaign] No se pudo obtener link de invitación:', error.message);
       }
 
+      // Aplicar configuración inicial del grupo (solo admins si está configurado)
+      if (campaign.only_admins_can_send) {
+        try {
+          console.log(`[Campaign] 🔒 Configurando grupo como "solo admins": ${groupName}`);
+          await whatsappGroupService.updateGroupSettings(
+            evolutionInstanceName,
+            whatsappGroup.groupId,
+            true // only admins can send
+          );
+          console.log(`[Campaign] ✅ Configuración "solo admins" aplicada a: ${groupName}`);
+        } catch (error) {
+          console.warn(`[Campaign] ⚠️ No se pudo aplicar configuración "solo admins":`, error.message);
+        }
+      }
+
       // Guardar en base de datos
       const insertQuery = `
         INSERT INTO whatsapp_bot.whatsapp_campaign_groups (
