@@ -492,6 +492,98 @@ class CampaignService {
       throw error;
     }
   }
+
+  /**
+   * Registrar un miembro en una campaña pública
+   * @param {string} campaignSlug - Slug de la campaña
+   * @param {Object} memberData - Datos del miembro {phone, name, ipAddress, userAgent}
+   * @returns {Promise<Object>} Resultado del registro
+   */
+  async registerMember(campaignSlug, memberData) {
+    try {
+      const { phone, name, ipAddress, userAgent } = memberData;
+
+      // Obtener grupo activo para distribución
+      const activeGroup = await this.getActiveGroupForDistribution(campaignSlug);
+      
+      if (!activeGroup) {
+        throw new Error('No hay grupos disponibles para esta campaña');
+      }
+
+      // Verificar si el miembro ya está registrado en esta campaña
+      const existingMember = await database.query(`
+        SELECT cm.id, cg.group_invite_link, cg.group_name
+        FROM whatsapp_bot.whatsapp_campaign_members cm
+        JOIN whatsapp_bot.whatsapp_campaign_groups cg ON cm.group_id = cg.id
+        WHERE cm.campaign_id = $1 AND cm.phone = $2
+      `, [activeGroup.campaign_id, phone]);
+
+      if (existingMember.rows.length > 0) {
+        const existing = existingMember.rows[0];
+        return {
+          success: true,
+          alreadyRegistered: true,
+          groupInviteLink: existing.group_invite_link,
+          groupName: existing.group_name
+        };
+      }
+
+      // Registrar nuevo miembro
+      const memberResult = await database.query(`
+        INSERT INTO whatsapp_bot.whatsapp_campaign_members 
+        (campaign_id, group_id, phone, name, status, joined_via, ip_address, user_agent, invited_at)
+        VALUES ($1, $2, $3, $4, 'invited', 'distributor_link', $5, $6, NOW())
+        RETURNING id
+      `, [
+        activeGroup.campaign_id,
+        activeGroup.group_id,
+        phone,
+        name,
+        ipAddress,
+        userAgent
+      ]);
+
+      // Actualizar contador de miembros del grupo
+      await database.query(`
+        UPDATE whatsapp_bot.whatsapp_campaign_groups 
+        SET current_members = current_members + 1,
+            updated_at = NOW()
+        WHERE id = $1
+      `, [activeGroup.group_id]);
+
+      // Log de actividad
+      await database.query(`
+        INSERT INTO whatsapp_bot.whatsapp_campaign_logs 
+        (campaign_id, group_id, event_type, description, metadata)
+        VALUES ($1, $2, 'member_registered', $3, $4)
+      `, [
+        activeGroup.campaign_id,
+        activeGroup.group_id,
+        `Nuevo miembro registrado: ${name || phone}`,
+        JSON.stringify({
+          memberId: memberResult.rows[0].id,
+          phone,
+          name,
+          ipAddress,
+          userAgent
+        })
+      ]);
+
+      console.log(`[Campaign] Miembro registrado: ${phone} en campaña ${campaignSlug}`);
+
+      return {
+        success: true,
+        alreadyRegistered: false,
+        groupInviteLink: activeGroup.group_invite_link,
+        groupName: activeGroup.group_name,
+        memberId: memberResult.rows[0].id
+      };
+
+    } catch (error) {
+      console.error('[Campaign] Error registrando miembro:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = new CampaignService(); 
