@@ -390,26 +390,25 @@ class WhatsAppGroupService {
       // Formatear el número de teléfono (asegurar que no tenga + al inicio)
       const formattedPhone = phone.replace(/^\+/, '');
 
-      // Usar la URL real de Evolution API con API key
-      const axios = require('axios');
-      const response = await axios.post(`https://evolution-api-jz3j.onrender.com/group/updateGParticipant/${instanceName}`, {
-        groupJid: groupId,
-        action: 'add',
-        participants: [formattedPhone]
-      }, {
-        headers: {
-          'apikey': 'F2BC57EB8FBCB89D7BD411D5FA9F5451',
-          'Content-Type': 'application/json'
+      // Usar el endpoint correcto de Evolution API
+      const response = await evolutionService.makeRequest(
+        'POST',
+        `/group/updateParticipant/${instanceName}`,
+        {
+          action: 'add',
+          participants: [formattedPhone]
         },
-        timeout: 10000
-      });
+        {
+          groupJid: groupId
+        }
+      );
 
-      console.log(`[WhatsAppGroup] Participante agregado exitosamente:`, response.data);
+      console.log(`[WhatsAppGroup] Participante agregado exitosamente:`, response);
       
       return {
         success: true,
         participant: formattedPhone,
-        response: response.data
+        response: response
       };
 
     } catch (error) {

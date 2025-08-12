@@ -237,11 +237,15 @@ class GroupBulkUpdateService {
     try {
       // Configurar si solo admins pueden enviar mensajes
       if (settings.onlyAdmins !== undefined) {
-        await axios.post(`${this.EVOLUTION_API_URL}/group/updateGroupSetting/${group.evolution_instance_name}`, {
-          groupJid: group.evolution_group_id,
-          action: 'announcement',
-          value: settings.onlyAdmins
+        // Usar el endpoint correcto y formato correcto
+        const action = settings.onlyAdmins ? 'announcement' : 'not_announcement';
+        
+        await axios.post(`${this.EVOLUTION_API_URL}/group/updateSetting/${group.evolution_instance_name}`, {
+          action: action
         }, {
+          params: {
+            groupJid: group.evolution_group_id
+          },
           headers: {
             'apikey': this.EVOLUTION_API_KEY,
             'Content-Type': 'application/json'
@@ -249,7 +253,7 @@ class GroupBulkUpdateService {
           timeout: 15000
         });
 
-        console.log(`[BulkUpdate] ✅ Solo admins configurado: ${settings.onlyAdmins} para grupo ${group.group_name}`);
+        console.log(`[BulkUpdate] ✅ Solo admins configurado: ${settings.onlyAdmins} (${action}) para grupo ${group.group_name}`);
       }
 
     } catch (error) {

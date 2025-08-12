@@ -589,7 +589,9 @@ const CreateCampaignModal = ({ onClose, onSubmit, isLoading }) => {
     maxMembersPerGroup: 950,
     autoCreateNewGroups: true,
     distributorTitle: '',
-    distributorWelcomeMessage: ''
+    distributorWelcomeMessage: '',
+    groupImageUrl: '',
+    onlyAdminsCanSend: false
   });
 
   const handleSubmit = (e) => {
@@ -708,6 +710,34 @@ const CreateCampaignModal = ({ onClose, onSubmit, isLoading }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows={3}
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                🖼️ URL de Imagen del Grupo (Opcional)
+              </label>
+              <Input
+                type="url"
+                value={formData.groupImageUrl}
+                onChange={(e) => setFormData(prev => ({ ...prev, groupImageUrl: e.target.value }))}
+                placeholder="https://ejemplo.com/imagen.jpg"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Imagen que se aplicará a todos los grupos de la campaña
+              </p>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="onlyAdmins"
+                checked={formData.onlyAdminsCanSend}
+                onChange={(e) => setFormData(prev => ({ ...prev, onlyAdminsCanSend: e.target.checked }))}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="onlyAdmins" className="ml-2 block text-sm text-gray-900">
+                🔒 Solo administradores pueden enviar mensajes en los grupos
+              </label>
             </div>
 
             <div className="flex items-center">

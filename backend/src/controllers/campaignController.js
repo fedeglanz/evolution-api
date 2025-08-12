@@ -19,7 +19,8 @@ class CampaignController {
         maxMembersPerGroup,
         autoCreateNewGroups,
         distributorTitle,
-        distributorWelcomeMessage
+        distributorWelcomeMessage,
+        onlyAdminsCanSend
       } = req.body;
 
       // Validaciones
@@ -47,7 +48,8 @@ class CampaignController {
         maxMembersPerGroup: parseInt(maxMembersPerGroup) || 950,
         autoCreateNewGroups: autoCreateNewGroups !== false,
         distributorTitle: distributorTitle?.trim() || `Únete a ${name.trim()}`,
-        distributorWelcomeMessage: distributorWelcomeMessage?.trim() || `Bienvenido a ${name.trim()}`
+        distributorWelcomeMessage: distributorWelcomeMessage?.trim() || `Bienvenido a ${name.trim()}`,
+        onlyAdminsCanSend: onlyAdminsCanSend !== false // Assuming onlyAdminsCanSend is a boolean
       };
 
       const campaign = await campaignService.createCampaign(campaignData);

@@ -24,7 +24,8 @@ class CampaignService {
         maxMembersPerGroup = 950,
         autoCreateNewGroups = true,
         distributorTitle,
-        distributorWelcomeMessage
+        distributorWelcomeMessage,
+        onlyAdminsCanSend = false
       } = campaignData;
 
       // Generar slug único
@@ -34,15 +35,17 @@ class CampaignService {
         INSERT INTO whatsapp_bot.whatsapp_campaigns (
           company_id, name, description, group_name_template, group_description,
           group_image_url, max_members_per_group, auto_create_new_groups,
-          distributor_slug, distributor_title, distributor_welcome_message
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          distributor_slug, distributor_title, distributor_welcome_message,
+          only_admins_can_send
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING *
       `;
 
       const values = [
         companyId, name, description, groupNameTemplate, groupDescription,
         groupImageUrl, maxMembersPerGroup, autoCreateNewGroups,
-        distributorSlug, distributorTitle, distributorWelcomeMessage
+        distributorSlug, distributorTitle, distributorWelcomeMessage,
+        onlyAdminsCanSend
       ];
 
       const result = await database.query(query, values);
