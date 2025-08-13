@@ -139,6 +139,25 @@ class MassMessagingController {
       const companyId = req.user.companyId;
       const userId = req.user.id;
 
+      console.log(`[MassMessaging] 🔄 Creando mensaje masivo para empresa: ${companyId}`);
+      console.log(`[MassMessaging] 👤 Usuario: ${userId} (${typeof userId})`);
+      console.log(`[MassMessaging] 🏢 Empresa: ${companyId} (${typeof companyId})`);
+      
+      // Validar que tenemos los datos del usuario
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Error de autenticación: ID de usuario no disponible'
+        });
+      }
+
+      if (!companyId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Error de autenticación: ID de empresa no disponible'
+        });
+      }
+
       // Validaciones básicas
       if (!targetType || !instanceId) {
         return res.status(400).json({
