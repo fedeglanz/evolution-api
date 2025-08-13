@@ -3,6 +3,20 @@ const config = require('../config');
 const evolutionService = require('../services/evolutionService');
 
 class MassMessagingController {
+  constructor() {
+    // Bind all methods to maintain 'this' context
+    this.getMessagingOptions = this.getMessagingOptions.bind(this);
+    this.createMassMessage = this.createMassMessage.bind(this);
+    this.processTemplate = this.processTemplate.bind(this);
+    this.getRecipients = this.getRecipients.bind(this);
+    this.createIndividualMessages = this.createIndividualMessages.bind(this);
+    this.processMassMessage = this.processMassMessage.bind(this);
+    this.sendIndividualMessage = this.sendIndividualMessage.bind(this);
+    this.getMassMessageHistory = this.getMassMessageHistory.bind(this);
+    this.getMassMessageDetails = this.getMassMessageDetails.bind(this);
+    this.cancelMassMessage = this.cancelMassMessage.bind(this);
+    this.getMassMessagingStats = this.getMassMessagingStats.bind(this);
+  }
 
   /**
    * Obtener opciones disponibles para mensajería masiva
