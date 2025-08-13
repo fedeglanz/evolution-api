@@ -126,8 +126,8 @@ class SchedulerService {
         return;
       }
 
-      // Crear instancia del controller
-      const controller = new massMessagingController();
+      // Usar la instancia del controller (ya es una instancia, no una clase)
+      const controller = massMessagingController;
 
       // Procesar cada mensaje masivo
       for (const message of pendingMessages) {
