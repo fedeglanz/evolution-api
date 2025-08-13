@@ -137,7 +137,7 @@ class MassMessagingController {
       } = req.body;
 
       const companyId = req.user.companyId;
-      const userId = req.user.id;
+      const userId = req.user.userId;
 
       console.log(`[MassMessaging] 🔄 Creando mensaje masivo para empresa: ${companyId}`);
       console.log(`[MassMessaging] 👤 Usuario: ${userId} (${typeof userId})`);
