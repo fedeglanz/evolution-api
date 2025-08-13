@@ -463,27 +463,872 @@ const StatsView = ({ stats, loading }) => {
   );
 };
 
-// Modal de creación (placeholder por ahora)
+// Modal de creación completo
 const CreateMessageModal = ({ options, onClose, onSuccess }) => {
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState({
+    // Contenido del mensaje
+    messageType: 'custom', // 'template' o 'custom'
+    templateId: '',
+    templateVariables: {},
+    customMessage: '',
+    
+    // Destinatarios
+    targetType: 'campaigns', // 'contacts', 'campaigns', 'manual'
+    contactIds: [],
+    campaignIds: [],
+    manualPhones: '',
+    
+    // Instancia
+    instanceId: '',
+    
+    // Programación
+    schedulingType: 'immediate', // 'immediate' o 'scheduled'
+    scheduledFor: '',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    
+    // Configuración
+    delayBetweenGroups: 10,
+    delayBetweenMessages: 2,
+    
+    // Metadata
+    title: '',
+    description: ''
+  });
+
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [previewMessage, setPreviewMessage] = useState('');
+
+  const { templates = [], campaigns = [], instances = [], contactsStats = {} } = options;
+
+  // Mutación para crear mensaje masivo
+  const createMessageMutation = useMutation({
+    mutationFn: (data) => api.post('/mass-messaging/create', data),
+    onSuccess: (response) => {
+      toast.success('Mensaje masivo creado exitosamente');
+      onSuccess();
+    },
+    onError: (error) => {
+      console.error('Error creando mensaje masivo:', error);
+      toast.error(error.response?.data?.message || 'Error al crear mensaje masivo');
+    }
+  });
+
+  // Actualizar preview cuando cambia el template o variables
+  useEffect(() => {
+    if (formData.messageType === 'template' && selectedTemplate) {
+      let preview = selectedTemplate.content;
+      
+      // Reemplazar variables en el preview
+      const templateVars = JSON.parse(selectedTemplate.variables || '[]');
+      templateVars.forEach(variable => {
+        const value = formData.templateVariables[variable.name] || `{${variable.name}}`;
+        const regex = new RegExp(`\\{${variable.name}\\}`, 'g');
+        preview = preview.replace(regex, value);
+      });
+      
+      setPreviewMessage(preview);
+    } else if (formData.messageType === 'custom') {
+      setPreviewMessage(formData.customMessage);
+    }
+  }, [formData.messageType, formData.templateVariables, formData.customMessage, selectedTemplate]);
+
+  const handleTemplateSelect = (template) => {
+    setSelectedTemplate(template);
+    setFormData(prev => ({ ...prev, templateId: template.id }));
+    
+    // Inicializar variables del template
+    const templateVars = JSON.parse(template.variables || '[]');
+    const initialVars = {};
+    templateVars.forEach(variable => {
+      initialVars[variable.name] = variable.default_value || '';
+    });
+    setFormData(prev => ({ ...prev, templateVariables: initialVars }));
+  };
+
+  const handleVariableChange = (variableName, value) => {
+    setFormData(prev => ({
+      ...prev,
+      templateVariables: {
+        ...prev.templateVariables,
+        [variableName]: value
+      }
+    }));
+  };
+
+  const getSelectedRecipientsCount = () => {
+    switch (formData.targetType) {
+      case 'campaigns':
+        const selectedCampaigns = campaigns.filter(c => formData.campaignIds.includes(c.id));
+        return selectedCampaigns.reduce((sum, c) => sum + (c.total_members || 0), 0);
+      case 'contacts':
+        return formData.contactIds.length;
+      case 'manual':
+        const phones = formData.manualPhones.split('\n').filter(p => p.trim());
+        return phones.length;
+      default:
+        return 0;
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // Validaciones
+    if (!formData.instanceId) {
+      toast.error('Selecciona una instancia');
+      return;
+    }
+
+    if (formData.messageType === 'template' && !formData.templateId) {
+      toast.error('Selecciona un template');
+      return;
+    }
+
+    if (formData.messageType === 'custom' && !formData.customMessage.trim()) {
+      toast.error('Escribe un mensaje personalizado');
+      return;
+    }
+
+    if (getSelectedRecipientsCount() === 0) {
+      toast.error('Selecciona al menos un destinatario');
+      return;
+    }
+
+    // Preparar datos para envío
+    const submitData = {
+      ...formData,
+      manualPhones: formData.targetType === 'manual' 
+        ? formData.manualPhones.split('\n').map(p => p.trim()).filter(p => p)
+        : []
+    };
+
+    createMessageMutation.mutate(submitData);
+  };
+
+  const nextStep = () => {
+    if (currentStep < 4) setCurrentStep(currentStep + 1);
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 1: return 'Contenido del Mensaje';
+      case 2: return 'Seleccionar Destinatarios';
+      case 3: return 'Configuración de Envío';
+      case 4: return 'Revisar y Enviar';
+      default: return 'Crear Mensaje Masivo';
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
+          {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-medium text-gray-900">Crear Mensaje Masivo</h3>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">{getStepTitle()}</h3>
+              <div className="flex items-center mt-2">
+                {[1, 2, 3, 4].map((step) => (
+                  <div key={step} className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                      step === currentStep 
+                        ? 'bg-blue-600 text-white' 
+                        : step < currentStep
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {step < currentStep ? '✓' : step}
+                    </div>
+                    {step < 4 && <div className="w-8 h-0.5 bg-gray-200 mx-2" />}
+                  </div>
+                ))}
+              </div>
+            </div>
             <Button variant="ghost" onClick={onClose}>
               ×
             </Button>
           </div>
+
+          <form onSubmit={handleSubmit}>
+            {/* Step 1: Contenido del Mensaje */}
+            {currentStep === 1 && (
+              <div className="space-y-6">
+                {/* Tipo de mensaje */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Tipo de Mensaje
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, messageType: 'template' }))}
+                      className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                        formData.messageType === 'template'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <FileText className="h-6 w-6 text-blue-600 mb-2" />
+                      <div className="font-medium">Usar Template</div>
+                      <div className="text-sm text-gray-600">Seleccionar plantilla existente</div>
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, messageType: 'custom' }))}
+                      className={`p-4 border-2 rounded-lg text-left transition-colors ${
+                        formData.messageType === 'custom'
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <MessageSquare className="h-6 w-6 text-green-600 mb-2" />
+                      <div className="font-medium">Mensaje Personalizado</div>
+                      <div className="text-sm text-gray-600">Redactar desde cero</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Template Selection */}
+                {formData.messageType === 'template' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Seleccionar Template
+                    </label>
+                    {templates.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg">
+                        <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600">No hay templates disponibles</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto">
+                        {templates.map((template) => (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => handleTemplateSelect(template)}
+                            className={`p-4 border rounded-lg text-left transition-colors ${
+                              selectedTemplate?.id === template.id
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="font-medium">{template.name}</div>
+                            <div className="text-sm text-gray-600 mt-1">{template.category}</div>
+                            <div className="text-xs text-gray-500 mt-2 truncate">
+                              {template.content.substring(0, 100)}...
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Variables del template */}
+                    {selectedTemplate && (
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                          Variables del Template
+                        </label>
+                        {JSON.parse(selectedTemplate.variables || '[]').map((variable) => (
+                          <div key={variable.name} className="mb-3">
+                            <label className="block text-sm text-gray-600 mb-1">
+                              {variable.name} {variable.required && <span className="text-red-500">*</span>}
+                            </label>
+                            <Input
+                              value={formData.templateVariables[variable.name] || ''}
+                              onChange={(e) => handleVariableChange(variable.name, e.target.value)}
+                              placeholder={variable.default_value || `Ingresa ${variable.name}`}
+                              className="w-full"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Custom Message */}
+                {formData.messageType === 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Mensaje Personalizado
+                    </label>
+                    <textarea
+                      value={formData.customMessage}
+                      onChange={(e) => setFormData(prev => ({ ...prev, customMessage: e.target.value }))}
+                      placeholder="Escribe tu mensaje aquí..."
+                      rows={6}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* Preview */}
+                {previewMessage && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Vista Previa
+                    </label>
+                    <div className="bg-gray-50 p-4 rounded-lg border">
+                      <div className="whitespace-pre-wrap text-sm">{previewMessage}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Título (opcional)
+                    </label>
+                    <Input
+                      value={formData.title}
+                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Ej: Promoción Black Friday"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Descripción (opcional)
+                    </label>
+                    <Input
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Breve descripción del envío"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Destinatarios */}
+            {currentStep === 2 && (
+              <TargetSelectionStep 
+                formData={formData}
+                setFormData={setFormData}
+                options={options}
+              />
+            )}
+
+            {/* Step 3: Configuración */}
+            {currentStep === 3 && (
+              <ConfigurationStep 
+                formData={formData}
+                setFormData={setFormData}
+                instances={instances}
+              />
+            )}
+
+            {/* Step 4: Review */}
+            {currentStep === 4 && (
+              <ReviewStep 
+                formData={formData}
+                selectedTemplate={selectedTemplate}
+                previewMessage={previewMessage}
+                recipientsCount={getSelectedRecipientsCount()}
+                options={options}
+              />
+            )}
+
+            {/* Navigation */}
+            <div className="flex justify-between pt-6 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={currentStep === 1 ? onClose : prevStep}
+              >
+                {currentStep === 1 ? 'Cancelar' : 'Anterior'}
+              </Button>
+              
+              <div className="flex space-x-3">
+                {currentStep < 4 ? (
+                  <Button
+                    type="button"
+                    onClick={nextStep}
+                    disabled={
+                      (currentStep === 1 && formData.messageType === 'template' && !selectedTemplate) ||
+                      (currentStep === 1 && formData.messageType === 'custom' && !formData.customMessage.trim()) ||
+                      (currentStep === 2 && getSelectedRecipientsCount() === 0) ||
+                      (currentStep === 3 && !formData.instanceId)
+                    }
+                  >
+                    Siguiente
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={createMessageMutation.isLoading}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {createMessageMutation.isLoading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Creando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 mr-2" />
+                        {formData.schedulingType === 'immediate' ? 'Enviar Ahora' : 'Programar Envío'}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Vista de selección de destinatarios
+const TargetSelectionStep = ({ formData, setFormData, options }) => {
+  const { campaigns = [] } = options;
+
+  const handleCampaignToggle = (campaignId) => {
+    setFormData(prev => ({
+      ...prev,
+      campaignIds: prev.campaignIds.includes(campaignId)
+        ? prev.campaignIds.filter(id => id !== campaignId)
+        : [...prev.campaignIds, campaignId]
+    }));
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Tipo de destinatario */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Tipo de Destinatario
+        </label>
+        <div className="grid grid-cols-3 gap-4">
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, targetType: 'campaigns' }))}
+            className={`p-4 border-2 rounded-lg text-left transition-colors ${
+              formData.targetType === 'campaigns'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Target className="h-6 w-6 text-purple-600 mb-2" />
+            <div className="font-medium">Campañas</div>
+            <div className="text-sm text-gray-600">Enviar a grupos de campañas</div>
+          </button>
           
-          <div className="text-center py-12">
-            <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Modal en Construcción
-            </h3>
-            <p className="text-gray-600">
-              El formulario de creación estará disponible próximamente
-            </p>
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, targetType: 'contacts' }))}
+            className={`p-4 border-2 rounded-lg text-left transition-colors ${
+              formData.targetType === 'contacts'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Users className="h-6 w-6 text-green-600 mb-2" />
+            <div className="font-medium">Contactos</div>
+            <div className="text-sm text-gray-600">Seleccionar contactos específicos</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, targetType: 'manual' }))}
+            className={`p-4 border-2 rounded-lg text-left transition-colors ${
+              formData.targetType === 'manual'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <MessageSquare className="h-6 w-6 text-blue-600 mb-2" />
+            <div className="font-medium">Manual</div>
+            <div className="text-sm text-gray-600">Ingresar números manualmente</div>
+          </button>
+        </div>
+      </div>
+
+      {/* Selección de campañas */}
+      {formData.targetType === 'campaigns' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Seleccionar Campañas ({formData.campaignIds.length} seleccionadas)
+          </label>
+          {campaigns.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <Target className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-600">No hay campañas disponibles</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {campaigns.map((campaign) => (
+                <div
+                  key={campaign.id}
+                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                    formData.campaignIds.includes(campaign.id)
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => handleCampaignToggle(campaign.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">{campaign.name}</div>
+                      <div className="text-sm text-gray-600">
+                        {campaign.total_groups} grupos • {campaign.total_members} miembros
+                      </div>
+                    </div>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                      formData.campaignIds.includes(campaign.id)
+                        ? 'border-blue-500 bg-blue-500'
+                        : 'border-gray-300'
+                    }`}>
+                      {formData.campaignIds.includes(campaign.id) && (
+                        <CheckCircle className="h-3 w-3 text-white" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Selección manual de números */}
+      {formData.targetType === 'manual' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Números de Teléfono (uno por línea)
+          </label>
+          <textarea
+            value={formData.manualPhones}
+            onChange={(e) => setFormData(prev => ({ ...prev, manualPhones: e.target.value }))}
+            placeholder="Ejemplo:&#10;+573001234567&#10;+573007654321&#10;+573009876543"
+            rows={6}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            Ingresa los números con código de país. Ejemplo: +57 para Colombia.
+          </p>
+          {formData.manualPhones && (
+            <div className="mt-2 text-sm text-gray-600">
+              {formData.manualPhones.split('\n').filter(p => p.trim()).length} números ingresados
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Placeholder para contactos */}
+      {formData.targetType === 'contacts' && (
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
+          <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-600">Selección de contactos disponible próximamente</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Vista de configuración
+const ConfigurationStep = ({ formData, setFormData, instances }) => {
+  const timezones = [
+    'UTC',
+    'America/Bogota',
+    'America/Mexico_City', 
+    'America/Argentina/Buenos_Aires',
+    'America/New_York',
+    'Europe/Madrid'
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Selección de instancia */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Instancia de WhatsApp
+        </label>
+        {instances.length === 0 ? (
+          <div className="text-center py-4 bg-red-50 rounded-lg">
+            <AlertCircle className="h-6 w-6 text-red-500 mx-auto mb-2" />
+            <p className="text-red-600">No hay instancias conectadas</p>
+          </div>
+        ) : (
+          <select
+            value={formData.instanceId}
+            onChange={(e) => setFormData(prev => ({ ...prev, instanceId: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Seleccionar instancia</option>
+            {instances.map((instance) => (
+              <option key={instance.id} value={instance.id}>
+                {instance.instance_name} ({instance.status})
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Tipo de programación */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Programación de Envío
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, schedulingType: 'immediate' }))}
+            className={`p-4 border-2 rounded-lg text-left transition-colors ${
+              formData.schedulingType === 'immediate'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Send className="h-6 w-6 text-blue-600 mb-2" />
+            <div className="font-medium">Enviar Ahora</div>
+            <div className="text-sm text-gray-600">Procesamiento inmediato</div>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setFormData(prev => ({ ...prev, schedulingType: 'scheduled' }))}
+            className={`p-4 border-2 rounded-lg text-left transition-colors ${
+              formData.schedulingType === 'scheduled'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Clock className="h-6 w-6 text-purple-600 mb-2" />
+            <div className="font-medium">Programar</div>
+            <div className="text-sm text-gray-600">Seleccionar fecha y hora</div>
+          </button>
+        </div>
+      </div>
+
+      {/* Programación específica */}
+      {formData.schedulingType === 'scheduled' && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fecha y Hora
+            </label>
+            <input
+              type="datetime-local"
+              value={formData.scheduledFor}
+              onChange={(e) => setFormData(prev => ({ ...prev, scheduledFor: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Zona Horaria
+            </label>
+            <select
+              value={formData.timezone}
+              onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {timezones.map((tz) => (
+                <option key={tz} value={tz}>{tz}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Configuración de delays */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Configuración de Delays
+        </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">
+              Entre Grupos (segundos)
+            </label>
+            <input
+              type="number"
+              min="5"
+              max="300"
+              value={formData.delayBetweenGroups}
+              onChange={(e) => setFormData(prev => ({ ...prev, delayBetweenGroups: parseInt(e.target.value) || 10 }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">
+              Entre Mensajes (segundos)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="60"
+              value={formData.delayBetweenMessages}
+              onChange={(e) => setFormData(prev => ({ ...prev, delayBetweenMessages: parseInt(e.target.value) || 2 }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 mt-2">
+          Delays recomendados: 10s entre grupos, 2s entre mensajes individuales
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// Vista de revisión final
+const ReviewStep = ({ formData, selectedTemplate, previewMessage, recipientsCount, options }) => {
+  const { campaigns = [], instances = [] } = options;
+  
+  const selectedCampaigns = campaigns.filter(c => formData.campaignIds.includes(c.id));
+  const selectedInstance = instances.find(i => i.id === formData.instanceId);
+  
+  const getEstimatedTime = () => {
+    if (formData.targetType === 'campaigns') {
+      const totalGroups = selectedCampaigns.reduce((sum, c) => sum + (c.total_groups || 0), 0);
+      const estimatedMinutes = Math.ceil((totalGroups * formData.delayBetweenGroups) / 60);
+      return `~${estimatedMinutes} minutos`;
+    }
+    return '< 1 minuto';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Resumen del mensaje */}
+      <Card>
+        <Card.Header>
+          <Card.Title className="flex items-center">
+            <MessageSquare className="h-5 w-5 mr-2 text-blue-600" />
+            Resumen del Mensaje
+          </Card.Title>
+        </Card.Header>
+        <Card.Content>
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm font-medium text-gray-600">Contenido</div>
+              <div className="bg-gray-50 p-3 rounded-lg mt-1">
+                <div className="text-sm whitespace-pre-wrap">{previewMessage}</div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-600">Tipo:</span>
+                <span className="ml-2">{formData.messageType === 'template' ? 'Template' : 'Personalizado'}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-600">Template:</span>
+                <span className="ml-2">{selectedTemplate?.name || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+        </Card.Content>
+      </Card>
+
+      {/* Destinatarios */}
+      <Card>
+        <Card.Header>
+          <Card.Title className="flex items-center">
+            <Target className="h-5 w-5 mr-2 text-purple-600" />
+            Destinatarios
+          </Card.Title>
+        </Card.Header>
+        <Card.Content>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-semibold text-gray-900">
+                {recipientsCount} destinatarios
+              </div>
+              <div className="text-sm text-gray-600">
+                Tiempo estimado: {getEstimatedTime()}
+              </div>
+            </div>
+            
+            {formData.targetType === 'campaigns' && selectedCampaigns.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-2">Campañas seleccionadas:</div>
+                <div className="space-y-1">
+                  {selectedCampaigns.map(campaign => (
+                    <div key={campaign.id} className="text-sm bg-purple-50 px-2 py-1 rounded">
+                      {campaign.name} ({campaign.total_members} miembros en {campaign.total_groups} grupos)
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {formData.targetType === 'manual' && (
+              <div>
+                <div className="text-sm font-medium text-gray-600 mb-2">Números manuales:</div>
+                <div className="text-sm bg-blue-50 px-2 py-1 rounded">
+                  {formData.manualPhones.split('\n').filter(p => p.trim()).length} números ingresados
+                </div>
+              </div>
+            )}
+          </div>
+        </Card.Content>
+      </Card>
+
+      {/* Configuración */}
+      <Card>
+        <Card.Header>
+          <Card.Title className="flex items-center">
+            <Settings className="h-5 w-5 mr-2 text-gray-600" />
+            Configuración
+          </Card.Title>
+        </Card.Header>
+        <Card.Content>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-medium text-gray-600">Instancia:</span>
+              <span className="ml-2">{selectedInstance?.instance_name || 'No seleccionada'}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">Programación:</span>
+              <span className="ml-2">
+                {formData.schedulingType === 'immediate' ? 'Inmediato' : 'Programado'}
+              </span>
+            </div>
+            {formData.schedulingType === 'scheduled' && (
+              <>
+                <div>
+                  <span className="font-medium text-gray-600">Fecha:</span>
+                  <span className="ml-2">{formData.scheduledFor}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Zona horaria:</span>
+                  <span className="ml-2">{formData.timezone}</span>
+                </div>
+              </>
+            )}
+            <div>
+              <span className="font-medium text-gray-600">Delay grupos:</span>
+              <span className="ml-2">{formData.delayBetweenGroups}s</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-600">Delay mensajes:</span>
+              <span className="ml-2">{formData.delayBetweenMessages}s</span>
+            </div>
+          </div>
+        </Card.Content>
+      </Card>
+
+      {/* Advertencia final */}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3" />
+          <div className="text-sm">
+            <div className="font-medium text-yellow-800">Confirmación de Envío</div>
+            <div className="text-yellow-700 mt-1">
+              Una vez iniciado el envío, no se podrá cancelar. Verifica que toda la información sea correcta.
+            </div>
           </div>
         </div>
       </div>
