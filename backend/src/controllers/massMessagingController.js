@@ -56,7 +56,7 @@ class MassMessagingController {
       const contactsStatsQuery = await database.query(`
         SELECT 
           COUNT(*) as total_contacts,
-          COUNT(*) FILTER (WHERE tags IS NOT NULL AND tags != '[]') as tagged_contacts
+          COUNT(*) FILTER (WHERE tags IS NOT NULL AND tags::text != '[]') as tagged_contacts
         FROM whatsapp_bot.contacts 
         WHERE company_id = $1
       `, [companyId]);
