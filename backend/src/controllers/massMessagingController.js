@@ -11,16 +11,20 @@ class MassMessagingController {
   async getMessagingOptions(req, res) {
     try {
       const companyId = req.user.companyId;
+      console.log(`[MassMessaging] 🔄 Obteniendo opciones para empresa: ${companyId}`);
 
       // Obtener templates activos
+      console.log('[MassMessaging] 📋 Consultando templates...');
       const templatesQuery = await database.query(`
         SELECT id, name, category, content, variables, usage_count
         FROM whatsapp_bot.message_templates 
         WHERE company_id = $1 AND is_active = true 
         ORDER BY usage_count DESC, name ASC
       `, [companyId]);
+      console.log(`[MassMessaging] ✅ Templates encontrados: ${templatesQuery.rows.length}`);
 
       // Obtener campañas activas con grupos
+      console.log('[MassMessaging] 🎯 Consultando campañas...');
       const campaignsQuery = await database.query(`
         SELECT 
           c.id,
@@ -35,16 +39,20 @@ class MassMessagingController {
         GROUP BY c.id, c.name, c.status
         ORDER BY c.name ASC
       `, [companyId]);
+      console.log(`[MassMessaging] ✅ Campañas encontradas: ${campaignsQuery.rows.length}`);
 
       // Obtener instancias activas
+      console.log('[MassMessaging] 📱 Consultando instancias...');
       const instancesQuery = await database.query(`
         SELECT id, instance_name, evolution_instance_name, status, phone
         FROM whatsapp_bot.whatsapp_instances 
         WHERE company_id = $1 AND status = 'connected'
         ORDER BY instance_name ASC
       `, [companyId]);
+      console.log(`[MassMessaging] ✅ Instancias encontradas: ${instancesQuery.rows.length}`);
 
       // Obtener estadísticas de contactos
+      console.log('[MassMessaging] 👥 Consultando contactos...');
       const contactsStatsQuery = await database.query(`
         SELECT 
           COUNT(*) as total_contacts,
@@ -52,22 +60,28 @@ class MassMessagingController {
         FROM whatsapp_bot.contacts 
         WHERE company_id = $1
       `, [companyId]);
+      console.log(`[MassMessaging] ✅ Contactos encontrados: ${contactsStatsQuery.rows[0]?.total_contacts || 0}`);
 
+      const responseData = {
+        templates: templatesQuery.rows,
+        campaigns: campaignsQuery.rows,
+        instances: instancesQuery.rows,
+        contactsStats: contactsStatsQuery.rows[0] || { total_contacts: 0, tagged_contacts: 0 }
+      };
+
+      console.log('[MassMessaging] 🎉 Opciones obtenidas exitosamente');
       res.json({
         success: true,
-        data: {
-          templates: templatesQuery.rows,
-          campaigns: campaignsQuery.rows,
-          instances: instancesQuery.rows,
-          contactsStats: contactsStatsQuery.rows[0]
-        }
+        data: responseData
       });
 
     } catch (error) {
-      console.error('Error obteniendo opciones de mensajería:', error);
+      console.error('❌ Error obteniendo opciones de mensajería:', error);
+      console.error('Stack trace:', error.stack);
       res.status(500).json({
         success: false,
-        message: 'Error interno del servidor'
+        message: 'Error interno del servidor',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
