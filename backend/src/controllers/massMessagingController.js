@@ -221,7 +221,7 @@ class MassMessagingController {
       const massMessageResult = await database.query(massMessageQuery, [
         companyId, userId, title, description, messageType, usedTemplateId,
         messageType === 'custom' ? customMessage : null, finalMessage, targetType, instanceId,
-        schedulingType, scheduledFor, timezone, delayBetweenGroups, delayBetweenMessages,
+        schedulingType, schedulingType === 'immediate' ? null : scheduledFor, timezone, delayBetweenGroups, delayBetweenMessages,
         recipients.length, schedulingType === 'immediate' ? 'processing' : 'scheduled'
       ]);
 
