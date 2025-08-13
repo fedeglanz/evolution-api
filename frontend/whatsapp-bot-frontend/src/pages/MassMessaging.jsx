@@ -37,19 +37,17 @@ const MassMessaging = () => {
   // Obtener historial
   const { data: historyData, isLoading: historyLoading } = useQuery({
     queryKey: ['mass-messaging-history'],
-    queryFn: () => api.get('/mass-messaging/history'),
-    enabled: selectedView === 'history'
+    queryFn: () => api.get('/mass-messaging/history')
   });
 
   // Obtener estadísticas
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['mass-messaging-stats'],
-    queryFn: () => api.get('/mass-messaging/stats/overview'),
-    enabled: selectedView === 'stats'
+    queryFn: () => api.get('/mass-messaging/stats/overview')
   });
 
   const options = optionsData?.data || {};
-  const history = historyData?.data || [];
+  const history = Array.isArray(historyData?.data) ? historyData.data : [];
   const stats = statsData?.data || {};
 
   return (
@@ -68,10 +66,20 @@ const MassMessaging = () => {
         
         <Button 
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 hover:bg-blue-700"
+          disabled={optionsLoading}
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Mensaje Masivo
+          {optionsLoading ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Cargando...
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Mensaje Masivo
+            </>
+          )}
         </Button>
       </div>
 
@@ -124,6 +132,7 @@ const MassMessaging = () => {
       {showCreateModal && (
         <CreateMessageModal
           options={options}
+          optionsLoading={optionsLoading}
           onClose={() => setShowCreateModal(false)}
           onSuccess={() => {
             setShowCreateModal(false);
@@ -247,7 +256,7 @@ const HistoryView = ({ history, loading }) => {
     );
   }
 
-  if (history.length === 0) {
+  if (!Array.isArray(history) || history.length === 0) {
     return (
       <Card>
         <Card.Content className="text-center py-12">
@@ -464,7 +473,7 @@ const StatsView = ({ stats, loading }) => {
 };
 
 // Modal de creación completo
-const CreateMessageModal = ({ options, onClose, onSuccess }) => {
+const CreateMessageModal = ({ options, optionsLoading, onClose, onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Contenido del mensaje
@@ -500,6 +509,34 @@ const CreateMessageModal = ({ options, onClose, onSuccess }) => {
   const [previewMessage, setPreviewMessage] = useState('');
 
   const { templates = [], campaigns = [], instances = [], contactsStats = {} } = options;
+
+  // Debug: Log para verificar datos
+  console.log('🔍 CreateMessageModal - Datos recibidos:', {
+    templates: templates.length,
+    campaigns: campaigns.length,
+    instances: instances.length,
+    templatesData: templates,
+    optionsLoading
+  });
+
+  // Mostrar loading si los datos aún se están cargando
+  if (optionsLoading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg p-8 max-w-md w-full">
+          <div className="text-center">
+            <RefreshCw className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-spin" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Cargando opciones...
+            </h3>
+            <p className="text-gray-600">
+              Obteniendo templates, campañas e instancias disponibles
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Mutación para crear mensaje masivo
   const createMessageMutation = useMutation({
@@ -704,6 +741,7 @@ const CreateMessageModal = ({ options, onClose, onSuccess }) => {
                       <div className="text-center py-8 bg-gray-50 rounded-lg">
                         <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-gray-600">No hay templates disponibles</p>
+                        <p className="text-xs text-gray-500 mt-2">Debug: {templates.length} templates encontrados</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-60 overflow-y-auto">
