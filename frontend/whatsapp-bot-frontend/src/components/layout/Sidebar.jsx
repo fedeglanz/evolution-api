@@ -17,7 +17,8 @@ import {
   Bot,
   Brain,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Send
 } from 'lucide-react';
 
 const navigation = [
@@ -37,6 +38,7 @@ const navigation = [
       { name: 'Archivos Multimedia', href: '/attachments', icon: Paperclip },
     ]
   },
+  { name: 'Mensajería Masiva', href: '/mass-messaging', icon: Send },
   { name: 'Campañas de Grupos', href: '/campaigns', icon: Target },
   { name: 'Configuración', href: '/settings', icon: Settings },
 ];

@@ -1,26 +1,21 @@
 const express = require('express');
 const router = express.Router();
 
-// Import route modules
+// Importar todas las rutas
 const authRoutes = require('./auth');
 const instanceRoutes = require('./instances');
-const botConfigRoutes = require('./botConfig');
-const botsRoutes = require('./bots'); // Múltiples bots - NUEVO
-const workflowRoutes = require('./workflows');
-const knowledgeRoutes = require('./knowledge');
 const contactRoutes = require('./contacts');
-const conversationRoutes = require('./conversations');
-const dashboardRoutes = require('./dashboard');
-const planRoutes = require('./plans');
-const migrationRoutes = require('./migrations');
-const botRouter = require('./bot'); // Nueva ruta
-const webhookRoutes = require('./webhooks'); // Nuevo
-const templateRoutes = require('./templates'); // Message templates
-const quickReplyRoutes = require('./quickReplies'); // Quick replies
-const scheduledMessageRoutes = require('./scheduledMessages'); // Scheduled messages
-const attachmentRoutes = require('./attachments'); // Message attachments
-const campaignRoutes = require('./campaigns'); // WhatsApp Group Campaigns
-const groupSyncRoutes = require('./groupSync'); // Group synchronization
+const messageRoutes = require('./messages');
+const botRoutes = require('./bots');
+const knowledgeRoutes = require('./knowledge');
+const workflowRoutes = require('./workflows');
+const templateRoutes = require('./templates');
+const quickReplyRoutes = require('./quickReplies');
+const scheduledMessageRoutes = require('./scheduledMessages');
+const attachmentRoutes = require('./attachments');
+const campaignRoutes = require('./campaigns');
+const groupSyncRoutes = require('./groupSync');
+const massMessagingRoutes = require('./massMessaging');
 
 // Middleware de autenticación
 const { authenticateToken } = require('../middleware/auth');
@@ -243,7 +238,10 @@ router.get('/info', (req, res) => {
         templates: '/api/templates (plantillas de mensajes)',
         quickReplies: '/api/quick-replies (respuestas rápidas)',
         scheduledMessages: '/api/scheduled-messages (mensajes programados)',
-        attachments: '/api/attachments (archivos multimedia)'
+        attachments: '/api/attachments (archivos multimedia)',
+        campaigns: '/api/campaigns (campañas de grupos)',
+        groupSync: '/api/group-sync (sincronización de grupos)',
+        massMessaging: '/api/mass-messaging (mensajería masiva unificada)'
       }
     }
   });
@@ -252,14 +250,14 @@ router.get('/info', (req, res) => {
 // Mount routes with prefixes
 router.use('/auth', authRoutes);
 router.use('/instances', instanceRoutes);
-router.use('/bots', botsRoutes); // Sistema de múltiples bots - NUEVO
+router.use('/bots', botRoutes); // Sistema de múltiples bots - NUEVO
 router.use('/contacts', contactRoutes);
-router.use('/conversations', conversationRoutes);
-router.use('/dashboard', dashboardRoutes);
-router.use('/plans', planRoutes);
-router.use('/migrations', migrationRoutes);
-router.use('/webhooks', webhookRoutes); // Nuevo - con auth
-router.use('/bot', botRouter); // Sin auth para n8n - usará API key propia
+// router.use('/conversations', conversationRoutes); // TODO: Crear estas rutas
+// router.use('/dashboard', dashboardRoutes); // TODO: Crear estas rutas
+// router.use('/plans', planRoutes); // TODO: Crear estas rutas
+// router.use('/migrations', migrationRoutes); // TODO: Crear estas rutas
+// router.use('/webhooks', webhookRoutes); // TODO: Crear estas rutas
+// router.use('/bot', botRouter); // TODO: Verificar esta ruta
 router.use('/workflows', workflowRoutes);
 router.use('/knowledge', knowledgeRoutes);
 router.use('/templates', templateRoutes); // Message templates
@@ -268,5 +266,6 @@ router.use('/scheduled-messages', scheduledMessageRoutes); // Scheduled messages
 router.use('/attachments', attachmentRoutes); // Message attachments
 router.use('/campaigns', campaignRoutes); // WhatsApp Group Campaigns
 router.use('/group-sync', groupSyncRoutes); // Group synchronization
+router.use('/mass-messaging', massMessagingRoutes); // Mass messaging system
 
 module.exports = router;

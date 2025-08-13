@@ -18,6 +18,7 @@ import ScheduledMessages from './pages/ScheduledMessages';
 import Attachments from './pages/Attachments';
 import Campaigns from './pages/Campaigns';
 import PublicCampaign from './pages/PublicCampaign';
+import MassMessaging from './pages/MassMessaging';
 import Settings from './pages/Settings';
 
 const queryClient = new QueryClient({
@@ -72,6 +73,7 @@ function App() {
               <Route path="scheduled-messages" element={<ScheduledMessages />} />
               <Route path="attachments" element={<Attachments />} />
               <Route path="campaigns" element={<Campaigns />} />
+              <Route path="mass-messaging" element={<MassMessaging />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             
