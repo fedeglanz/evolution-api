@@ -44,7 +44,7 @@ class MassMessagingController {
       // Obtener instancias activas
       console.log('[MassMessaging] 📱 Consultando instancias...');
       const instancesQuery = await database.query(`
-        SELECT id, instance_name, evolution_instance_name, status, phone
+        SELECT id, instance_name, evolution_instance_name, status, phone_number
         FROM whatsapp_bot.whatsapp_instances 
         WHERE company_id = $1 AND status = 'connected'
         ORDER BY instance_name ASC
