@@ -493,15 +493,25 @@ class MassMessagingController {
       message: recipient.message_content
     };
 
+    console.log(`[MassMessage] 📤 Enviando a ${recipient.recipient_name}:`, {
+      type: recipient.recipient_type,
+      phone: recipient.recipient_phone,
+      messageData
+    });
+
     if (recipient.recipient_type === 'group') {
+      const payload = {
+        ...messageData,
+        remoteJid: recipient.recipient_phone // evolution_group_id
+      };
+      
+      console.log(`[MassMessage] 📋 Payload para grupo:`, payload);
+      
       // Enviar a grupo
       await evolutionService.makeRequest(
         'POST',
         `/message/sendText/${massMessage.evolution_instance_name}`,
-        {
-          ...messageData,
-          remoteJid: recipient.recipient_phone // evolution_group_id
-        }
+        payload
       );
     } else {
       // Enviar a contacto individual
