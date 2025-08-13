@@ -232,9 +232,13 @@ class MassMessagingController {
 
       // Si es inmediato, procesar ahora
       if (schedulingType === 'immediate') {
+        console.log(`[MassMessaging] 🚀 Procesando mensaje inmediato: ${massMessage.id}`);
         // Procesar en background
         setImmediate(() => {
-          this.processMassMessage(massMessage.id);
+          console.log(`[MassMessaging] 🔄 Ejecutando processMassMessage para: ${massMessage.id}`);
+          this.processMassMessage(massMessage.id).catch(error => {
+            console.error(`[MassMessaging] ❌ Error procesando mensaje ${massMessage.id}:`, error);
+          });
         });
 
         res.status(201).json({
