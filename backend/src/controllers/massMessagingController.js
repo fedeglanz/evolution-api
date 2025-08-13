@@ -14,6 +14,7 @@ class MassMessagingController {
     this.sendIndividualMessage = this.sendIndividualMessage.bind(this);
     this.getMassMessageHistory = this.getMassMessageHistory.bind(this);
     this.getMassMessageDetails = this.getMassMessageDetails.bind(this);
+    this.editMassMessage = this.editMassMessage.bind(this);
     this.cancelMassMessage = this.cancelMassMessage.bind(this);
     this.getMassMessagingStats = this.getMassMessagingStats.bind(this);
   }
@@ -689,6 +690,129 @@ class MassMessagingController {
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor'
+      });
+    }
+  }
+
+  /**
+   * Editar mensaje masivo programado
+   * PUT /api/mass-messaging/:id/edit
+   */
+  async editMassMessage(req, res) {
+    try {
+      const { id } = req.params;
+      const companyId = req.user.companyId;
+      const {
+        title,
+        description,
+        customMessage,
+        scheduledFor,
+        timezone,
+        delayBetweenGroups,
+        delayBetweenMessages
+      } = req.body;
+
+      console.log(`[MassMessage] ✏️ Editando mensaje masivo: ${id}`);
+
+      // Verificar que el mensaje existe y puede ser editado
+      const messageQuery = await database.query(`
+        SELECT id, status, title, message_type, final_message
+        FROM whatsapp_bot.mass_messages 
+        WHERE id = $1 AND company_id = $2
+      `, [id, companyId]);
+
+      if (messageQuery.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'Mensaje masivo no encontrado'
+        });
+      }
+
+      const message = messageQuery.rows[0];
+
+      if (message.status !== 'scheduled') {
+        return res.status(400).json({
+          success: false,
+          message: 'Solo se pueden editar mensajes programados (estado: scheduled)'
+        });
+      }
+
+      // Preparar campos a actualizar
+      const updateFields = [];
+      const updateValues = [];
+      let paramIndex = 1;
+
+      if (title !== undefined) {
+        updateFields.push(`title = $${paramIndex++}`);
+        updateValues.push(title);
+      }
+
+      if (description !== undefined) {
+        updateFields.push(`description = $${paramIndex++}`);
+        updateValues.push(description);
+      }
+
+      // Solo actualizar el mensaje si es de tipo 'custom'
+      if (customMessage !== undefined && message.message_type === 'custom') {
+        updateFields.push(`custom_message = $${paramIndex++}`);
+        updateValues.push(customMessage);
+        updateFields.push(`final_message = $${paramIndex++}`);
+        updateValues.push(customMessage);
+      }
+
+      if (scheduledFor !== undefined) {
+        updateFields.push(`scheduled_for = $${paramIndex++}`);
+        updateValues.push(scheduledFor);
+      }
+
+      if (timezone !== undefined) {
+        updateFields.push(`timezone = $${paramIndex++}`);
+        updateValues.push(timezone);
+      }
+
+      if (delayBetweenGroups !== undefined) {
+        updateFields.push(`delay_between_groups = $${paramIndex++}`);
+        updateValues.push(delayBetweenGroups);
+      }
+
+      if (delayBetweenMessages !== undefined) {
+        updateFields.push(`delay_between_messages = $${paramIndex++}`);
+        updateValues.push(delayBetweenMessages);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No se proporcionaron campos para actualizar'
+        });
+      }
+
+      // Actualizar mensaje masivo
+      updateValues.push(id);
+      const updateQuery = `
+        UPDATE whatsapp_bot.mass_messages 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING *
+      `;
+
+      const updateResult = await database.query(updateQuery, updateValues);
+      const updatedMessage = updateResult.rows[0];
+
+      console.log(`[MassMessage] ✅ Mensaje editado: "${updatedMessage.title}"`);
+
+      res.json({
+        success: true,
+        message: `Mensaje masivo "${updatedMessage.title}" editado exitosamente`,
+        data: updatedMessage
+      });
+
+    } catch (error) {
+      console.error('Error editando mensaje masivo:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error interno del servidor',
+        error: error.message
       });
     }
   }

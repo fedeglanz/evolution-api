@@ -57,12 +57,42 @@ router.get('/history', massMessagingController.getMassMessageHistory);
 router.get('/:id', massMessagingController.getMassMessageDetails);
 
 /**
+ * @route PUT /api/mass-messaging/:id/edit
+ * @desc Editar mensaje masivo programado (solo si está en estado 'scheduled')
+ * @access Private
+ * @param {string} id - ID del mensaje masivo
+ * @body {string} title - Nuevo título
+ * @body {string} description - Nueva descripción
+ * @body {string} customMessage - Nuevo mensaje (si messageType = 'custom')
+ * @body {string} scheduledFor - Nueva fecha programada
+ * @body {string} timezone - Nueva zona horaria
+ * @body {number} delayBetweenGroups - Nuevo delay entre grupos
+ * @body {number} delayBetweenMessages - Nuevo delay entre mensajes
+ */
+router.put('/:id/edit', massMessagingController.editMassMessage);
+
+/**
  * @route POST /api/mass-messaging/:id/cancel
  * @desc Cancelar mensaje masivo (solo si está programado o en proceso)
  * @access Private
  * @param {string} id - ID del mensaje masivo
  */
 router.post('/:id/cancel', massMessagingController.cancelMassMessage);
+
+/**
+ * @route PUT /api/mass-messaging/:id/edit
+ * @desc Editar mensaje masivo programado (solo si está en estado 'scheduled')
+ * @access Private
+ * @param {string} id - ID del mensaje masivo
+ * @body {string} title - Nuevo título
+ * @body {string} description - Nueva descripción
+ * @body {string} customMessage - Nuevo mensaje (si messageType = 'custom')
+ * @body {string} scheduledFor - Nueva fecha programada
+ * @body {string} timezone - Nueva zona horaria
+ * @body {number} delayBetweenGroups - Nuevo delay entre grupos
+ * @body {number} delayBetweenMessages - Nuevo delay entre mensajes
+ */
+router.put('/:id/edit', massMessagingController.editMassMessage);
 
 /**
  * @route GET /api/mass-messaging/stats/overview
