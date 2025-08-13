@@ -16,7 +16,9 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Edit,
+  Save
 } from 'lucide-react';
 import api from '../services/api';
 import Button from '../components/ui/Button';
@@ -25,13 +27,26 @@ import Card from '../components/ui/Card';
 
 const MassMessaging = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
   const [selectedView, setSelectedView] = useState('create'); // 'create', 'history', 'stats'
   const queryClient = useQueryClient();
 
   // Obtener opciones disponibles
-  const { data: optionsData, isLoading: optionsLoading } = useQuery({
+  const { data: optionsData, isLoading: optionsLoading, error: optionsError } = useQuery({
     queryKey: ['mass-messaging-options'],
-    queryFn: () => api.get('/mass-messaging/options')
+    queryFn: async () => {
+      console.log('🔄 Ejecutando query de opciones...');
+      const response = await api.get('/mass-messaging/options');
+      console.log('✅ Response de opciones:', response);
+      return response;
+    },
+    onSuccess: (data) => {
+      console.log('🎉 Query exitosa - datos recibidos:', data);
+    },
+    onError: (error) => {
+      console.error('❌ Error en query:', error);
+    }
   });
 
   // Obtener historial
@@ -46,9 +61,65 @@ const MassMessaging = () => {
     queryFn: () => api.get('/mass-messaging/stats/overview')
   });
 
-  const options = optionsData?.data || {};
-  const history = Array.isArray(historyData?.data) ? historyData.data : [];
-  const stats = statsData?.data || {};
+  const options = optionsData?.data?.data || {};
+  const history = Array.isArray(historyData?.data?.data) ? historyData.data.data : [];
+  const stats = statsData?.data?.data || {};
+
+  // Debug: Log de datos principales
+  console.log('🔍 MassMessaging - Estado principal:', {
+    optionsLoading,
+    optionsData,
+    options,
+    hasTemplates: options.templates?.length || 0
+  });
+
+  // Debug: Log específico para historial
+  console.log('📋 MassMessaging - Historial:', {
+    historyLoading,
+    historyData,
+    history,
+    historyLength: history.length
+  });
+  console.log('📋 MassMessaging - Historial:', {
+    historyLoading,
+    historyData,
+    history,
+    historyLength: history.length
+  });
+
+  // Mutaciones para edit y cancel
+  const editMessageMutation = useMutation({
+    mutationFn: (data) => api.put(`/mass-messaging/${data.id}/edit`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['mass-messaging-history']);
+      setShowEditModal(false);
+      setSelectedMessage(null);
+    }
+  });
+
+  const cancelMessageMutation = useMutation({
+    mutationFn: (id) => api.post(`/mass-messaging/${id}/cancel`),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['mass-messaging-history']);
+    }
+  });
+
+  // Funciones para manejar edit/cancel
+  const handleEditMessage = (message) => {
+    setSelectedMessage(message);
+    setShowEditModal(true);
+  };
+
+  const handleCancelMessage = async (message) => {
+    if (window.confirm(`¿Estás seguro de que quieres cancelar el mensaje "${message.title}"?`)) {
+      try {
+        await cancelMessageMutation.mutateAsync(message.id);
+        alert('Mensaje cancelado exitosamente');
+      } catch (error) {
+        alert('Error al cancelar el mensaje: ' + (error.response?.data?.message || error.message));
+      }
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -118,6 +189,8 @@ const MassMessaging = () => {
         <HistoryView 
           history={history} 
           loading={historyLoading}
+          onEdit={handleEditMessage}
+          onCancel={handleCancelMessage}
         />
       )}
 
@@ -138,6 +211,19 @@ const MassMessaging = () => {
             setShowCreateModal(false);
             queryClient.invalidateQueries(['mass-messaging-history']);
           }}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && selectedMessage && (
+        <EditMessageModal
+          message={selectedMessage}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedMessage(null);
+          }}
+          onSave={editMessageMutation.mutate}
+          isLoading={editMessageMutation.isLoading}
         />
       )}
     </div>
@@ -247,7 +333,7 @@ const CreateMessageView = ({ options, optionsLoading, onCreateSuccess }) => {
 };
 
 // Vista de historial
-const HistoryView = ({ history, loading }) => {
+const HistoryView = ({ history, loading, onEdit, onCancel }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -280,7 +366,12 @@ const HistoryView = ({ history, loading }) => {
       <Card.Content>
         <div className="space-y-4">
           {history.map(message => (
-            <MessageHistoryItem key={message.id} message={message} />
+                          <MessageHistoryItem 
+                key={message.id} 
+                message={message} 
+                onEdit={onEdit}
+                onCancel={onCancel}
+              />
           ))}
         </div>
       </Card.Content>
@@ -289,7 +380,7 @@ const HistoryView = ({ history, loading }) => {
 };
 
 // Item de historial
-const MessageHistoryItem = ({ message }) => {
+const MessageHistoryItem = ({ message, onEdit, onCancel }) => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'completed':
@@ -350,16 +441,53 @@ const MessageHistoryItem = ({ message }) => {
               {message.total_recipients} destinatarios
             </span>
             <span>
-              {new Date(message.created_at).toLocaleDateString()}
+              Creado: {new Date(message.created_at).toLocaleDateString()}
             </span>
+            {message.scheduled_for && (
+              <span className="text-orange-600 font-medium">
+                📅 Programado: {new Date(message.scheduled_for).toLocaleString('es-ES', {
+                  timeZone: message.timezone,
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })} ({message.timezone})
+              </span>
+            )}
           </div>
         </div>
         
-        <div className="text-right">
-          <div className="text-sm font-medium text-gray-900">
-            {message.sent_count}/{message.total_recipients}
+        <div className="text-right space-y-2">
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              {message.sent_count}/{message.total_recipients}
+            </div>
+            <div className="text-xs text-gray-500">enviados</div>
           </div>
-          <div className="text-xs text-gray-500">enviados</div>
+          
+          {message.status === 'scheduled' && (
+            <div className="space-x-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onEdit(message)}
+                className="text-xs"
+              >
+                <Calendar className="h-3 w-3 mr-1" />
+                Editar
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onCancel(message)}
+                className="text-xs text-red-600 hover:text-red-700"
+              >
+                <XCircle className="h-3 w-3 mr-1" />
+                Cancelar
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -557,7 +685,7 @@ const CreateMessageModal = ({ options, optionsLoading, onClose, onSuccess }) => 
       let preview = selectedTemplate.content;
       
       // Reemplazar variables en el preview
-      const templateVars = JSON.parse(selectedTemplate.variables || '[]');
+      const templateVars = Array.isArray(selectedTemplate.variables) ? selectedTemplate.variables : JSON.parse(selectedTemplate.variables || '[]');
       templateVars.forEach(variable => {
         const value = formData.templateVariables[variable.name] || `{${variable.name}}`;
         const regex = new RegExp(`\\{${variable.name}\\}`, 'g');
@@ -575,7 +703,7 @@ const CreateMessageModal = ({ options, optionsLoading, onClose, onSuccess }) => 
     setFormData(prev => ({ ...prev, templateId: template.id }));
     
     // Inicializar variables del template
-    const templateVars = JSON.parse(template.variables || '[]');
+    const templateVars = Array.isArray(template.variables) ? template.variables : JSON.parse(template.variables || '[]');
     const initialVars = {};
     templateVars.forEach(variable => {
       initialVars[variable.name] = variable.default_value || '';
@@ -772,7 +900,7 @@ const CreateMessageModal = ({ options, optionsLoading, onClose, onSuccess }) => 
                         <label className="block text-sm font-medium text-gray-700 mb-3">
                           Variables del Template
                         </label>
-                        {JSON.parse(selectedTemplate.variables || '[]').map((variable) => (
+                        {(Array.isArray(selectedTemplate.variables) ? selectedTemplate.variables : JSON.parse(selectedTemplate.variables || '[]')).map((variable) => (
                           <div key={variable.name} className="mb-3">
                             <label className="block text-sm text-gray-600 mb-1">
                               {variable.name} {variable.required && <span className="text-red-500">*</span>}
@@ -1368,6 +1496,194 @@ const ReviewStep = ({ formData, selectedTemplate, previewMessage, recipientsCoun
               Una vez iniciado el envío, no se podrá cancelar. Verifica que toda la información sea correcta.
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Modal de edición de mensaje programado
+const EditMessageModal = ({ message, onClose, onSave, isLoading }) => {
+  const [formData, setFormData] = useState({
+    title: message.title || '',
+    description: message.description || '',
+    customMessage: message.custom_message || '',
+    scheduledFor: message.scheduled_for ? new Date(message.scheduled_for).toISOString().slice(0, 16) : '',
+    timezone: message.timezone || 'America/Argentina/Buenos_Aires',
+    delayBetweenGroups: message.delay_between_groups || 10,
+    delayBetweenMessages: message.delay_between_messages || 2
+  });
+
+  const timezones = [
+    'America/Argentina/Buenos_Aires',
+    'America/New_York',
+    'America/Los_Angeles',
+    'Europe/Madrid',
+    'Europe/London',
+    'Asia/Tokyo'
+  ];
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      id: message.id,
+      ...formData
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <Edit className="h-6 w-6 text-blue-600 mr-2" />
+              Editar Mensaje Programado
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <XCircle className="h-6 w-6" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Información básica */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Título
+                </label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Título del mensaje"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Descripción opcional"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Solo mostrar mensaje si es de tipo custom */}
+              {message.message_type === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mensaje
+                  </label>
+                  <textarea
+                    value={formData.customMessage}
+                    onChange={(e) => setFormData(prev => ({ ...prev, customMessage: e.target.value }))}
+                    placeholder="Contenido del mensaje"
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Programación */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900">Programación</h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nueva Fecha y Hora
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.scheduledFor}
+                  onChange={(e) => setFormData(prev => ({ ...prev, scheduledFor: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Zona Horaria
+                </label>
+                <select
+                  value={formData.timezone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {timezones.map((tz) => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Configuración de delays */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900">Configuración de Envío</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Delay entre grupos (segundos)
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.delayBetweenGroups}
+                    onChange={(e) => setFormData(prev => ({ ...prev, delayBetweenGroups: parseInt(e.target.value) }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Delay entre mensajes (segundos)
+                  </label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.delayBetweenMessages}
+                    onChange={(e) => setFormData(prev => ({ ...prev, delayBetweenMessages: parseInt(e.target.value) }))}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Botones */}
+            <div className="flex justify-end space-x-3 pt-6 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Guardar Cambios
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
