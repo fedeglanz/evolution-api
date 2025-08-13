@@ -141,8 +141,8 @@ class SchedulerService {
             WHERE id = $1
           `, [message.id]);
 
-          // Procesar el mensaje usando el método existente
-          await controller.processMassMessage(message);
+          // Procesar el mensaje usando el método existente (solo necesita el ID)
+          await controller.processMassMessage(message.id);
 
           console.log(`[MassMessage] ✅ Mensaje masivo procesado: "${message.title}"`);
 
