@@ -489,20 +489,16 @@ class MassMessagingController {
    * Enviar mensaje individual
    */
   async sendIndividualMessage(recipient, massMessage) {
-    const messageData = {
-      message: recipient.message_content
-    };
-
     console.log(`[MassMessage] 📤 Enviando a ${recipient.recipient_name}:`, {
       type: recipient.recipient_type,
       phone: recipient.recipient_phone,
-      messageData
+      message: recipient.message_content
     });
 
     if (recipient.recipient_type === 'group') {
       const payload = {
-        ...messageData,
-        remoteJid: recipient.recipient_phone // evolution_group_id
+        number: recipient.recipient_phone, // evolution_group_id con @g.us
+        text: recipient.message_content
       };
       
       console.log(`[MassMessage] 📋 Payload para grupo:`, payload);
@@ -514,14 +510,18 @@ class MassMessagingController {
         payload
       );
     } else {
+      const payload = {
+        number: recipient.recipient_phone.replace(/\D/g, ''), // Solo números
+        text: recipient.message_content
+      };
+      
+      console.log(`[MassMessage] 📋 Payload para contacto:`, payload);
+      
       // Enviar a contacto individual
       await evolutionService.makeRequest(
         'POST',
         `/message/sendText/${massMessage.evolution_instance_name}`,
-        {
-          ...messageData,
-          number: recipient.recipient_phone.replace(/\D/g, '') // Solo números
-        }
+        payload
       );
     }
   }
