@@ -7,6 +7,7 @@ const instanceRoutes = require('./instances');
 const contactRoutes = require('./contacts');
 // const messageRoutes = require('./messages'); // TODO: Crear este archivo si es necesario
 const botRoutes = require('./bots');
+const botRouter = require('./bot'); // Rutas individuales de bot (process-message)
 const knowledgeRoutes = require('./knowledge');
 const workflowRoutes = require('./workflows');
 const templateRoutes = require('./templates');
@@ -257,7 +258,7 @@ router.use('/contacts', contactRoutes);
 // router.use('/plans', planRoutes); // TODO: Crear estas rutas
 // router.use('/migrations', migrationRoutes); // TODO: Crear estas rutas
 // router.use('/webhooks', webhookRoutes); // TODO: Crear estas rutas
-// router.use('/bot', botRouter); // TODO: Verificar esta ruta
+router.use('/bot', botRouter); // Rutas individuales de bot (process-message, log-interaction)
 router.use('/workflows', workflowRoutes);
 router.use('/knowledge', knowledgeRoutes);
 router.use('/templates', templateRoutes); // Message templates
