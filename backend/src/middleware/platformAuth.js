@@ -4,36 +4,57 @@ const pool = require('../database');
 // Middleware para autenticar platform admins
 const authenticatePlatformAdmin = async (req, res, next) => {
   try {
+    console.log('[PLATFORM AUTH] Iniciando autenticación...');
+    console.log('[PLATFORM AUTH] Headers:', req.headers.authorization ? 'Token presente' : 'Sin token');
+    
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[PLATFORM AUTH] Error: Token no proporcionado');
       return res.status(401).json({ error: 'Token no proporcionado' });
     }
 
     const token = authHeader.split(' ')[1];
+    console.log('[PLATFORM AUTH] Token extraído, longitud:', token.length);
     
     try {
       // Verificar token JWT
+      console.log('[PLATFORM AUTH] Verificando JWT...');
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      console.log('[PLATFORM AUTH] Token decodificado:', { 
+        adminId: decoded.adminId, 
+        email: decoded.email,
+        isPlatformAdmin: decoded.isPlatformAdmin 
+      });
       
       // Verificar que es un platform admin
       if (!decoded.isPlatformAdmin) {
+        console.log('[PLATFORM AUTH] Error: No es platform admin');
         return res.status(403).json({ error: 'Acceso denegado - No es administrador de plataforma' });
       }
 
       // Verificar que el admin existe y está activo
+      console.log('[PLATFORM AUTH] Verificando admin en BD...');
       const adminResult = await pool.query(
         'SELECT id, email, role, is_active FROM public.platform_admins WHERE id = $1',
         [decoded.adminId]
       );
 
       if (adminResult.rows.length === 0) {
+        console.log('[PLATFORM AUTH] Error: Admin no encontrado en BD');
         return res.status(404).json({ error: 'Administrador no encontrado' });
       }
 
       const admin = adminResult.rows[0];
+      console.log('[PLATFORM AUTH] Admin encontrado:', { 
+        id: admin.id, 
+        email: admin.email, 
+        role: admin.role,
+        isActive: admin.is_active 
+      });
 
       if (!admin.is_active) {
+        console.log('[PLATFORM AUTH] Error: Admin desactivado');
         return res.status(403).json({ error: 'Cuenta de administrador desactivada' });
       }
 
@@ -44,6 +65,7 @@ const authenticatePlatformAdmin = async (req, res, next) => {
         role: admin.role
       };
 
+      console.log('[PLATFORM AUTH] Autenticación exitosa, continuando...');
       next();
     } catch (jwtError) {
       if (jwtError.name === 'TokenExpiredError') {

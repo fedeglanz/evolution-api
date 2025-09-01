@@ -18,6 +18,10 @@ class PlatformUsersController {
   // Listar todas las empresas con estadísticas
   async listCompanies(req, res) {
     try {
+      console.log('[PLATFORM LIST COMPANIES] Iniciando listado de empresas...');
+      console.log('[PLATFORM LIST COMPANIES] Query params:', req.query);
+      console.log('[PLATFORM LIST COMPANIES] User:', req.platformAdmin);
+      
       const { page = 1, limit = 20, search = '', plan = '' } = req.query;
       const offset = (page - 1) * limit;
 
@@ -66,7 +70,12 @@ class PlatformUsersController {
       query += ` ORDER BY c.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
       params.push(limit, offset);
 
+      console.log('[PLATFORM LIST COMPANIES] Ejecutando query:', query);
+      console.log('[PLATFORM LIST COMPANIES] Params:', params);
+      
       const result = await pool.query(query, params);
+      
+      console.log('[PLATFORM LIST COMPANIES] Resultado query:', result.rows.length, 'empresas encontradas');
 
       // Obtener información de precios de planes
       const planPrices = {
@@ -83,6 +92,8 @@ class PlatformUsersController {
         plan_price: planPrices[company.plan] || 0
       }));
 
+      console.log('[PLATFORM LIST COMPANIES] Enviando respuesta con', companies.length, 'empresas');
+
       res.json({
         companies,
         pagination: {
@@ -93,8 +104,12 @@ class PlatformUsersController {
         }
       });
     } catch (error) {
-      console.error('Error listando empresas:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('[PLATFORM LIST COMPANIES] Error listando empresas:', error);
+      console.error('[PLATFORM LIST COMPANIES] Error stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Error interno del servidor',
+        details: error.message 
+      });
     }
   }
 
@@ -176,6 +191,10 @@ class PlatformUsersController {
   // Listar usuarios (con filtros)
   async listUsers(req, res) {
     try {
+      console.log('[PLATFORM LIST USERS] Iniciando listado de usuarios...');
+      console.log('[PLATFORM LIST USERS] Query params:', req.query);
+      console.log('[PLATFORM LIST USERS] User:', req.platformAdmin);
+      
       const { page = 1, limit = 20, search = '', companyId = '', role = '' } = req.query;
       const offset = (page - 1) * limit;
 
@@ -228,7 +247,13 @@ class PlatformUsersController {
       query += ` ORDER BY u.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
       params.push(limit, offset);
 
+      console.log('[PLATFORM LIST USERS] Ejecutando query:', query);
+      console.log('[PLATFORM LIST USERS] Params:', params);
+      
       const result = await pool.query(query, params);
+      
+      console.log('[PLATFORM LIST USERS] Resultado query:', result.rows.length, 'usuarios encontrados');
+      console.log('[PLATFORM LIST USERS] Enviando respuesta con', result.rows.length, 'usuarios');
 
       res.json({
         users: result.rows,
@@ -240,8 +265,12 @@ class PlatformUsersController {
         }
       });
     } catch (error) {
-      console.error('Error listando usuarios:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('[PLATFORM LIST USERS] Error listando usuarios:', error);
+      console.error('[PLATFORM LIST USERS] Error stack:', error.stack);
+      res.status(500).json({ 
+        error: 'Error interno del servidor',
+        details: error.message 
+      });
     }
   }
 
