@@ -586,6 +586,106 @@ const platformAdminSchemas = {
   })
 };
 
+// User management validation schemas (for companies)
+const userSchemas = {
+  create: Joi.object({
+    email: commonSchemas.email,
+    firstName: Joi.string()
+      .min(2)
+      .max(100)
+      .trim()
+      .required()
+      .messages({
+        'string.min': 'El nombre debe tener al menos 2 caracteres',
+        'string.max': 'El nombre no puede tener más de 100 caracteres',
+        'string.empty': 'El nombre es requerido',
+        'any.required': 'El nombre es requerido'
+      }),
+    lastName: Joi.string()
+      .min(2)
+      .max(100)
+      .trim()
+      .required()
+      .messages({
+        'string.min': 'El apellido debe tener al menos 2 caracteres',
+        'string.max': 'El apellido no puede tener más de 100 caracteres',
+        'string.empty': 'El apellido es requerido',
+        'any.required': 'El apellido es requerido'
+      }),
+    role: Joi.string()
+      .valid('admin', 'manager', 'operator', 'viewer')
+      .default('operator')
+      .messages({
+        'any.only': 'El rol debe ser uno de: admin, manager, operator, viewer'
+      }),
+    tempPassword: Joi.string()
+      .min(8)
+      .max(128)
+      .optional()
+      .messages({
+        'string.min': 'La contraseña temporal debe tener al menos 8 caracteres',
+        'string.max': 'La contraseña temporal no puede tener más de 128 caracteres'
+      }),
+    generatePassword: Joi.boolean()
+      .default(true)
+  }),
+
+  update: Joi.object({
+    firstName: Joi.string()
+      .min(2)
+      .max(100)
+      .trim()
+      .optional()
+      .messages({
+        'string.min': 'El nombre debe tener al menos 2 caracteres',
+        'string.max': 'El nombre no puede tener más de 100 caracteres'
+      }),
+    lastName: Joi.string()
+      .min(2)
+      .max(100)
+      .trim()
+      .optional()
+      .messages({
+        'string.min': 'El apellido debe tener al menos 2 caracteres',
+        'string.max': 'El apellido no puede tener más de 100 caracteres'
+      }),
+    role: Joi.string()
+      .valid('admin', 'manager', 'operator', 'viewer')
+      .optional()
+      .messages({
+        'any.only': 'El rol debe ser uno de: admin, manager, operator, viewer'
+      })
+  }),
+
+  resetPassword: Joi.object({
+    tempPassword: Joi.string()
+      .min(8)
+      .max(128)
+      .optional()
+      .messages({
+        'string.min': 'La contraseña temporal debe tener al menos 8 caracteres',
+        'string.max': 'La contraseña temporal no puede tener más de 128 caracteres'
+      }),
+    generatePassword: Joi.boolean()
+      .default(true)
+  }),
+
+  toggleStatus: Joi.object({
+    isActive: Joi.boolean()
+      .required()
+      .messages({
+        'any.required': 'El estado es requerido',
+        'boolean.base': 'El estado debe ser verdadero o falso'
+      })
+  })
+};
+
+// User management validation middleware
+const validateUserCreate = validate(userSchemas.create);
+const validateUserUpdate = validate(userSchemas.update);
+const validateUserResetPassword = validate(userSchemas.resetPassword);
+const validateUserToggleStatus = validate(userSchemas.toggleStatus);
+
 // Validation middleware functions for Platform Admin
 const validatePlatformLogin = validate(platformAdminSchemas.login);
 const validatePasswordChange = validate(platformAdminSchemas.passwordChange);
@@ -608,6 +708,11 @@ module.exports = {
   validateKnowledgeAssignment,
   validateUUID,
   validateUUIDField, // Nueva función más flexible
+  // User management validations
+  validateUserCreate,
+  validateUserUpdate,
+  validateUserResetPassword,
+  validateUserToggleStatus,
   // Platform Admin validations
   validatePlatformLogin,
   validatePasswordChange,
@@ -619,6 +724,7 @@ module.exports = {
     message: messageSchemas,
     query: querySchemas,
     common: commonSchemas,
+    users: userSchemas,
     platformAdmin: platformAdminSchemas
   }
 };

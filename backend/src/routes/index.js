@@ -5,6 +5,7 @@ const router = express.Router();
 const authRoutes = require('./auth');
 const instanceRoutes = require('./instances');
 const contactRoutes = require('./contacts');
+const userRoutes = require('./users');
 // const messageRoutes = require('./messages'); // TODO: Crear este archivo si es necesario
 const botRoutes = require('./bots');
 const botRouter = require('./bot'); // Rutas individuales de bot (process-message)
@@ -255,6 +256,7 @@ router.use('/auth', authRoutes);
 router.use('/instances', instanceRoutes);
 router.use('/bots', botRoutes); // Sistema de múltiples bots - NUEVO
 router.use('/contacts', contactRoutes);
+router.use('/users', userRoutes); // User management
 // router.use('/conversations', conversationRoutes); // TODO: Crear estas rutas
 // router.use('/dashboard', dashboardRoutes); // TODO: Crear estas rutas
 // router.use('/plans', planRoutes); // TODO: Crear estas rutas
