@@ -205,7 +205,6 @@ class PlatformUsersController {
           u.first_name,
           u.last_name,
           u.role,
-          u.phone,
           u.last_login,
           u.created_at,
           u.must_change_password,
@@ -282,7 +281,6 @@ class PlatformUsersController {
       lastName, 
       companyId, 
       role = 'admin',
-      phone,
       tempPassword,
       generatePassword = false
     } = req.body;
@@ -321,10 +319,10 @@ class PlatformUsersController {
       const userId = uuidv4();
       await pool.query(
         `INSERT INTO whatsapp_bot.users 
-         (id, company_id, email, password_hash, first_name, last_name, role, phone, 
+         (id, company_id, email, password_hash, first_name, last_name, role, 
           temp_password, must_change_password, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW(), NOW())`,
-        [userId, companyId, email, tempHash, firstName, lastName, role, phone, temporaryPassword]
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW())`,
+        [userId, companyId, email, tempHash, firstName, lastName, role, temporaryPassword]
       );
 
       // Log de actividad
@@ -362,15 +360,15 @@ class PlatformUsersController {
   // Actualizar usuario
   async updateUser(req, res) {
     const { userId } = req.params;
-    const { firstName, lastName, role, phone } = req.body;
+    const { firstName, lastName, role } = req.body;
 
     try {
       const updateResult = await pool.query(
         `UPDATE whatsapp_bot.users 
-         SET first_name = $1, last_name = $2, role = $3, phone = $4, updated_at = NOW()
-         WHERE id = $5
+         SET first_name = $1, last_name = $2, role = $3, updated_at = NOW()
+         WHERE id = $4
          RETURNING id, email, company_id`,
-        [firstName, lastName, role, phone, userId]
+        [firstName, lastName, role, userId]
       );
 
       if (updateResult.rows.length === 0) {

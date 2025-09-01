@@ -21,6 +21,15 @@ import PublicCampaign from './pages/PublicCampaign';
 import MassMessaging from './pages/MassMessaging';
 import Settings from './pages/Settings';
 
+// Platform Admin imports
+import PlatformAdminLogin from './pages/PlatformAdminLogin';
+import PlatformChangePassword from './pages/PlatformChangePassword';
+import PlatformAdminLayout from './components/PlatformAdminLayout';
+import PlatformDashboard from './pages/PlatformDashboard';
+import PlatformCompanies from './pages/PlatformCompanies';
+import PlatformCompanyDetails from './pages/PlatformCompanyDetails';
+import PlatformUsers from './pages/PlatformUsers';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -48,6 +57,26 @@ function App() {
               path="/campaigns/public/:slug" 
               element={<PublicCampaign />} 
             />
+            
+            {/* Platform Admin Routes */}
+            <Route 
+              path="/platform-admin" 
+              element={<PlatformAdminLogin />} 
+            />
+            <Route 
+              path="/platform-admin/change-password" 
+              element={<PlatformChangePassword />} 
+            />
+            <Route 
+              path="/platform-admin/*" 
+              element={<PlatformAdminLayout />}
+            >
+              <Route path="dashboard" element={<PlatformDashboard />} />
+              <Route path="companies" element={<PlatformCompanies />} />
+              <Route path="companies/:companyId" element={<PlatformCompanyDetails />} />
+              <Route path="users" element={<PlatformUsers />} />
+              {/* TODO: Add settings route */}
+            </Route>
             
             <Route 
               path="/login" 
