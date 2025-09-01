@@ -139,8 +139,17 @@ const login = asyncHandler(async (req, res) => {
     throw new AppError('Credenciales inválidas', 401, 'INVALID_CREDENTIALS');
   }
 
-  // Compare password
-  const isValidPassword = await comparePassword(password, user.password_hash);
+  // Check for temporary password first
+  let isValidPassword = false;
+  
+  if (user.must_change_password && user.temp_password) {
+    // If user must change password, check against temp_password
+    isValidPassword = (password === user.temp_password);
+  } else {
+    // Otherwise, check against hashed password
+    isValidPassword = await comparePassword(password, user.password_hash);
+  }
+  
   if (!isValidPassword) {
     throw new AppError('Credenciales inválidas', 401, 'INVALID_CREDENTIALS');
   }
@@ -168,7 +177,8 @@ const login = asyncHandler(async (req, res) => {
     message: 'Inicio de sesión exitoso',
     data: {
       token,
-      user: userWithoutPassword
+      user: userWithoutPassword,
+      mustChangePassword: user.must_change_password || false
     }
   });
 });

@@ -523,6 +523,74 @@ const validateUUIDField = (fieldName = 'id', location = 'params') => {
   };
 };
 
+// Platform Admin validation schemas
+const platformAdminSchemas = {
+  login: Joi.object({
+    email: commonSchemas.email,
+    password: commonSchemas.simplePassword
+  }),
+
+  createUser: Joi.object({
+    email: commonSchemas.email,
+    firstName: Joi.string()
+      .min(2)
+      .max(100)
+      .trim()
+      .required()
+      .messages({
+        'string.min': 'El nombre debe tener al menos 2 caracteres',
+        'string.max': 'El nombre no puede tener más de 100 caracteres',
+        'string.empty': 'El nombre es requerido',
+        'any.required': 'El nombre es requerido'
+      }),
+    lastName: Joi.string()
+      .min(2)
+      .max(100)
+      .trim()
+      .required()
+      .messages({
+        'string.min': 'El apellido debe tener al menos 2 caracteres',
+        'string.max': 'El apellido no puede tener más de 100 caracteres',
+        'string.empty': 'El apellido es requerido',
+        'any.required': 'El apellido es requerido'
+      }),
+    companyId: commonSchemas.uuid,
+    role: Joi.string()
+      .valid('admin', 'manager', 'user')
+      .default('admin')
+      .messages({
+        'any.only': 'El rol debe ser uno de: admin, manager, user'
+      }),
+    phone: commonSchemas.phone,
+    tempPassword: Joi.string()
+      .min(8)
+      .max(128)
+      .optional()
+      .messages({
+        'string.min': 'La contraseña temporal debe tener al menos 8 caracteres',
+        'string.max': 'La contraseña temporal no puede tener más de 128 caracteres'
+      }),
+    generatePassword: Joi.boolean()
+      .default(false)
+  }),
+
+  passwordChange: Joi.object({
+    currentPassword: commonSchemas.simplePassword.messages({
+      'string.empty': 'La contraseña actual es requerida',
+      'any.required': 'La contraseña actual es requerida'
+    }),
+    newPassword: commonSchemas.password.messages({
+      'string.empty': 'La nueva contraseña es requerida',
+      'any.required': 'La nueva contraseña es requerida'
+    })
+  })
+};
+
+// Validation middleware functions for Platform Admin
+const validatePlatformLogin = validate(platformAdminSchemas.login);
+const validatePasswordChange = validate(platformAdminSchemas.passwordChange);
+const validateCreateUser = validate(platformAdminSchemas.createUser);
+
 module.exports = {
   validate,
   validateRegister,
@@ -540,12 +608,17 @@ module.exports = {
   validateKnowledgeAssignment,
   validateUUID,
   validateUUIDField, // Nueva función más flexible
+  // Platform Admin validations
+  validatePlatformLogin,
+  validatePasswordChange,
+  validateCreateUser,
   schemas: {
     auth: authSchemas,
     instance: instanceSchemas,
     botConfig: botConfigSchemas,
     message: messageSchemas,
     query: querySchemas,
-    common: commonSchemas
+    common: commonSchemas,
+    platformAdmin: platformAdminSchemas
   }
 };
