@@ -40,8 +40,8 @@ class PlatformUsersController {
           c.updated_at,
           (SELECT COUNT(*) FROM whatsapp_bot.users WHERE company_id = c.id) as user_count,
           (SELECT COUNT(*) FROM whatsapp_bot.whatsapp_instances WHERE company_id = c.id) as instance_count,
-          (SELECT COUNT(*) FROM whatsapp_bot.whatsapp_instances WHERE company_id = c.id AND is_active = true) as active_instances,
-          (SELECT COUNT(*) FROM whatsapp_bot.messages WHERE company_id = c.id AND created_at > NOW() - INTERVAL '30 days') as messages_last_30d
+          (SELECT COUNT(*) FROM whatsapp_bot.whatsapp_instances WHERE company_id = c.id) as active_instances,
+          COALESCE((SELECT COUNT(*) FROM whatsapp_bot.messages WHERE company_id = c.id AND created_at > NOW() - INTERVAL '30 days'), 0) as messages_last_30d
         FROM whatsapp_bot.companies c
         WHERE 1=1
       `;
