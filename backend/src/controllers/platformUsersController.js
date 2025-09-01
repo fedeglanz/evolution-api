@@ -450,40 +450,100 @@ class PlatformUsersController {
   // Obtener estadísticas globales
   async getStatistics(req, res) {
     try {
-      // Refrescar vista materializada si es necesario
-      await pool.query('SELECT refresh_platform_stats()');
-
-      // Obtener estadísticas
-      const statsResult = await pool.query('SELECT * FROM public.platform_stats');
-      const stats = statsResult.rows[0];
-
-      // Estadísticas adicionales
-      const additionalStats = await pool.query(`
+      console.log('[PLATFORM STATS] Obteniendo estadísticas...');
+      
+      // Obtener estadísticas básicas directamente de las tablas
+      const basicStats = await pool.query(`
         SELECT 
-          (SELECT COUNT(*) FROM whatsapp_bot.messages WHERE created_at > NOW() - INTERVAL '1 hour') as messages_last_hour,
-          (SELECT COUNT(*) FROM whatsapp_bot.bots WHERE is_active = true) as active_bots,
-          (SELECT COUNT(*) FROM whatsapp_bot.knowledge_base_documents) as total_documents,
-          (SELECT SUM(plan_price) FROM (
-            SELECT 
-              CASE plan
-                WHEN 'starter' THEN 15
-                WHEN 'business' THEN 49
-                WHEN 'pro' THEN 99
-                WHEN 'enterprise' THEN 299
-                ELSE 0
-              END as plan_price
-            FROM whatsapp_bot.companies
-            WHERE subscription_status = 'active'
-          ) as revenue) as monthly_revenue_estimate
+          (SELECT COUNT(*) FROM whatsapp_bot.companies) as total_companies,
+          (SELECT COUNT(*) FROM whatsapp_bot.companies WHERE subscription_status = 'active') as active_companies,
+          (SELECT COUNT(*) FROM whatsapp_bot.users) as total_users,
+          (SELECT COUNT(*) FROM whatsapp_bot.whatsapp_instances) as active_instances
       `);
 
-      res.json({
-        ...stats,
-        ...additionalStats.rows[0]
-      });
+      console.log('[PLATFORM STATS] Estadísticas básicas obtenidas:', basicStats.rows[0]);
+
+      // Estadísticas por plan
+      const planStats = await pool.query(`
+        SELECT 
+          COUNT(CASE WHEN plan = 'free_trial' THEN 1 END) as free_trial_companies,
+          COUNT(CASE WHEN plan = 'trial' THEN 1 END) as trial_companies,
+          COUNT(CASE WHEN plan = 'starter' THEN 1 END) as starter_companies,
+          COUNT(CASE WHEN plan = 'business' THEN 1 END) as business_companies,
+          COUNT(CASE WHEN plan = 'pro' THEN 1 END) as pro_companies,
+          COUNT(CASE WHEN plan = 'enterprise' THEN 1 END) as enterprise_companies
+        FROM whatsapp_bot.companies
+      `);
+
+      console.log('[PLATFORM STATS] Estadísticas por plan obtenidas:', planStats.rows[0]);
+
+      // Estadísticas de mensajes (con manejo de tabla faltante)
+      let messageStats = {
+        messages_last_24h: 0,
+        messages_last_7d: 0,
+        messages_last_30d: 0,
+        messages_last_hour: 0
+      };
+
+      try {
+        const msgResult = await pool.query(`
+          SELECT 
+            COUNT(CASE WHEN created_at > NOW() - INTERVAL '1 hour' THEN 1 END) as messages_last_hour,
+            COUNT(CASE WHEN created_at > NOW() - INTERVAL '24 hours' THEN 1 END) as messages_last_24h,
+            COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END) as messages_last_7d,
+            COUNT(CASE WHEN created_at > NOW() - INTERVAL '30 days' THEN 1 END) as messages_last_30d
+          FROM whatsapp_bot.messages
+        `);
+        messageStats = msgResult.rows[0];
+        console.log('[PLATFORM STATS] Estadísticas de mensajes obtenidas:', messageStats);
+      } catch (msgError) {
+        console.log('[PLATFORM STATS] Tabla messages no encontrada, usando valores por defecto');
+      }
+
+      // Estadísticas adicionales (con manejo de tablas faltantes)
+      let additionalStats = {
+        active_bots: 0,
+        total_documents: 0,
+        monthly_revenue_estimate: 0
+      };
+
+      try {
+        const addResult = await pool.query(`
+          SELECT 
+            (SELECT COUNT(*) FROM whatsapp_bot.bots WHERE is_active = true) as active_bots,
+            (SELECT COUNT(*) FROM whatsapp_bot.knowledge_base_documents) as total_documents
+        `);
+        additionalStats = { ...additionalStats, ...addResult.rows[0] };
+        console.log('[PLATFORM STATS] Estadísticas adicionales obtenidas:', addResult.rows[0]);
+      } catch (addError) {
+        console.log('[PLATFORM STATS] Algunas tablas no encontradas, usando valores por defecto');
+      }
+
+      // Calcular ingresos estimados
+      const revenueData = planStats.rows[0];
+      additionalStats.monthly_revenue_estimate = 
+        (revenueData.starter_companies * 15) +
+        (revenueData.business_companies * 49) +
+        (revenueData.pro_companies * 99) +
+        (revenueData.enterprise_companies * 299);
+
+      const finalStats = {
+        ...basicStats.rows[0],
+        ...planStats.rows[0],
+        ...messageStats,
+        ...additionalStats,
+        last_updated: new Date().toISOString()
+      };
+
+      console.log('[PLATFORM STATS] Estadísticas finales:', finalStats);
+
+      res.json(finalStats);
     } catch (error) {
-      console.error('Error obteniendo estadísticas:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('[PLATFORM STATS] Error obteniendo estadísticas:', error);
+      res.status(500).json({ 
+        error: 'Error interno del servidor',
+        details: error.message 
+      });
     }
   }
 
