@@ -97,6 +97,16 @@ export const platformCompanyService = {
       expiresAt
     });
     return response.data;
+  },
+
+  async createCompany(companyData) {
+    const response = await platformApi.post('/companies', companyData);
+    return response.data;
+  },
+
+  async updateCompany(companyId, updates) {
+    const response = await platformApi.patch(`/companies/${companyId}`, updates);
+    return response.data;
   }
 };
 

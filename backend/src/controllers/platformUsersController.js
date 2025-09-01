@@ -13,6 +13,8 @@ class PlatformUsersController {
     this.resetUserPassword = this.resetUserPassword.bind(this);
     this.getStatistics = this.getStatistics.bind(this);
     this.updateCompanyPlan = this.updateCompanyPlan.bind(this);
+    this.createCompany = this.createCompany.bind(this);
+    this.updateCompany = this.updateCompany.bind(this);
   }
 
   // Listar todas las empresas con estadísticas
@@ -648,6 +650,193 @@ class PlatformUsersController {
     }
 
     return password.split('').sort(() => 0.5 - Math.random()).join('');
+  }
+
+  // Crear nueva empresa
+  async createCompany(req, res) {
+    const {
+      name,
+      email,
+      plan = 'starter',
+      maxInstances,
+      maxMessages,
+      maxContacts
+    } = req.body;
+
+    try {
+      console.log('[PLATFORM CREATE COMPANY] Creando empresa:', { name, email, plan });
+
+      // Verificar que el email no existe
+      const existingCompany = await pool.query(
+        'SELECT id FROM whatsapp_bot.companies WHERE email = $1',
+        [email]
+      );
+
+      if (existingCompany.rows.length > 0) {
+        return res.status(400).json({ error: 'Ya existe una empresa con este email' });
+      }
+
+      // Verificar que el nombre no existe
+      const existingName = await pool.query(
+        'SELECT id FROM whatsapp_bot.companies WHERE name = $1',
+        [name]
+      );
+
+      if (existingName.rows.length > 0) {
+        return res.status(400).json({ error: 'Ya existe una empresa con este nombre' });
+      }
+
+      // Obtener límites por plan
+      const planLimits = {
+        free_trial: { instances: 1, messages: 50, contacts: 25 },
+        trial: { instances: 1, messages: 200, contacts: 100 },
+        starter: { instances: 1, messages: 1000, contacts: 500 },
+        business: { instances: 5, messages: 5000, contacts: 2500 },
+        pro: { instances: 15, messages: 15000, contacts: 7500 },
+        enterprise: { instances: 999, messages: 999999, contacts: 999999 }
+      };
+
+      const limits = planLimits[plan] || planLimits.starter;
+
+      // Crear empresa
+      const companyId = uuidv4();
+      const result = await pool.query(
+        `INSERT INTO whatsapp_bot.companies 
+         (id, name, email, plan, max_instances, max_messages, max_contacts, 
+          subscription_status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', NOW(), NOW())
+         RETURNING *`,
+        [
+          companyId, 
+          name, 
+          email, 
+          plan,
+          maxInstances || limits.instances,
+          maxMessages || limits.messages,
+          maxContacts || limits.contacts
+        ]
+      );
+
+      // Log de actividad
+      await pool.query(
+        `INSERT INTO public.platform_admin_logs 
+         (admin_id, action, resource_type, resource_id, details, ip_address)
+         VALUES ($1, 'create_company', 'company', $2, $3, $4)`,
+        [
+          req.platformAdmin.adminId,
+          companyId,
+          JSON.stringify({ name, email, plan }),
+          req.ip
+        ]
+      );
+
+      console.log('[PLATFORM CREATE COMPANY] Empresa creada exitosamente:', companyId);
+
+      res.status(201).json({
+        message: 'Empresa creada exitosamente',
+        company: result.rows[0]
+      });
+    } catch (error) {
+      console.error('[PLATFORM CREATE COMPANY] Error creando empresa:', error);
+      res.status(500).json({ 
+        error: 'Error interno del servidor',
+        details: error.message 
+      });
+    }
+  }
+
+  // Actualizar información básica de empresa
+  async updateCompany(req, res) {
+    const { companyId } = req.params;
+    const {
+      name,
+      email,
+      maxInstances,
+      maxMessages,
+      maxContacts,
+      subscriptionStatus
+    } = req.body;
+
+    try {
+      console.log('[PLATFORM UPDATE COMPANY] Actualizando empresa:', companyId);
+
+      // Verificar que la empresa existe
+      const existing = await pool.query(
+        'SELECT * FROM whatsapp_bot.companies WHERE id = $1',
+        [companyId]
+      );
+
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: 'Empresa no encontrada' });
+      }
+
+      const currentCompany = existing.rows[0];
+
+      // Verificar unicidad de email (si cambió)
+      if (email && email !== currentCompany.email) {
+        const emailExists = await pool.query(
+          'SELECT id FROM whatsapp_bot.companies WHERE email = $1 AND id != $2',
+          [email, companyId]
+        );
+
+        if (emailExists.rows.length > 0) {
+          return res.status(400).json({ error: 'Ya existe otra empresa con este email' });
+        }
+      }
+
+      // Verificar unicidad de nombre (si cambió)
+      if (name && name !== currentCompany.name) {
+        const nameExists = await pool.query(
+          'SELECT id FROM whatsapp_bot.companies WHERE name = $1 AND id != $2',
+          [name, companyId]
+        );
+
+        if (nameExists.rows.length > 0) {
+          return res.status(400).json({ error: 'Ya existe otra empresa con este nombre' });
+        }
+      }
+
+      // Actualizar empresa
+      const updateResult = await pool.query(
+        `UPDATE whatsapp_bot.companies 
+         SET name = COALESCE($1, name),
+             email = COALESCE($2, email),
+             max_instances = COALESCE($3, max_instances),
+             max_messages = COALESCE($4, max_messages),
+             max_contacts = COALESCE($5, max_contacts),
+             subscription_status = COALESCE($6, subscription_status),
+             updated_at = NOW()
+         WHERE id = $7
+         RETURNING *`,
+        [name, email, maxInstances, maxMessages, maxContacts, subscriptionStatus, companyId]
+      );
+
+      // Log de actividad
+      await pool.query(
+        `INSERT INTO public.platform_admin_logs 
+         (admin_id, action, resource_type, resource_id, details, ip_address)
+         VALUES ($1, 'update_company', 'company', $2, $3, $4)`,
+        [
+          req.platformAdmin.adminId,
+          companyId,
+          JSON.stringify({ updates: req.body }),
+          req.ip
+        ]
+      );
+
+      console.log('[PLATFORM UPDATE COMPANY] Empresa actualizada exitosamente');
+
+      res.json({
+        message: 'Empresa actualizada exitosamente',
+        company: updateResult.rows[0]
+      });
+    } catch (error) {
+      console.error('[PLATFORM UPDATE COMPANY] Error actualizando empresa:', error);
+      res.status(500).json({ 
+        error: 'Error interno del servidor',
+        details: error.message 
+      });
+    }
   }
 }
 

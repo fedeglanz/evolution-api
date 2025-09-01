@@ -11,7 +11,9 @@ import {
   CalendarDaysIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  FunnelIcon
+  FunnelIcon,
+  PlusIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { platformCompanyService } from '../services/platformAdmin';
 
@@ -125,6 +127,220 @@ const CompanyCard = ({ company, onViewDetails }) => {
   );
 };
 
+const CreateCompanyModal = ({ isOpen, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    plan: 'starter',
+    maxInstances: '',
+    maxMessages: '',
+    maxContacts: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const plans = [
+    { value: 'free_trial', label: 'Free Trial', instances: 1, messages: 50, contacts: 25 },
+    { value: 'trial', label: 'Trial', instances: 1, messages: 200, contacts: 100 },
+    { value: 'starter', label: 'Starter', instances: 1, messages: 1000, contacts: 500 },
+    { value: 'business', label: 'Business', instances: 5, messages: 5000, contacts: 2500 },
+    { value: 'pro', label: 'Pro', instances: 15, messages: 15000, contacts: 7500 },
+    { value: 'enterprise', label: 'Enterprise', instances: 999, messages: 999999, contacts: 999999 }
+  ];
+
+  const selectedPlan = plans.find(p => p.value === formData.plan);
+
+  const handlePlanChange = (planValue) => {
+    const plan = plans.find(p => p.value === planValue);
+    setFormData(prev => ({
+      ...prev,
+      plan: planValue,
+      maxInstances: plan.instances.toString(),
+      maxMessages: plan.messages.toString(),
+      maxContacts: plan.contacts.toString()
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+
+    try {
+      await onSave({
+        name: formData.name,
+        email: formData.email,
+        plan: formData.plan,
+        maxInstances: parseInt(formData.maxInstances) || selectedPlan.instances,
+        maxMessages: parseInt(formData.maxMessages) || selectedPlan.messages,
+        maxContacts: parseInt(formData.maxContacts) || selectedPlan.contacts
+      });
+      
+      // Reset form
+      setFormData({
+        name: '',
+        email: '',
+        plan: 'starter',
+        maxInstances: '',
+        maxMessages: '',
+        maxContacts: ''
+      });
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error creando empresa');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Crear Nueva Empresa</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre de la Empresa
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Ej. Mi Empresa SAS"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email de la Empresa
+              </label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="contacto@miempresa.com"
+              />
+            </div>
+          </div>
+
+          {/* Plan Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Plan de Suscripción
+            </label>
+            <select
+              value={formData.plan}
+              onChange={(e) => handlePlanChange(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              {plans.map(plan => (
+                <option key={plan.value} value={plan.value}>
+                  {plan.label} ({plan.instances} inst., {plan.messages} msg, {plan.contacts} contactos)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Custom Limits */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Límites Personalizados (opcional)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Máximo Instancias
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxInstances}
+                  onChange={(e) => setFormData({...formData, maxInstances: e.target.value})}
+                  placeholder={selectedPlan?.instances.toString()}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Máximo Mensajes
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxMessages}
+                  onChange={(e) => setFormData({...formData, maxMessages: e.target.value})}
+                  placeholder={selectedPlan?.messages.toString()}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Máximo Contactos
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxContacts}
+                  onChange={(e) => setFormData({...formData, maxContacts: e.target.value})}
+                  placeholder={selectedPlan?.contacts.toString()}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Deja vacío para usar los límites por defecto del plan seleccionado
+            </p>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+            >
+              {saving ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  Creando...
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Crear Empresa
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const PlatformCompanies = () => {
   const navigate = useNavigate();
   const [companies, setCompanies] = useState([]);
@@ -144,6 +360,7 @@ const PlatformCompanies = () => {
     status: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const loadCompanies = async (page = 1) => {
     setLoading(true);
@@ -187,6 +404,12 @@ const PlatformCompanies = () => {
     navigate(`/platform-admin/companies/${company.id}`);
   };
 
+  const handleCreateCompany = async (companyData) => {
+    await platformCompanyService.createCompany(companyData);
+    // Reload companies list
+    await loadCompanies(pagination.page);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -209,6 +432,14 @@ const PlatformCompanies = () => {
               </span>
             </div>
           </div>
+          
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Crear Empresa
+          </button>
         </div>
       </div>
 
@@ -373,6 +604,13 @@ const PlatformCompanies = () => {
           )}
         </>
       )}
+
+      {/* Create Company Modal */}
+      <CreateCompanyModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateCompany}
+      />
     </div>
   );
 };

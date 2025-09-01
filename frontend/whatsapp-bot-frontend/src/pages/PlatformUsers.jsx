@@ -8,7 +8,9 @@ import {
   KeyIcon,
   FunnelIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  XMarkIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
 import { platformUserService, platformCompanyService } from '../services/platformAdmin';
 
@@ -25,6 +27,14 @@ const CreateUserModal = ({ isOpen, onClose, onSave }) => {
   const [companies, setCompanies] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  
+  // New company inline creation
+  const [showNewCompanyForm, setShowNewCompanyForm] = useState(false);
+  const [newCompanyData, setNewCompanyData] = useState({
+    name: '',
+    email: '',
+    plan: 'starter'
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +50,23 @@ const CreateUserModal = ({ isOpen, onClose, onSave }) => {
       loadCompanies();
     }
   }, [isOpen]);
+
+  const handleCreateNewCompany = async () => {
+    try {
+      const response = await platformCompanyService.createCompany(newCompanyData);
+      const newCompany = response.company;
+      
+      // Add the new company to the list and select it
+      setCompanies(prev => [...prev, newCompany]);
+      setFormData(prev => ({ ...prev, companyId: newCompany.id }));
+      
+      // Reset and hide the form
+      setNewCompanyData({ name: '', email: '', plan: 'starter' });
+      setShowNewCompanyForm(false);
+    } catch (err) {
+      setError('Error creando empresa: ' + (err.response?.data?.error || err.message));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -123,19 +150,108 @@ const CreateUserModal = ({ isOpen, onClose, onSave }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Empresa
             </label>
-            <select
-              required
-              value={formData.companyId}
-              onChange={(e) => setFormData({...formData, companyId: e.target.value})}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="">Seleccionar empresa</option>
-              {companies.map(company => (
-                <option key={company.id} value={company.id}>
-                  {company.name} ({company.email})
+            <div className="space-y-2">
+              <select
+                required
+                value={formData.companyId}
+                onChange={(e) => {
+                  if (e.target.value === 'CREATE_NEW') {
+                    setShowNewCompanyForm(true);
+                    setFormData({...formData, companyId: ''});
+                  } else {
+                    setFormData({...formData, companyId: e.target.value});
+                  }
+                }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">Seleccionar empresa</option>
+                {companies.map(company => (
+                  <option key={company.id} value={company.id}>
+                    {company.name} ({company.email})
+                  </option>
+                ))}
+                <option value="CREATE_NEW" className="text-indigo-600 font-medium">
+                  ➕ Crear Nueva Empresa
                 </option>
-              ))}
-            </select>
+              </select>
+
+              {/* New Company Form */}
+              {showNewCompanyForm && (
+                <div className="border border-indigo-200 rounded-lg p-4 bg-indigo-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <BuildingOfficeIcon className="h-4 w-4 text-indigo-600" />
+                      <h4 className="text-sm font-medium text-indigo-900">Nueva Empresa</h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewCompanyForm(false);
+                        setNewCompanyData({ name: '', email: '', plan: 'starter' });
+                      }}
+                      className="text-indigo-400 hover:text-indigo-600"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-indigo-700 mb-1">
+                        Nombre de la Empresa
+                      </label>
+                      <input
+                        type="text"
+                        value={newCompanyData.name}
+                        onChange={(e) => setNewCompanyData({...newCompanyData, name: e.target.value})}
+                        className="w-full text-sm border border-indigo-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="Ej. Mi Empresa SAS"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-indigo-700 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={newCompanyData.email}
+                        onChange={(e) => setNewCompanyData({...newCompanyData, email: e.target.value})}
+                        className="w-full text-sm border border-indigo-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="contacto@empresa.com"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-indigo-700 mb-1">
+                      Plan
+                    </label>
+                    <select
+                      value={newCompanyData.plan}
+                      onChange={(e) => setNewCompanyData({...newCompanyData, plan: e.target.value})}
+                      className="w-full text-sm border border-indigo-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="starter">Starter - $15</option>
+                      <option value="business">Business - $49</option>
+                      <option value="pro">Pro - $99</option>
+                      <option value="enterprise">Enterprise - $299</option>
+                    </select>
+                  </div>
+                  
+                  <div className="flex justify-end mt-3">
+                    <button
+                      type="button"
+                      onClick={handleCreateNewCompany}
+                      disabled={!newCompanyData.name || !newCompanyData.email}
+                      className="text-sm px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                    >
+                      <PlusIcon className="h-3 w-3 mr-1" />
+                      Crear y Seleccionar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>

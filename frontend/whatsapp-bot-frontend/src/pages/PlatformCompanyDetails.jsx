@@ -12,7 +12,8 @@ import {
   CheckIcon,
   XMarkIcon,
   CalendarDaysIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 import { platformCompanyService, platformUserService } from '../services/platformAdmin';
 
@@ -207,6 +208,194 @@ const PlanChangeModal = ({ isOpen, onClose, company, onSave }) => {
   );
 };
 
+const EditCompanyModal = ({ isOpen, onClose, company, onSave }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    maxInstances: '',
+    maxMessages: '',
+    maxContacts: '',
+    subscriptionStatus: 'active'
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (company && isOpen) {
+      setFormData({
+        name: company.name || '',
+        email: company.email || '',
+        maxInstances: company.max_instances?.toString() || '',
+        maxMessages: company.max_messages?.toString() || '',
+        maxContacts: company.max_contacts?.toString() || '',
+        subscriptionStatus: company.subscription_status || 'active'
+      });
+    }
+  }, [company, isOpen]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+
+    try {
+      await onSave({
+        name: formData.name,
+        email: formData.email,
+        maxInstances: parseInt(formData.maxInstances) || null,
+        maxMessages: parseInt(formData.maxMessages) || null,
+        maxContacts: parseInt(formData.maxContacts) || null,
+        subscriptionStatus: formData.subscriptionStatus
+      });
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error actualizando empresa');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Editar Empresa</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre de la Empresa
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="Ej. Mi Empresa SAS"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email de la Empresa
+              </label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="contacto@miempresa.com"
+              />
+            </div>
+          </div>
+
+          {/* Subscription Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Estado de Suscripción
+            </label>
+            <select
+              value={formData.subscriptionStatus}
+              onChange={(e) => setFormData({...formData, subscriptionStatus: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="active">Activa</option>
+              <option value="inactive">Inactiva</option>
+              <option value="trial">Prueba</option>
+              <option value="suspended">Suspendida</option>
+            </select>
+          </div>
+
+          {/* Limits */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-3">Límites de Plan</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Máximo Instancias
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxInstances}
+                  onChange={(e) => setFormData({...formData, maxInstances: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Máximo Mensajes
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxMessages}
+                  onChange={(e) => setFormData({...formData, maxMessages: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Máximo Contactos
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.maxContacts}
+                  onChange={(e) => setFormData({...formData, maxContacts: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+            >
+              {saving ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <CheckIcon className="h-4 w-4 mr-2" />
+                  Guardar Cambios
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const PlatformCompanyDetails = () => {
   const { companyId } = useParams();
   const navigate = useNavigate();
@@ -214,6 +403,7 @@ const PlatformCompanyDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const loadCompanyDetails = async () => {
     setLoading(true);
@@ -258,6 +448,16 @@ const PlatformCompanyDetails = () => {
   const handleEditUser = (user) => {
     // TODO: Open edit user modal
     alert('Función de editar usuario en desarrollo');
+  };
+
+  const handleEditCompany = async (updates) => {
+    try {
+      await platformCompanyService.updateCompany(companyId, updates);
+      // Reload company details
+      await loadCompanyDetails();
+    } catch (error) {
+      throw error;
+    }
   };
 
   if (loading) {
@@ -332,13 +532,23 @@ const PlatformCompanyDetails = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowPlanModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <PencilIcon className="h-4 w-4 mr-2" />
-          Cambiar Plan
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            <Cog6ToothIcon className="h-4 w-4 mr-2" />
+            Editar Empresa
+          </button>
+          
+          <button
+            onClick={() => setShowPlanModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            <PencilIcon className="h-4 w-4 mr-2" />
+            Cambiar Plan
+          </button>
+        </div>
       </div>
 
       {/* Company Info */}
@@ -497,6 +707,14 @@ const PlatformCompanyDetails = () => {
         onClose={() => setShowPlanModal(false)}
         company={company.company}
         onSave={handlePlanChange}
+      />
+
+      {/* Edit Company Modal */}
+      <EditCompanyModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        company={company?.company}
+        onSave={handleEditCompany}
       />
     </div>
   );

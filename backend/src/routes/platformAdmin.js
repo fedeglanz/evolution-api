@@ -74,6 +74,22 @@ router.get('/companies/:companyId',
   platformUsersController.getCompanyDetails
 );
 
+// Crear nueva empresa
+router.post('/companies', 
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('create_company', 'company'),
+  platformUsersController.createCompany
+);
+
+// Actualizar empresa
+router.patch('/companies/:companyId', 
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('update_company', 'company'),
+  platformUsersController.updateCompany
+);
+
 // Actualizar plan de una empresa
 router.patch('/companies/:companyId/plan', 
   authenticatePlatformAdmin,
