@@ -6,6 +6,7 @@ import {
   Home, 
   Phone, 
   Users, 
+  Users2,
   MessageCircle,
   MessageSquare,
   Zap,
@@ -26,7 +27,8 @@ const navigation = [
   { name: 'Instancias', href: '/instances', icon: Phone },
   { name: 'Bots', href: '/bots', icon: Bot },
   { name: 'Knowledge Base', href: '/knowledge', icon: Brain },
-  { name: 'Contactos', href: '/contacts', icon: Users },
+  { name: 'Usuarios', href: '/users', icon: Users },
+  { name: 'Contactos', href: '/contacts', icon: Users2 },
   { name: 'Conversaciones', href: '/conversations', icon: MessageCircle },
   { 
     name: 'Mensajería', 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const usersController = require('../controllers/usersController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const { 
   validateUserCreate, 
   validateUserUpdate, 
@@ -10,7 +10,7 @@ const {
 } = require('../middleware/validation');
 
 // Middleware to ensure user is authenticated for all user routes
-router.use(authenticateToken);
+router.use(authenticate);
 
 // GET /api/users - List users in the company
 router.get('/', usersController.listUsers);
