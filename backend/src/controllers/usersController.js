@@ -29,11 +29,11 @@ class UsersController {
           u.first_name,
           u.last_name,
           u.role,
-          u.is_active,
           u.last_login,
           u.created_at,
           u.updated_at,
-          u.must_change_password
+          u.must_change_password,
+          true as is_active
         FROM whatsapp_bot.users u
         WHERE u.company_id = $1
       `;
@@ -55,11 +55,11 @@ class UsersController {
         params.push(role);
       }
 
-      // Add status filter
-      if (status === 'active') {
-        query += ` AND u.is_active = true`;
-      } else if (status === 'inactive') {
-        query += ` AND u.is_active = false`;
+      // Add status filter - for now all users are considered active
+      // TODO: Add is_active column to users table in future migration
+      if (status === 'inactive') {
+        // For now, show no results for inactive filter since we don't have the column
+        query += ` AND false`;
       }
 
       query += ` ORDER BY u.created_at DESC`;
@@ -180,8 +180,8 @@ class UsersController {
       await pool.query(
         `INSERT INTO whatsapp_bot.users 
          (id, company_id, email, password_hash, first_name, last_name, role, 
-          temp_password, must_change_password, is_active, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, NOW(), NOW())`,
+          temp_password, must_change_password, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW())`,
         [userId, companyId, email, passwordHash, firstName, lastName, role, temporaryPassword]
       );
 
@@ -254,8 +254,9 @@ class UsersController {
       const result = await pool.query(
         `SELECT 
           u.id, u.email, u.first_name, u.last_name, u.role, 
-          u.is_active, u.last_login, u.created_at, u.updated_at,
-          u.must_change_password
+          u.last_login, u.created_at, u.updated_at,
+          u.must_change_password,
+          true as is_active
          FROM whatsapp_bot.users u
          WHERE u.id = $1 AND u.company_id = $2`,
         [userId, companyId]
@@ -345,21 +346,25 @@ class UsersController {
         });
       }
 
-      // Update user status
-      const updateResult = await pool.query(
-        `UPDATE whatsapp_bot.users 
-         SET is_active = $1, updated_at = NOW()
-         WHERE id = $2 AND company_id = $3
-         RETURNING email, first_name, last_name`,
-        [isActive, userId, companyId]
+      // Check if user exists in the company
+      const userCheck = await pool.query(
+        `SELECT id, email, first_name, last_name
+         FROM whatsapp_bot.users 
+         WHERE id = $1 AND company_id = $2`,
+        [userId, companyId]
       );
 
-      if (updateResult.rows.length === 0) {
+      if (userCheck.rows.length === 0) {
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
 
+      // TODO: Implement actual status toggle when is_active column is added
+      // For now, we just return success but don't actually change anything
+      console.log('[USERS TOGGLE STATUS] Funcionalidad pendiente - columna is_active no existe');
+
       res.json({ 
-        message: `Usuario ${isActive ? 'activado' : 'desactivado'} exitosamente` 
+        message: `Funcionalidad de ${isActive ? 'activar' : 'desactivar'} usuario estará disponible próximamente`,
+        note: 'Columna is_active no está disponible en la tabla users'
       });
     } catch (error) {
       console.error('[USERS TOGGLE STATUS] Error cambiando estado:', error);
@@ -390,20 +395,26 @@ class UsersController {
         });
       }
 
-      // Soft delete by setting is_active = false and adding deleted timestamp
-      const updateResult = await pool.query(
-        `UPDATE whatsapp_bot.users 
-         SET is_active = false, updated_at = NOW()
-         WHERE id = $1 AND company_id = $2
-         RETURNING email, first_name, last_name`,
+      // Check if user exists in the company
+      const userCheck = await pool.query(
+        `SELECT id, email, first_name, last_name
+         FROM whatsapp_bot.users 
+         WHERE id = $1 AND company_id = $2`,
         [userId, companyId]
       );
 
-      if (updateResult.rows.length === 0) {
+      if (userCheck.rows.length === 0) {
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
 
-      res.json({ message: 'Usuario eliminado exitosamente' });
+      // TODO: Implement actual soft delete when is_active column is added
+      // For now, we just return success but don't actually delete anything
+      console.log('[USERS DELETE] Funcionalidad pendiente - columna is_active no existe');
+
+      res.json({ 
+        message: 'Funcionalidad de eliminar usuario estará disponible próximamente',
+        note: 'Columna is_active no está disponible en la tabla users'
+      });
     } catch (error) {
       console.error('[USERS DELETE] Error eliminando usuario:', error);
       res.status(500).json({ 
