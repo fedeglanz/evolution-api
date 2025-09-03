@@ -19,6 +19,7 @@ const campaignRoutes = require('./campaigns');
 const groupSyncRoutes = require('./groupSync');
 const massMessagingRoutes = require('./massMessaging');
 const platformAdminRoutes = require('./platformAdmin');
+const billingRoutes = require('./billing');
 
 // Middleware de autenticación
 const { authenticateToken } = require('../middleware/auth');
@@ -245,7 +246,8 @@ router.get('/info', (req, res) => {
         campaigns: '/api/campaigns (campañas de grupos)',
         groupSync: '/api/group-sync (sincronización de grupos)',
         massMessaging: '/api/mass-messaging (mensajería masiva unificada)',
-        platformAdmin: '/api/platform-admin (administración de plataforma - SUPER ADMIN)'
+        platformAdmin: '/api/platform-admin (administración de plataforma - SUPER ADMIN)',
+        billing: '/api/billing (sistema de facturación y pagos)'
       }
     }
   });
@@ -273,5 +275,6 @@ router.use('/campaigns', campaignRoutes); // WhatsApp Group Campaigns
 router.use('/group-sync', groupSyncRoutes); // Group synchronization
 router.use('/mass-messaging', massMessagingRoutes); // Mass messaging system
 router.use('/platform-admin', platformAdminRoutes); // Platform admin routes (Super Admin)
+router.use('/billing', billingRoutes); // Billing and payment system
 
 module.exports = router;
