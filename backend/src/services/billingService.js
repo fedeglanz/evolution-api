@@ -55,8 +55,7 @@ class BillingService {
       const companyQuery = `
         SELECT 
           c.*,
-          u.email,
-          u.phone
+          u.email as user_email
         FROM whatsapp_bot.companies c
         JOIN whatsapp_bot.users u ON c.id = u.company_id
         WHERE c.id = $1
@@ -71,8 +70,8 @@ class BillingService {
       }
 
       // Lógica de detección de región - usar customerData si está disponible
-      const phoneNumber = customerData?.phone_number || company.phone || '';
-      const email = customerData?.email || company.email || '';
+      const phoneNumber = customerData?.phone_number || '';  // No hay phone en BD
+      const email = customerData?.email || company.email || company.user_email || '';
       
       console.log(`🌍 Detecting region with phone: ${phoneNumber}, email: ${email}`);
       
