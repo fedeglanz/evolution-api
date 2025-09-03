@@ -143,10 +143,11 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'WhatsApp Bot API v1.0.0',
+    message: 'WhatsApp Bot API v1.0.1 - Billing System',
     timestamp: new Date().toISOString(),
     documentation: '/api/info',
-    health: '/api/health'
+    health: '/api/health',
+    billing: '/api/billing'
   });
 });
 
