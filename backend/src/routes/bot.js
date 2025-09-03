@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const botController = require('../controllers/botController');
 const n8nAuth = require('../middleware/n8nAuth');
+const { tokenLimitMiddleware, getUsageStats } = require('../middleware/tokenLimit');
 
 // Middleware básico para parsing JSON
 router.use(express.json());
@@ -36,7 +37,7 @@ router.get('/health', (req, res) => {
  * Procesar mensaje entrante desde n8n
  * Body: { instance, phone, message, senderName, messageType, messageId }
  */
-router.post('/process-message', n8nAuth.authenticate, botController.processMessage);
+router.post('/process-message', n8nAuth.authenticate, ...tokenLimitMiddleware, botController.processMessage);
 
 /**
  * POST /api/bot/log-interaction  
@@ -44,5 +45,12 @@ router.post('/process-message', n8nAuth.authenticate, botController.processMessa
  * Body: { instance, phone, userMessage, botResponse, responseTime, tokensUsed }
  */
 router.post('/log-interaction', n8nAuth.authenticate, botController.logInteraction);
+
+/**
+ * GET /api/bot/usage-stats
+ * Obtener estadísticas de uso de tokens (requiere auth de usuario normal)
+ */
+const { authenticateToken } = require('../middleware/auth');
+router.get('/usage-stats', authenticateToken, getUsageStats);
 
 module.exports = router; 

@@ -156,6 +156,10 @@ class BotController {
 
       const botConfig = botConfigQuery.rows[0];
       const companyPlan = botConfig.plan || 'free';
+      
+      // Agregar companyId al request para middleware de token tracking
+      req.body.companyId = botConfig.company_id;
+      req.body.botId = botConfig.id;
 
       // 2. Verificar que la instancia esté conectada
       if (botConfig.instance_status !== 'connected') {
@@ -249,9 +253,17 @@ class BotController {
       });
 
       res.json({
+        success: true,
         shouldRespond: true,
         response: openaiResponse.message,
         reason: ragContext ? 'openai_response_with_rag' : 'openai_response',
+        // Información necesaria para el middleware de token tracking
+        tokensUsed: openaiResponse.tokens_used,
+        promptTokens: openaiResponse.prompt_tokens,
+        completionTokens: openaiResponse.completion_tokens,
+        botId: botConfig.id,
+        companyId: botConfig.company_id,
+        model: openaiResponse.model,
         metadata: {
           tokensUsed: openaiResponse.tokens_used,
           responseTime: responseTime,
