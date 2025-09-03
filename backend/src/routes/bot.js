@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const botController = require('../controllers/botController');
 const n8nAuth = require('../middleware/n8nAuth');
-const { tokenLimitMiddleware, getUsageStats } = require('../middleware/tokenLimit');
+const { tokenLimitMiddleware } = require('../middleware/tokenLimit');
 
 // Middleware básico para parsing JSON
 router.use(express.json());
@@ -51,6 +51,6 @@ router.post('/log-interaction', n8nAuth.authenticate, botController.logInteracti
  * Obtener estadísticas de uso de tokens (requiere auth de usuario normal)
  */
 const { authenticateToken } = require('../middleware/auth');
-router.get('/usage-stats', authenticateToken, getUsageStats);
+router.get('/usage-stats', authenticateToken, botController.getUsageStats);
 
 module.exports = router; 
