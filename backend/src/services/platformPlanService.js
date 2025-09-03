@@ -3,7 +3,7 @@ const { pool } = require('../database');
 class PlatformPlanService {
 
   /**
-   * Obtener todos los planes
+   * Obtener todos los planes (con join correcto a platform_admins)
    */
   async getAllPlans() {
     const query = `
@@ -17,7 +17,9 @@ class PlatformPlanService {
       ORDER BY p.sort_order ASC, p.created_at ASC
     `;
     
+    console.log('🔍 Platform Plans query:', query);
     const result = await pool.query(query);
+    console.log(`✅ Platform Plans found: ${result.rows.length} planes`);
     return result.rows;
   }
 
