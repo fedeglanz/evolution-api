@@ -47,6 +47,41 @@ router.get('/auth/me',
   platformAuthController.getMe
 );
 
+// Debug endpoint para verificar token
+router.get('/auth/debug-token', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.json({ error: 'No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const jwt = require('jsonwebtoken');
+    
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      res.json({
+        success: true,
+        decoded: decoded,
+        isPlatformAdmin: !!decoded.isPlatformAdmin,
+        tokenType: decoded.isPlatformAdmin ? 'platform_admin' : 'regular_user'
+      });
+    } catch (jwtError) {
+      res.json({
+        error: 'Invalid JWT',
+        jwtError: jwtError.message
+      });
+    }
+    
+  } catch (error) {
+    res.json({
+      error: 'Debug error',
+      message: error.message
+    });
+  }
+});
+
 // ============================================
 // RUTAS DE GESTIÓN DE EMPRESAS Y USUARIOS
 // ============================================
