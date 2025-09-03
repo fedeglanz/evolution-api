@@ -1,4 +1,3 @@
-const billingService = require('../services/billingService');
 const { pool } = require('../database');
 
 class BillingController {
@@ -11,6 +10,16 @@ class BillingController {
     this.getBillingHistory = this.getBillingHistory.bind(this);
     this.cancelSubscription = this.cancelSubscription.bind(this);
     this.getAvailablePlans = this.getAvailablePlans.bind(this);
+    
+    // Load billing service dynamically to avoid circular imports
+    this.billingService = null;
+    try {
+      this.billingService = require('../services/billingService');
+      console.log('✅ BillingService loaded successfully in controller');
+    } catch (error) {
+      console.error('❌ Failed to load BillingService:', error.message);
+      this.billingService = null;
+    }
   }
 
   /**
@@ -32,15 +41,23 @@ class BillingController {
         });
       }
 
+      // Verificar que billing service esté disponible
+      if (!this.billingService) {
+        return res.status(500).json({
+          success: false,
+          message: 'Servicio de facturación no disponible'
+        });
+      }
+
       // Detectar región y proveedor de pago
-      const paymentRegion = await billingService.detectPaymentRegion(companyId);
+      const paymentRegion = await this.billingService.detectPaymentRegion(companyId);
       console.log(`🌍 Payment region detected:`, paymentRegion);
 
       let subscriptionResult;
 
       if (paymentRegion.paymentProvider === 'mercadopago') {
         // Crear subscripción con MercadoPago
-        subscriptionResult = await billingService.createMercadoPagoSubscription(
+        subscriptionResult = await this.billingService.createMercadoPagoSubscription(
           companyId,
           planId,
           {
@@ -50,7 +67,7 @@ class BillingController {
         );
       } else {
         // Crear subscripción con Stripe
-        subscriptionResult = await billingService.createStripeSubscription(
+        subscriptionResult = await this.billingService.createStripeSubscription(
           companyId,
           planId,
           {
@@ -207,7 +224,11 @@ class BillingController {
     try {
       console.log('📨 MercadoPago webhook received:', req.body);
 
-      await billingService.handleMercadoPagoWebhook(req.body);
+      if (this.billingService) {
+        await this.billingService.handleMercadoPagoWebhook(req.body);
+      } else {
+        throw new Error('Billing service not available');
+      }
 
       res.status(200).json({ success: true });
 
@@ -228,7 +249,11 @@ class BillingController {
     try {
       console.log('📨 Stripe webhook received:', req.body.type);
 
-      await billingService.handleStripeWebhook(req.body);
+      if (this.billingService) {
+        await this.billingService.handleStripeWebhook(req.body);
+      } else {
+        throw new Error('Billing service not available');
+      }
 
       res.status(200).json({ received: true });
 
@@ -281,9 +306,8 @@ class BillingController {
             console.log('⚠️ No se puede cancelar en Stripe - falta STRIPE_SECRET_KEY');
           }
         } else if (subscription.mercadopago_subscription_id) {
-          const billingService = require('../services/billingService');
-          if (billingService.mercadopago) {
-            await billingService.mercadopago.preapproval.update({
+          if (this.billingService && this.billingService.mercadopago) {
+            await this.billingService.mercadopago.preapproval.update({
               id: subscription.mercadopago_subscription_id,
               body: {
                 status: 'cancelled'
