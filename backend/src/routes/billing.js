@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../middleware/auth');
+
+// Load controller methods directly to avoid undefined callback issues
 const billingController = require('../controllers/billingController');
-const { authenticateToken } = require('../middleware/auth');
+console.log('✅ BillingController loaded in routes');
 
 // Middleware básico para parsing JSON
 router.use(express.json());
@@ -11,27 +14,27 @@ router.use(express.json());
  * Crear nueva subscripción de pago
  * Body: { planId, customerData: { first_name, last_name, email, phone_number, etc } }
  */
-router.post('/create-subscription', authenticateToken, billingController.createSubscription);
+router.post('/create-subscription', authenticate, billingController.createSubscription);
 
 /**
  * GET /api/billing/subscription-status
  * Obtener estado actual de la subscripción
  */
-router.get('/subscription-status', authenticateToken, billingController.getSubscriptionStatus);
+router.get('/subscription-status', authenticate, billingController.getSubscriptionStatus);
 
 /**
  * GET /api/billing/history
  * Obtener historial de facturación
  * Query: ?limit=10&offset=0
  */
-router.get('/history', authenticateToken, billingController.getBillingHistory);
+router.get('/history', authenticate, billingController.getBillingHistory);
 
 /**
  * POST /api/billing/cancel-subscription
  * Cancelar subscripción actual
  * Body: { reason: "Razón de cancelación" }
  */
-router.post('/cancel-subscription', authenticateToken, billingController.cancelSubscription);
+router.post('/cancel-subscription', authenticate, billingController.cancelSubscription);
 
 /**
  * GET /api/billing/plans/available

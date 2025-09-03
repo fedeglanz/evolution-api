@@ -403,4 +403,19 @@ class BillingController {
   }
 }
 
-module.exports = new BillingController();
+// Export instance and individual methods for flexibility
+const billingControllerInstance = new BillingController();
+
+// Export individual methods
+module.exports = {
+  createSubscription: billingControllerInstance.createSubscription,
+  getSubscriptionStatus: billingControllerInstance.getSubscriptionStatus,
+  getBillingHistory: billingControllerInstance.getBillingHistory,
+  cancelSubscription: billingControllerInstance.cancelSubscription,
+  getAvailablePlans: billingControllerInstance.getAvailablePlans,
+  handleMercadoPagoWebhook: billingControllerInstance.handleMercadoPagoWebhook,
+  handleStripeWebhook: billingControllerInstance.handleStripeWebhook,
+  
+  // Also export the full instance
+  instance: billingControllerInstance
+};
