@@ -1,24 +1,48 @@
-const mercadopago = require('mercadopago');
+const { MercadoPagoConfig, Payment, Customer, PreApproval } = require('mercadopago');
 const { pool } = require('../database');
 
 class BillingService {
   constructor() {
-    // Configurar MercadoPago
+    // Configurar MercadoPago con la nueva API
+    this.mercadopago = null;
     if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
-      mercadopago.configure({
-        access_token: process.env.MERCADOPAGO_ACCESS_TOKEN
-      });
-      console.log('💳 MercadoPago configurado');
+      try {
+        const client = new MercadoPagoConfig({ 
+          accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
+          options: { timeout: 5000 }
+        });
+        
+        this.mercadopago = {
+          client: client,
+          payment: new Payment(client),
+          customer: new Customer(client),
+          preapproval: new PreApproval(client)
+        };
+        
+        console.log('💳 MercadoPago configurado con nueva API');
+      } catch (error) {
+        console.log('⚠️ Error configurando MercadoPago:', error.message);
+        this.mercadopago = null;
+      }
+    } else {
+      console.log('⚠️ MercadoPago no configurado - falta MERCADOPAGO_ACCESS_TOKEN');
     }
 
-    // Configurar Stripe solo si tenemos la clave
+    // Configurar Stripe solo si tenemos la clave válida
     this.stripe = null;
-    if (process.env.STRIPE_SECRET_KEY) {
-      const stripe = require('stripe');
-      this.stripe = stripe(process.env.STRIPE_SECRET_KEY);
-      console.log('💳 Stripe configurado');
+    if (process.env.STRIPE_SECRET_KEY && 
+        process.env.STRIPE_SECRET_KEY !== 'placeholder_stripe_key_not_configured' &&
+        process.env.STRIPE_SECRET_KEY.startsWith('sk_')) {
+      try {
+        const stripe = require('stripe');
+        this.stripe = stripe(process.env.STRIPE_SECRET_KEY);
+        console.log('💳 Stripe configurado correctamente');
+      } catch (error) {
+        console.log('⚠️ Error configurando Stripe:', error.message);
+        this.stripe = null;
+      }
     } else {
-      console.log('⚠️ Stripe no configurado - falta STRIPE_SECRET_KEY');
+      console.log('⚠️ Stripe no configurado - STRIPE_SECRET_KEY no válida o no configurada');
     }
   }
 
@@ -95,26 +119,33 @@ class BillingService {
       const usdToArs = 1000; // Actualizar con rate real
       const priceInARS = Math.round(plan.price_usd * usdToArs);
 
+      // Verificar que MercadoPago esté configurado
+      if (!this.mercadopago) {
+        throw new Error('MercadoPago no está configurado');
+      }
+
       // Crear customer en MercadoPago
-      const customer = await mercadopago.customers.create({
-        email: customerData.email,
-        first_name: customerData.first_name,
-        last_name: customerData.last_name,
-        phone: {
-          area_code: customerData.phone_area || '11',
-          number: customerData.phone_number
-        },
-        identification: {
-          type: customerData.id_type || 'DNI',
-          number: customerData.id_number
-        },
-        description: `Cliente ${customerData.company_name}`
+      const customer = await this.mercadopago.customer.create({
+        body: {
+          email: customerData.email,
+          first_name: customerData.first_name,
+          last_name: customerData.last_name,
+          phone: {
+            area_code: customerData.phone_area || '11',
+            number: customerData.phone_number
+          },
+          identification: {
+            type: customerData.id_type || 'DNI',
+            number: customerData.id_number
+          },
+          description: `Cliente ${customerData.company_name}`
+        }
       });
 
-      console.log('✅ MercadoPago customer created:', customer.body.id);
+      console.log('✅ MercadoPago customer created:', customer.id);
 
       // Crear plan de subscripción recurrente
-      const preapprovalPlan = {
+      const preapprovalData = {
         reason: `Plan ${plan.name} - ${customerData.company_name}`,
         auto_recurring: {
           frequency: 1,
@@ -139,9 +170,11 @@ class BillingService {
         notification_url: `${process.env.BACKEND_URL}/api/billing/webhooks/mercadopago`
       };
 
-      const subscription = await mercadopago.preapproval.create(preapprovalPlan);
+      const subscription = await this.mercadopago.preapproval.create({
+        body: preapprovalData
+      });
       
-      console.log('✅ MercadoPago preapproval created:', subscription.body.id);
+      console.log('✅ MercadoPago preapproval created:', subscription.id);
 
       // Guardar subscripción en BD
       const subscriptionQuery = `
@@ -156,16 +189,16 @@ class BillingService {
 
       await pool.query(subscriptionQuery, [
         companyId,
-        subscription.body.id,
-        customer.body.id
+        subscription.id,
+        customer.id
       ]);
 
       return {
         success: true,
-        subscription_id: subscription.body.id,
-        checkout_url: subscription.body.init_point,
-        sandbox_url: subscription.body.sandbox_init_point,
-        customer_id: customer.body.id,
+        subscription_id: subscription.id,
+        checkout_url: subscription.init_point,
+        sandbox_url: subscription.sandbox_init_point,
+        customer_id: customer.id,
         amount: priceInARS,
         currency: 'ARS'
       };
@@ -287,9 +320,11 @@ class BillingService {
         const preapprovalId = webhookData.data.id;
         
         // Obtener información de la preapproval
-        const preapproval = await mercadopago.preapproval.get(preapprovalId);
-        const status = preapproval.body.status;
-        const externalRef = preapproval.body.external_reference;
+        const preapproval = await this.mercadopago.preapproval.get({
+          id: preapprovalId
+        });
+        const status = preapproval.status;
+        const externalRef = preapproval.external_reference;
 
         console.log(`📨 MercadoPago preapproval ${preapprovalId} status: ${status}`);
 
@@ -327,7 +362,7 @@ class BillingService {
         // Registrar transacción si es pago exitoso
         if (status === 'authorized') {
           await this.recordPayment(preapprovalId, 'mercadopago', {
-            amount: preapproval.body.auto_recurring.transaction_amount,
+            amount: preapproval.auto_recurring.transaction_amount,
             currency: 'ARS',
             external_reference: externalRef
           });

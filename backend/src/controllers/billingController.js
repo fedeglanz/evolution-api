@@ -281,11 +281,17 @@ class BillingController {
             console.log('⚠️ No se puede cancelar en Stripe - falta STRIPE_SECRET_KEY');
           }
         } else if (subscription.mercadopago_subscription_id) {
-          const mercadopago = require('mercadopago');
-          await mercadopago.preapproval.update({
-            id: subscription.mercadopago_subscription_id,
-            status: 'cancelled'
-          });
+          const billingService = require('../services/billingService');
+          if (billingService.mercadopago) {
+            await billingService.mercadopago.preapproval.update({
+              id: subscription.mercadopago_subscription_id,
+              body: {
+                status: 'cancelled'
+              }
+            });
+          } else {
+            console.log('⚠️ No se puede cancelar en MercadoPago - no configurado');
+          }
         }
       } catch (providerError) {
         console.error('⚠️ Error cancelling with provider:', providerError);
