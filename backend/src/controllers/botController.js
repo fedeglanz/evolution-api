@@ -120,8 +120,6 @@ function checkEscalationKeywordsHelper(message, keywords) {
   return { shouldEscalate };
 }
 
-const tokenLimitService = require('../services/tokenLimitService');
-
 class BotController {
 
   /**
@@ -377,44 +375,6 @@ class BotController {
     return saveMessageHelper(companyId, contactId, instanceId, content, messageId, isFromBot, messageType, metadata);
   }
 
-  /**
-   * Obtener estadísticas de uso de tokens
-   * GET /api/bot/usage-stats
-   */
-  async getUsageStats(req, res) {
-    try {
-      const { companyId } = req.user;
-      
-      if (!companyId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Company ID requerido'
-        });
-      }
-
-      const stats = await tokenLimitService.getUsageStats(companyId);
-      
-      if (!stats) {
-        return res.status(404).json({
-          success: false,
-          message: 'No se encontraron estadísticas de uso'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: stats
-      });
-
-    } catch (error) {
-      console.error('❌ Error obteniendo estadísticas:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Error interno del servidor',
-        error: error.message
-      });
-    }
-  }
 }
 
 module.exports = new BotController(); 
