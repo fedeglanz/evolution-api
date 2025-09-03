@@ -379,9 +379,9 @@ class BillingController {
           max_instances, max_messages, max_contacts, included_tokens,
           allow_overage, overage_rate_per_token, max_overage_usd,
           embeddings, campaigns, priority_support, custom_api_key,
-          status, sort_order
+          active, sort_order
         FROM whatsapp_bot.plans 
-        WHERE status = 'active'
+        WHERE active = true
         ORDER BY sort_order ASC, price_usd ASC
       `;
 
