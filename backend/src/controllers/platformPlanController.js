@@ -94,7 +94,7 @@ class PlatformPlanController {
       const newPlan = await platformPlanService.createPlan(planData, createdBy);
       
       // Log de auditoría
-      console.log(`✅ Plan created: ${newPlan.name} (${newPlan.key}) by admin ${req.platformAdmin.username}`);
+      console.log(`✅ Plan created: ${newPlan.name} (${newPlan.key}) by admin ${req.platformAdmin.email}`);
       
       res.status(201).json({
         success: true,
@@ -142,7 +142,7 @@ class PlatformPlanController {
       }
       
       // Log de auditoría
-      console.log(`✅ Plan updated: ${updatedPlan.name} (${updatedPlan.key}) by admin ${req.platformAdmin.username}`);
+      console.log(`✅ Plan updated: ${updatedPlan.name} (${updatedPlan.key}) by admin ${req.platformAdmin.email}`);
       
       res.status(200).json({
         success: true,
@@ -187,7 +187,7 @@ class PlatformPlanController {
       }
       
       // Log de auditoría
-      console.log(`✅ Plan deleted: ${deletedPlan.name} (${deletedPlan.key}) by admin ${req.platformAdmin.username}`);
+      console.log(`✅ Plan deleted: ${deletedPlan.name} (${deletedPlan.key}) by admin ${req.platformAdmin.email}`);
       
       res.status(200).json({
         success: true,
@@ -231,7 +231,7 @@ class PlatformPlanController {
 
       await platformPlanService.reorderPlans(planOrders);
       
-      console.log(`✅ Plans reordered by admin ${req.platformAdmin.username}`);
+      console.log(`✅ Plans reordered by admin ${req.platformAdmin.email}`);
       
       res.status(200).json({
         success: true,
@@ -283,7 +283,7 @@ class PlatformPlanController {
       
       const migrated = await platformPlanService.migrateExistingCompanies();
       
-      console.log(`✅ Migrated ${migrated.length} companies by admin ${req.platformAdmin.username}`);
+      console.log(`✅ Migrated ${migrated.length} companies by admin ${req.platformAdmin.email}`);
       
       res.status(200).json({
         success: true,

@@ -9,7 +9,8 @@ class PlatformPlanService {
     const query = `
       SELECT 
         p.*,
-        pa.username as created_by_username
+        pa.email as created_by_email,
+        CONCAT(pa.first_name, ' ', pa.last_name) as created_by_name
       FROM whatsapp_bot.plans p
       LEFT JOIN public.platform_admins pa ON p.created_by = pa.id
       WHERE p.active = true
@@ -27,7 +28,8 @@ class PlatformPlanService {
     const query = `
       SELECT 
         p.*,
-        pa.username as created_by_username
+        pa.email as created_by_email,
+        CONCAT(pa.first_name, ' ', pa.last_name) as created_by_name
       FROM whatsapp_bot.plans p
       LEFT JOIN public.platform_admins pa ON p.created_by = pa.id
       WHERE p.id = $1 AND p.active = true
