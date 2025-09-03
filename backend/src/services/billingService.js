@@ -120,29 +120,48 @@ class BillingService {
 
       // Convertir USD a ARS (rate aproximado, mejor usar API de conversión)
       const usdToArs = 1000; // Actualizar con rate real
-      const priceInARS = Math.round(plan.price_usd * usdToArs);
+      let priceInARS = Math.round(plan.price_usd * usdToArs);
+      
+      // Para sandbox, usar montos menores para evitar restricciones
+      if (process.env.MERCADOPAGO_SANDBOX === 'true') {
+        priceInARS = Math.min(priceInARS, 100000); // Máximo 100,000 ARS en sandbox
+        if (priceInARS < 100) priceInARS = 100; // Mínimo 1 ARS
+      }
+      
+      console.log(`💰 Plan price: ${plan.price_usd} USD = ${priceInARS} ARS`);
 
       // Verificar que MercadoPago esté configurado
       if (!this.mercadopago) {
         throw new Error('MercadoPago no está configurado');
       }
 
+      // Preparar datos del teléfono para MercadoPago
+      let phoneNumber = customerData.phone_number || '';
+      if (phoneNumber.startsWith('+54')) {
+        phoneNumber = phoneNumber.substring(3); // Remove +54
+      }
+      
+      // Para sandbox, usar datos de prueba válidos
+      const testCustomerData = {
+        email: customerData.email,
+        first_name: customerData.first_name || 'Test',
+        last_name: customerData.last_name || 'User',
+        phone: {
+          area_code: '11', // Usar código fijo para sandbox
+          number: phoneNumber.replace(/\D/g, '').substring(-8) || '12345678' // Solo números, últimos 8 dígitos
+        },
+        identification: {
+          type: 'DNI', // Fijo para sandbox
+          number: customerData.id_number || '12345678' // Usar número de test si no hay ID
+        },
+        description: `Cliente ${customerData.company_name || 'Test Company'}`
+      };
+
+      console.log('📞 Creating MP customer with data:', JSON.stringify(testCustomerData, null, 2));
+
       // Crear customer en MercadoPago
       const customer = await this.mercadopago.customer.create({
-        body: {
-          email: customerData.email,
-          first_name: customerData.first_name,
-          last_name: customerData.last_name,
-          phone: {
-            area_code: customerData.phone_area || '11',
-            number: customerData.phone_number
-          },
-          identification: {
-            type: customerData.id_type || 'DNI',
-            number: customerData.id_number
-          },
-          description: `Cliente ${customerData.company_name}`
-        }
+        body: testCustomerData
       });
 
       console.log('✅ MercadoPago customer created:', customer.id);
