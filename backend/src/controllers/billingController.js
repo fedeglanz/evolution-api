@@ -49,8 +49,8 @@ class BillingController {
         });
       }
 
-      // Detectar región y proveedor de pago
-      const paymentRegion = await this.billingService.detectPaymentRegion(companyId);
+      // Detectar región y proveedor de pago usando datos del cliente
+      const paymentRegion = await this.billingService.detectPaymentRegion(companyId, customerData);
       console.log(`🌍 Payment region detected:`, paymentRegion);
 
       let subscriptionResult;

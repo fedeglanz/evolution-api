@@ -47,9 +47,9 @@ class BillingService {
   }
 
   /**
-   * Detectar país y moneda basado en datos de la empresa
+   * Detectar país y moneda basado en datos del cliente o empresa
    */
-  async detectPaymentRegion(companyId) {
+  async detectPaymentRegion(companyId, customerData = null) {
     try {
       // Obtener información de la empresa
       const companyQuery = `
@@ -70,9 +70,11 @@ class BillingService {
         throw new Error('Empresa no encontrada');
       }
 
-      // Lógica de detección de región
-      const phoneNumber = company.phone || '';
-      const email = company.email || '';
+      // Lógica de detección de región - usar customerData si está disponible
+      const phoneNumber = customerData?.phone_number || company.phone || '';
+      const email = customerData?.email || company.email || '';
+      
+      console.log(`🌍 Detecting region with phone: ${phoneNumber}, email: ${email}`);
       
       // Detectar Argentina por código de área o dominio
       const isArgentina = 
@@ -80,6 +82,8 @@ class BillingService {
         phoneNumber.startsWith('54') ||
         email.includes('.com.ar') ||
         email.includes('.ar');
+        
+      console.log(`🇦🇷 Argentina detected: ${isArgentina}`);
 
       return {
         company,
