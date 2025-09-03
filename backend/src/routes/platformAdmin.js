@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const platformAuthController = require('../controllers/platformAuthController');
 const platformUsersController = require('../controllers/platformUsersController');
+const platformPlanController = require('../controllers/platformPlanController');
 const { 
   authenticatePlatformAdmin, 
   requireSuperAdmin, 
@@ -137,6 +138,74 @@ router.post('/users/:userId/reset-password',
   requirePlatformStaff,
   logPlatformActivity('reset_user_password', 'user'),
   platformUsersController.resetUserPassword
+);
+
+// ============================================
+// RUTAS DE GESTIÓN DE PLANES DINÁMICOS
+// ============================================
+
+// Obtener todos los planes
+router.get('/plans',
+  authenticatePlatformAdmin,
+  requirePlatformViewer,
+  logPlatformActivity('view_plans'),
+  platformPlanController.getAllPlans
+);
+
+// Obtener estadísticas de planes
+router.get('/plans/statistics',
+  authenticatePlatformAdmin,
+  requirePlatformViewer,
+  logPlatformActivity('view_plan_statistics'),
+  platformPlanController.getPlanStatistics
+);
+
+// Migrar empresas existentes al nuevo sistema
+router.post('/plans/migrate-companies',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('migrate_companies_to_subscriptions'),
+  platformPlanController.migrateExistingCompanies
+);
+
+// Reordenar planes
+router.post('/plans/reorder',
+  authenticatePlatformAdmin,
+  requirePlatformStaff,
+  logPlatformActivity('reorder_plans'),
+  platformPlanController.reorderPlans
+);
+
+// Obtener plan específico por ID
+router.get('/plans/:id',
+  authenticatePlatformAdmin,
+  requirePlatformViewer,
+  logPlatformActivity('view_plan'),
+  platformPlanController.getPlanById
+);
+
+// Crear nuevo plan
+router.post('/plans',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('create_plan'),
+  platformPlanController.createPlan
+);
+
+// Actualizar plan existente
+router.put('/plans/:id',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('update_plan'),
+  platformPlanController.updatePlan
+);
+
+// Eliminar plan
+router.delete('/plans/:id',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('delete_plan'),
+  platformPlanController.deletePlan
 );
 
 // ============================================
