@@ -272,10 +272,14 @@ class BillingController {
       // Cancelar en el proveedor correspondiente
       try {
         if (subscription.stripe_subscription_id) {
-          const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-          await stripe.subscriptions.update(subscription.stripe_subscription_id, {
-            cancel_at_period_end: true
-          });
+          if (process.env.STRIPE_SECRET_KEY) {
+            const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+            await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+              cancel_at_period_end: true
+            });
+          } else {
+            console.log('⚠️ No se puede cancelar en Stripe - falta STRIPE_SECRET_KEY');
+          }
         } else if (subscription.mercadopago_subscription_id) {
           const mercadopago = require('mercadopago');
           await mercadopago.preapproval.update({

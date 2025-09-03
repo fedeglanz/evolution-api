@@ -1,5 +1,4 @@
 const mercadopago = require('mercadopago');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { pool } = require('../database');
 
 class BillingService {
@@ -12,9 +11,14 @@ class BillingService {
       console.log('💳 MercadoPago configurado');
     }
 
-    // Configurar Stripe
+    // Configurar Stripe solo si tenemos la clave
+    this.stripe = null;
     if (process.env.STRIPE_SECRET_KEY) {
+      const stripe = require('stripe');
+      this.stripe = stripe(process.env.STRIPE_SECRET_KEY);
       console.log('💳 Stripe configurado');
+    } else {
+      console.log('⚠️ Stripe no configurado - falta STRIPE_SECRET_KEY');
     }
   }
 
@@ -188,8 +192,13 @@ class BillingService {
         throw new Error('Plan no encontrado');
       }
 
+      // Verificar que Stripe esté configurado
+      if (!this.stripe) {
+        throw new Error('Stripe no está configurado');
+      }
+
       // Crear customer en Stripe
-      const customer = await stripe.customers.create({
+      const customer = await this.stripe.customers.create({
         email: customerData.email,
         name: `${customerData.first_name} ${customerData.last_name}`,
         phone: customerData.phone_number,
@@ -202,7 +211,7 @@ class BillingService {
       console.log('✅ Stripe customer created:', customer.id);
 
       // Crear producto y precio en Stripe
-      const product = await stripe.products.create({
+      const product = await this.stripe.products.create({
         name: `${plan.name} Plan`,
         description: plan.description,
         metadata: {
@@ -211,7 +220,7 @@ class BillingService {
         }
       });
 
-      const price = await stripe.prices.create({
+      const price = await this.stripe.prices.create({
         unit_amount: Math.round(plan.price_usd * 100), // Stripe usa centavos
         currency: 'usd',
         recurring: {
@@ -221,7 +230,7 @@ class BillingService {
       });
 
       // Crear subscripción
-      const subscription = await stripe.subscriptions.create({
+      const subscription = await this.stripe.subscriptions.create({
         customer: customer.id,
         items: [{ price: price.id }],
         payment_behavior: 'default_incomplete',
