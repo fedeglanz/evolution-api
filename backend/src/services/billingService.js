@@ -141,7 +141,9 @@ class BillingService {
         phoneNumber = phoneNumber.substring(3); // Remove +54
       }
       
-      // Para sandbox, usar datos de prueba válidos
+      // Para sandbox, usar datos de prueba válidos o reales según configuración
+      const isRealSandboxTest = process.env.MERCADOPAGO_SANDBOX === 'true';
+      
       const testCustomerData = {
         email: customerData.email,
         first_name: customerData.first_name || 'Test',
@@ -151,10 +153,11 @@ class BillingService {
           number: phoneNumber.replace(/\D/g, '').substring(-8) || '12345678' // Solo números, últimos 8 dígitos
         },
         identification: {
-          type: 'DNI', // Fijo para sandbox
-          number: customerData.id_number || '12345678' // Usar número de test si no hay ID
+          type: 'DNI',
+          // En sandbox: usar DNI de test, en producción: usar DNI real
+          number: isRealSandboxTest ? '12345678' : (customerData.id_number || '12345678')
         },
-        description: `Cliente ${customerData.company_name || 'Test Company'}`
+        description: `${marketplaceName} - Cliente: ${customerData.company_name || customerData.first_name}`
       };
 
       console.log('📞 Creating/Finding MP customer with data:', JSON.stringify(testCustomerData, null, 2));
@@ -204,9 +207,10 @@ class BillingService {
         }
       }
 
-      // Crear plan de subscripción recurrente
+      // Crear plan de subscripción recurrente  
+      const marketplaceName = process.env.MARKETPLACE_NAME || 'WhatsApp Bot Platform';
       const preapprovalData = {
-        reason: `Plan ${plan.name} - ${customerData.company_name}`,
+        reason: `${marketplaceName} - Plan ${plan.name}`,
         auto_recurring: {
           frequency: 1,
           frequency_type: 'months',
