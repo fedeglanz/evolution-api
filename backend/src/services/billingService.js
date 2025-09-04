@@ -135,6 +135,9 @@ class BillingService {
         throw new Error('MercadoPago no está configurado');
       }
 
+      // Configurar nombre del marketplace
+      const marketplaceName = process.env.MARKETPLACE_NAME || 'WhatsApp Bot Platform';
+      
       // Preparar datos del teléfono para MercadoPago
       let phoneNumber = customerData.phone_number || '';
       if (phoneNumber.startsWith('+54')) {
@@ -207,8 +210,7 @@ class BillingService {
         }
       }
 
-      // Crear plan de subscripción recurrente  
-      const marketplaceName = process.env.MARKETPLACE_NAME || 'WhatsApp Bot Platform';
+      // Crear plan de subscripción recurrente
       const preapprovalData = {
         reason: `${marketplaceName} - Plan ${plan.name}`,
         auto_recurring: {
