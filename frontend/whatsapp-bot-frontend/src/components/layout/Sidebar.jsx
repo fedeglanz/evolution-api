@@ -13,6 +13,7 @@ import {
   Clock,
   Paperclip,
   Target,
+  CreditCard,
   Settings,
   X,
   Bot,
@@ -42,6 +43,7 @@ const navigation = [
   },
   { name: 'Mensajería Masiva', href: '/mass-messaging', icon: Send },
   { name: 'Campañas de Grupos', href: '/campaigns', icon: Target },
+  { name: 'Facturación', href: '/billing', icon: CreditCard },
   { name: 'Configuración', href: '/settings', icon: Settings },
 ];
 

@@ -138,4 +138,42 @@ export const platformUserService = {
   }
 };
 
+// Plan management endpoints
+export const platformService = {
+  async getPlans() {
+    const response = await platformApi.get('/plans');
+    return response.data;
+  },
+
+  async getPlanStatistics() {
+    const response = await platformApi.get('/plans/statistics');
+    return response.data;
+  },
+
+  async createPlan(planData) {
+    const response = await platformApi.post('/plans', planData);
+    return response.data;
+  },
+
+  async updatePlan(planId, planData) {
+    const response = await platformApi.put(`/plans/${planId}`, planData);
+    return response.data;
+  },
+
+  async deletePlan(planId) {
+    const response = await platformApi.delete(`/plans/${planId}`);
+    return response.data;
+  },
+
+  async reorderPlans(planOrders) {
+    const response = await platformApi.post('/plans/reorder', { planOrders });
+    return response.data;
+  },
+
+  async migrateCompanies() {
+    const response = await platformApi.post('/plans/migrate-companies');
+    return response.data;
+  }
+};
+
 export default platformApi;

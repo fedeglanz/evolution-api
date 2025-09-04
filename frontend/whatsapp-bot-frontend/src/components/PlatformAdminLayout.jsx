@@ -10,7 +10,9 @@ import {
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
   BellIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  ChevronDownIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline';
 import usePlatformAuthStore from '../store/platformAuthStore';
 
@@ -19,6 +21,7 @@ const PlatformAdminLayout = () => {
   const location = useLocation();
   const { admin, logout, isAuthenticated, loadAdminData, mustChangePassword } = usePlatformAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -39,6 +42,7 @@ const PlatformAdminLayout = () => {
   }, [isAuthenticated, admin, loadAdminData, navigate, mustChangePassword, location.pathname]);
 
   const handleLogout = async () => {
+    setUserMenuOpen(false);
     await logout();
     navigate('/platform-admin');
   };
@@ -47,6 +51,7 @@ const PlatformAdminLayout = () => {
     { name: 'Dashboard', href: '/platform-admin/dashboard', icon: ChartBarIcon, current: location.pathname === '/platform-admin/dashboard' },
     { name: 'Empresas', href: '/platform-admin/companies', icon: BuildingOfficeIcon, current: location.pathname.startsWith('/platform-admin/companies') },
     { name: 'Usuarios', href: '/platform-admin/users', icon: UsersIcon, current: location.pathname.startsWith('/platform-admin/users') },
+    { name: 'Planes', href: '/platform-admin/plans', icon: CreditCardIcon, current: location.pathname.startsWith('/platform-admin/plans') },
     { name: 'Configuración', href: '/platform-admin/settings', icon: Cog6ToothIcon, current: location.pathname === '/platform-admin/settings' },
   ];
 
@@ -161,13 +166,53 @@ const PlatformAdminLayout = () => {
               </button>
 
               {/* User menu */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-700">
-                  {admin?.firstName} {admin?.lastName}
-                </span>
-                <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                  <UserCircleIcon className="h-5 w-5 text-indigo-600" />
-                </div>
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center space-x-2 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 p-2 hover:bg-gray-50"
+                >
+                  <span className="text-gray-700">
+                    {admin?.firstName} {admin?.lastName}
+                  </span>
+                  <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <UserCircleIcon className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <ChevronDownIcon className="h-4 w-4 text-gray-500" />
+                </button>
+
+                {/* User menu dropdown */}
+                {userMenuOpen && (
+                  <>
+                    {/* Backdrop to close dropdown */}
+                    <div 
+                      className="fixed inset-0 z-10"
+                      onClick={() => setUserMenuOpen(false)}
+                    />
+                    
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                      <div className="py-1">
+                        <div className="px-4 py-2 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900">
+                            {admin?.firstName} {admin?.lastName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {admin?.role === 'super_admin' ? 'Super Administrador' : 
+                             admin?.role === 'platform_staff' ? 'Staff Plataforma' : 
+                             'Viewer Plataforma'}
+                          </p>
+                        </div>
+                        
+                        <button
+                          onClick={handleLogout}
+                          className="flex w-full items-center px-4 py-2 text-sm text-red-700 hover:bg-red-50 hover:text-red-900"
+                        >
+                          <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
+                          Cerrar Sesión
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

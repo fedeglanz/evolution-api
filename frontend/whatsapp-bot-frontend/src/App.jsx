@@ -19,7 +19,9 @@ import Attachments from './pages/Attachments';
 import Campaigns from './pages/Campaigns';
 import PublicCampaign from './pages/PublicCampaign';
 import MassMessaging from './pages/MassMessaging';
+import Users from './pages/Users';
 import Settings from './pages/Settings';
+import Billing from './pages/Billing';
 
 // Platform Admin imports
 import PlatformAdminLogin from './pages/PlatformAdminLogin';
@@ -29,6 +31,7 @@ import PlatformDashboard from './pages/PlatformDashboard';
 import PlatformCompanies from './pages/PlatformCompanies';
 import PlatformCompanyDetails from './pages/PlatformCompanyDetails';
 import PlatformUsers from './pages/PlatformUsers';
+import PlatformPlans from './pages/PlatformPlans';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,6 +78,7 @@ function App() {
               <Route path="companies" element={<PlatformCompanies />} />
               <Route path="companies/:companyId" element={<PlatformCompanyDetails />} />
               <Route path="users" element={<PlatformUsers />} />
+              <Route path="plans" element={<PlatformPlans />} />
               {/* TODO: Add settings route */}
             </Route>
             
@@ -97,12 +101,14 @@ function App() {
               <Route path="knowledge" element={<Knowledge />} />
               <Route path="contacts" element={<Contacts />} />
               <Route path="conversations" element={<Conversations />} />
+              <Route path="users" element={<Users />} />
               <Route path="templates" element={<Templates />} />
               <Route path="quick-replies" element={<QuickReplies />} />
               <Route path="scheduled-messages" element={<ScheduledMessages />} />
               <Route path="attachments" element={<Attachments />} />
               <Route path="campaigns" element={<Campaigns />} />
               <Route path="mass-messaging" element={<MassMessaging />} />
+              <Route path="billing" element={<Billing />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             
