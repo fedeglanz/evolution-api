@@ -390,7 +390,7 @@ class BillingService {
       return {
         success: true,
         subscription_id: subscription.id,
-        client_secret: subscription.latest_invoice.payment_intent.client_secret,
+        client_secret: subscription.latest_invoice?.payment_intent?.client_secret || null,
         customer_id: customer.id,
         amount: plan.price_usd,
         currency: 'USD'
