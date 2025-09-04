@@ -9,7 +9,10 @@ class BillingService {
       try {
         const client = new MercadoPagoConfig({ 
           accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
-          options: { timeout: 5000 }
+          options: { 
+            timeout: 5000,
+            sandbox: process.env.MERCADOPAGO_SANDBOX === 'true'
+          }
         });
         
         this.mercadopago = {
