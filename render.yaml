@@ -259,15 +259,30 @@ services:
         sync: false
       - key: MERCADOPAGO_SANDBOX
         value: true
+      - key: MERCADOPAGO_CLIENT_ID
+        sync: false
+      - key: MERCADOPAGO_CLIENT_SECRET
+        sync: false
       - key: BACKEND_URL
         value: https://whatsapp-bot-backend-fnte.onrender.com
       - key: STRIPE_SECRET_KEY
         sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: N8N_API_KEY
+        sync: false
+      - key: N8N_BACKEND_API_KEY
+        sync: false
+      - key: N8N_USERNAME
+        sync: false
+      - key: N8N_PASSWORD
+        sync: false
+      - key: N8N_BASE_URL
+        value: https://n8n-automation-bhdl.onrender.com
 
   - type: web
     name: whatsapp-bot-frontend
     env: static
-    plan: starter
     repo: https://github.com/fedeglanz/evolution-api
     buildCommand: cd frontend/whatsapp-bot-frontend && npm install && npm run build
     staticPublishPath: ./frontend/whatsapp-bot-frontend/dist
