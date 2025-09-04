@@ -355,22 +355,26 @@ class BillingService {
         product: product.id
       });
 
-      // Crear subscripción
-      const subscription = await this.stripe.subscriptions.create({
+      // Crear Stripe Checkout Session (redirect como MercadoPago)
+      const checkoutSession = await this.stripe.checkout.sessions.create({
         customer: customer.id,
-        items: [{ price: price.id }],
-        payment_behavior: 'default_incomplete',
-        payment_settings: { save_default_payment_method: 'on_subscription' },
-        expand: ['latest_invoice.payment_intent'],
+        payment_method_types: ['card'],
+        mode: 'subscription',
+        line_items: [{
+          price: price.id,
+          quantity: 1,
+        }],
+        success_url: `${process.env.FRONTEND_URL}/dashboard/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.FRONTEND_URL}/dashboard/billing?status=cancelled`,
         metadata: {
           company_id: companyId,
           plan_id: planId
         }
       });
 
-      console.log('✅ Stripe subscription created:', subscription.id);
+      console.log('✅ Stripe checkout session created:', checkoutSession.id);
 
-      // Guardar subscripción en BD
+      // Guardar checkout session en BD
       const subscriptionQuery = `
         UPDATE whatsapp_bot.subscriptions 
         SET 
@@ -383,14 +387,14 @@ class BillingService {
 
       await pool.query(subscriptionQuery, [
         companyId,
-        subscription.id,
+        checkoutSession.id, // Usamos session ID temporalmente
         customer.id
       ]);
 
       return {
         success: true,
-        subscription_id: subscription.id,
-        client_secret: subscription.latest_invoice?.payment_intent?.client_secret || null,
+        subscription_id: checkoutSession.id,
+        checkout_url: checkoutSession.url, // URL para redirect
         customer_id: customer.id,
         amount: plan.price_usd,
         currency: 'USD'
