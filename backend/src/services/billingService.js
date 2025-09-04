@@ -167,18 +167,32 @@ class BillingService {
       // Para sandbox, usar datos de prueba válidos o reales según configuración
       const isRealSandboxTest = process.env.MERCADOPAGO_SANDBOX === 'true';
       
-      const testCustomerData = {
+      // En sandbox, usar datos completamente de prueba para evitar PolicyAgent blocks
+      const testCustomerData = isRealSandboxTest ? {
+        email: 'test_user_' + Date.now() + '@testuser.com',  // Email único de prueba
+        first_name: 'Test',
+        last_name: 'User',
+        phone: {
+          area_code: '11',
+          number: '22223333'  // Número de prueba válido
+        },
+        identification: {
+          type: 'DNI',
+          number: '12345678'
+        },
+        description: `${marketplaceName} - Test Customer`
+      } : {
+        // Producción: usar datos reales
         email: customerData.email,
         first_name: customerData.first_name || 'Test',
         last_name: customerData.last_name || 'User',
         phone: {
-          area_code: '11', // Usar código fijo para sandbox
-          number: phoneNumber.replace(/\D/g, '').substring(-8) || '12345678' // Solo números, últimos 8 dígitos
+          area_code: '11',
+          number: phoneNumber.replace(/\D/g, '').substring(-8) || '12345678'
         },
         identification: {
           type: 'DNI',
-          // En sandbox: usar DNI de test, en producción: usar DNI real
-          number: isRealSandboxTest ? '12345678' : (customerData.id_number || '12345678')
+          number: customerData.id_number || '12345678'
         },
         description: `${marketplaceName} - Cliente: ${customerData.company_name || customerData.first_name}`
       };
