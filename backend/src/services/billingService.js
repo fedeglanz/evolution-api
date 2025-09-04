@@ -277,10 +277,17 @@ class BillingService {
         customer.id
       ]);
 
+      // Fix: Forzar URL sandbox si estamos en sandbox mode
+      let checkoutUrl = subscription.init_point;
+      if (process.env.MERCADOPAGO_SANDBOX === 'true' && checkoutUrl.includes('www.mercadopago.com')) {
+        checkoutUrl = checkoutUrl.replace('www.mercadopago.com', 'sandbox.mercadopago.com');
+        console.log('🧪 URL convertida a sandbox:', checkoutUrl);
+      }
+
       return {
         success: true,
         subscription_id: subscription.id,
-        checkout_url: subscription.init_point,
+        checkout_url: checkoutUrl,
         sandbox_url: subscription.sandbox_init_point,
         customer_id: customer.id,
         amount: priceInARS,

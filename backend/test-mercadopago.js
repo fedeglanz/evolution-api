@@ -75,10 +75,13 @@ async function testMercadoPagoAPI() {
       // 3. Crear suscripción usando SDK v2 (igual que la app)
       console.log('3️⃣ Creando suscripción con SDK v2...');
       
-      // Configurar SDK
+      // Configurar SDK con sandbox forzado
       const client = new MercadoPagoConfig({ 
         accessToken: MERCADOPAGO_ACCESS_TOKEN,
-        options: { timeout: 5000 }
+        options: { 
+          timeout: 5000,
+          sandbox: true  // Forzar sandbox mode
+        }
       });
       
       const preapproval = new PreApproval(client);
