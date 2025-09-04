@@ -15,7 +15,10 @@ class BillingService {
           accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
           options: { 
             timeout: 5000,
-            integratorId: process.env.MERCADOPAGO_CLIENT_ID || '8936514952268223'
+            integratorId: process.env.MERCADOPAGO_CLIENT_ID || '8936514952268223',
+            headers: {
+              'x-test-scope': 'sandbox'  // Forzar modo sandbox
+            }
           }
         });
         
