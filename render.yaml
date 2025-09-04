@@ -267,7 +267,7 @@ services:
   - type: web
     name: whatsapp-bot-frontend
     env: static
-    plan: starter
+    plan: free
     repo: https://github.com/fedeglanz/evolution-api
     buildCommand: cd frontend/whatsapp-bot-frontend && npm install && npm run build
     staticPublishPath: ./frontend/whatsapp-bot-frontend/dist
