@@ -186,7 +186,9 @@ class BillingService {
             { id: 'amex' }
           ]
         },
-        back_url: `${process.env.FRONTEND_URL}/billing/success`,
+        back_url: process.env.FRONTEND_URL 
+          ? `${process.env.FRONTEND_URL}/billing/success`
+          : 'http://localhost:5173/billing/success', // URL local por defecto
         payer_email: customerData.email,
         external_reference: `company_${companyId}_plan_${planId}`,
         notification_url: `${process.env.BACKEND_URL}/api/billing/webhooks/mercadopago`
