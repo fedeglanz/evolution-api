@@ -1,5 +1,6 @@
 // Test MercadoPago direct API con credenciales TEST originales
 const axios = require('axios');
+const { MercadoPagoConfig, PreApproval, Customer } = require('mercadopago');
 
 // Credenciales TEST originales (de tu cuenta real en modo sandbox)
 const MERCADOPAGO_ACCESS_TOKEN = 'TEST-6905559224909465-090406-7377ba8aec1ccc0fee8fa4bcc5cf8038-62226130';
@@ -41,47 +42,70 @@ async function testMercadoPagoAPI() {
     };
 
     try {
-      const customerResponse = await axios.post('https://api.mercadopago.com/v1/customers', customerData, {
+      // Buscar customer existente primero
+      const searchResponse = await axios.get(`https://api.mercadopago.com/v1/customers/search?email=${customerData.email}`, {
         headers: {
           'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
           'Content-Type': 'application/json'
         }
       });
-      console.log('✅ Customer creado:', {
-        id: customerResponse.data.id,
-        email: customerResponse.data.email
-      });
+      
+      let customerId;
+      if (searchResponse.data.results && searchResponse.data.results.length > 0) {
+        customerId = searchResponse.data.results[0].id;
+        console.log('✅ Customer encontrado:', {
+          id: customerId,
+          email: searchResponse.data.results[0].email
+        });
+      } else {
+        const customerResponse = await axios.post('https://api.mercadopago.com/v1/customers', customerData, {
+          headers: {
+            'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        customerId = customerResponse.data.id;
+        console.log('✅ Customer creado:', {
+          id: customerId,
+          email: customerResponse.data.email
+        });
+      }
       console.log('---\n');
 
-      // 3. Crear una preferencia simple (no suscripción)
-      console.log('3️⃣ Creando preferencia de pago simple...');
-      const preferenceData = {
-        items: [{
-          title: 'Plan de Prueba',
-          quantity: 1,
-          unit_price: 100
-        }],
-        payer: {
-          email: customerData.email
+      // 3. Crear suscripción usando SDK v2 (igual que la app)
+      console.log('3️⃣ Creando suscripción con SDK v2...');
+      
+      // Configurar SDK
+      const client = new MercadoPagoConfig({ 
+        accessToken: MERCADOPAGO_ACCESS_TOKEN,
+        options: { timeout: 5000 }
+      });
+      
+      const preapproval = new PreApproval(client);
+      
+      const preapprovalData = {
+        reason: 'Plan Starter WhatsApp Bot Platform',
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: 'months',
+          transaction_amount: 15000,
+          currency_id: 'ARS'
         },
-        back_urls: {
-          success: 'https://example.com/success',
-          failure: 'https://example.com/failure',
-          pending: 'https://example.com/pending'
-        }
+        back_url: 'https://whatsapp-bot-frontend-i9g0.onrender.com/dashboard/billing',
+        payer_email: customerData.email,
+        external_reference: `test_company_123_plan_456`,
+        notification_url: `https://whatsapp-bot-backend-fnte.onrender.com/api/billing/webhooks/mercadopago`
       };
 
-      const preferenceResponse = await axios.post('https://api.mercadopago.com/checkout/preferences', preferenceData, {
-        headers: {
-          'Authorization': `Bearer ${MERCADOPAGO_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
+      const subscription = await preapproval.create({
+        body: preapprovalData
       });
 
-      console.log('✅ Preferencia creada:', {
-        id: preferenceResponse.data.id,
-        init_point: preferenceResponse.data.init_point,
-        sandbox_init_point: preferenceResponse.data.sandbox_init_point
+      console.log('✅ Suscripción creada:', {
+        id: subscription.id,
+        init_point: subscription.init_point,
+        status: subscription.status,
+        sandbox_init_point: subscription.sandbox_init_point
       });
       console.log('---\n');
 
