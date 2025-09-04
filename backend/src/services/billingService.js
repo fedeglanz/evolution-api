@@ -10,10 +10,12 @@ class BillingService {
         // Para SDK v2, sandbox se configura a nivel global
         const isSandbox = process.env.MERCADOPAGO_SANDBOX === 'true';
         
+        // Configuración específica para app de Suscripciones
         const client = new MercadoPagoConfig({ 
           accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
           options: { 
-            timeout: 5000
+            timeout: 5000,
+            integratorId: process.env.MERCADOPAGO_CLIENT_ID || '8936514952268223'
           }
         });
         
@@ -33,6 +35,8 @@ class BillingService {
         console.log('💳 MercadoPago configurado con nueva API');
         console.log('🔧 Sandbox mode:', process.env.MERCADOPAGO_SANDBOX === 'true');
         console.log('🔑 Access Token type:', process.env.MERCADOPAGO_ACCESS_TOKEN?.substring(0, 8));
+        console.log('🏪 App ID:', process.env.MERCADOPAGO_CLIENT_ID);
+        console.log('📱 App type: Suscripciones específica');
       } catch (error) {
         console.log('⚠️ Error configurando MercadoPago:', error.message);
         this.mercadopago = null;
