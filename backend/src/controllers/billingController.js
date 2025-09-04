@@ -10,6 +10,7 @@ class BillingController {
     this.getBillingHistory = this.getBillingHistory.bind(this);
     this.cancelSubscription = this.cancelSubscription.bind(this);
     this.getAvailablePlans = this.getAvailablePlans.bind(this);
+    this.handlePaymentReturn = this.handlePaymentReturn.bind(this);
     
     // Load billing service dynamically to avoid circular imports
     this.billingService = null;
@@ -368,6 +369,53 @@ class BillingController {
   }
 
   /**
+   * GET /api/billing/payment-return
+   * Manejar retorno de MercadoPago/Stripe después del pago
+   */
+  async handlePaymentReturn(req, res) {
+    try {
+      const { 
+        collection_id, 
+        collection_status, 
+        payment_id,
+        status,
+        external_reference,
+        payment_type,
+        merchant_order_id,
+        preference_id,
+        site_id,
+        processing_mode,
+        merchant_account_id
+      } = req.query;
+
+      console.log('💰 Payment return received:', req.query);
+
+      // Guardar información importante del pago
+      if (external_reference) {
+        // external_reference formato: company_UUID_plan_UUID
+        const [, companyId, , planId] = external_reference.split('_');
+        
+        // TODO: Actualizar estado de subscripción basado en collection_status
+        console.log(`📝 Payment return for company ${companyId}, plan ${planId}, status: ${collection_status}`);
+      }
+
+      // Determinar URL de redirección
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const redirectUrl = collection_status === 'approved' 
+        ? `${frontendUrl}/billing/success?payment_id=${payment_id}`
+        : `${frontendUrl}/billing/error?status=${collection_status}`;
+
+      // Redirigir al frontend
+      res.redirect(redirectUrl);
+
+    } catch (error) {
+      console.error('❌ Error handling payment return:', error);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      res.redirect(`${frontendUrl}/billing/error`);
+    }
+  }
+
+  /**
    * GET /api/billing/plans/available
    * Obtener planes disponibles (sin autenticación)
    */
@@ -413,6 +461,7 @@ module.exports = {
   getBillingHistory: billingControllerInstance.getBillingHistory,
   cancelSubscription: billingControllerInstance.cancelSubscription,
   getAvailablePlans: billingControllerInstance.getAvailablePlans,
+  handlePaymentReturn: billingControllerInstance.handlePaymentReturn,
   handleMercadoPagoWebhook: billingControllerInstance.handleMercadoPagoWebhook,
   handleStripeWebhook: billingControllerInstance.handleStripeWebhook,
   

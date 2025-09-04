@@ -224,9 +224,7 @@ class BillingService {
             { id: 'amex' }
           ]
         },
-        back_url: process.env.FRONTEND_URL 
-          ? `${process.env.FRONTEND_URL}/billing/success`
-          : 'https://www.example.com/billing/success', // MercadoPago no acepta localhost
+        back_url: `${process.env.BACKEND_URL}/api/billing/payment-return`, // Backend captura datos y redirige
         payer_email: customerData.email,
         external_reference: `company_${companyId}_plan_${planId}`,
         notification_url: `${process.env.BACKEND_URL}/api/billing/webhooks/mercadopago`

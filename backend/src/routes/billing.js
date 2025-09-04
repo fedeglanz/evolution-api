@@ -42,6 +42,12 @@ router.post('/cancel-subscription', authenticate, billingController.cancelSubscr
  */
 router.get('/plans/available', billingController.getAvailablePlans);
 
+/**
+ * GET /api/billing/payment-return
+ * Manejar retorno de pago de MercadoPago/Stripe
+ */
+router.get('/payment-return', billingController.handlePaymentReturn);
+
 // ============================================
 // WEBHOOKS (Sin autenticación para proveedores)
 // ============================================
