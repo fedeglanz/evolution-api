@@ -157,14 +157,52 @@ class BillingService {
         description: `Cliente ${customerData.company_name || 'Test Company'}`
       };
 
-      console.log('📞 Creating MP customer with data:', JSON.stringify(testCustomerData, null, 2));
+      console.log('📞 Creating/Finding MP customer with data:', JSON.stringify(testCustomerData, null, 2));
 
-      // Crear customer en MercadoPago
-      const customer = await this.mercadopago.customer.create({
-        body: testCustomerData
-      });
-
-      console.log('✅ MercadoPago customer created:', customer.id);
+      let customer;
+      
+      try {
+        // Intentar buscar cliente existente por email
+        const searchResult = await this.mercadopago.customer.search({
+          email: testCustomerData.email
+        });
+        
+        if (searchResult && searchResult.results && searchResult.results.length > 0) {
+          customer = searchResult.results[0];
+          console.log('✅ MercadoPago customer found:', customer.id);
+        } else {
+          // Si no existe, crear nuevo
+          customer = await this.mercadopago.customer.create({
+            body: testCustomerData
+          });
+          console.log('✅ MercadoPago customer created:', customer.id);
+        }
+      } catch (error) {
+        // Si falla la búsqueda, intentar crear directamente
+        console.log('⚠️ Customer search failed, trying to create:', error.message);
+        try {
+          customer = await this.mercadopago.customer.create({
+            body: testCustomerData
+          });
+          console.log('✅ MercadoPago customer created:', customer.id);
+        } catch (createError) {
+          // Si el error es que ya existe, es un error de race condition
+          if (createError.cause && createError.cause[0]?.code === '101') {
+            console.log('⚠️ Customer already exists, searching again...');
+            const searchRetry = await this.mercadopago.customer.search({
+              email: testCustomerData.email
+            });
+            if (searchRetry && searchRetry.results && searchRetry.results.length > 0) {
+              customer = searchRetry.results[0];
+              console.log('✅ MercadoPago customer found on retry:', customer.id);
+            } else {
+              throw createError;
+            }
+          } else {
+            throw createError;
+          }
+        }
+      }
 
       // Crear plan de subscripción recurrente
       const preapprovalData = {
