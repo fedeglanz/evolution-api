@@ -284,7 +284,10 @@ services:
     name: whatsapp-bot-frontend
     env: static
     repo: https://github.com/fedeglanz/evolution-api
-    buildCommand: cd frontend/whatsapp-bot-frontend && npm install && npm run build
+    buildCommand: |
+      cd frontend/whatsapp-bot-frontend
+      npm install
+      npm run build
     staticPublishPath: ./frontend/whatsapp-bot-frontend/dist
     headers:
       - path: /*
@@ -298,6 +301,6 @@ services:
         value: Content-Type, Authorization
     envVars:
       - key: NODE_VERSION
-        value: 18
+        value: 20
       - key: VITE_API_URL
         value: https://whatsapp-bot-backend-fnte.onrender.com
