@@ -2,7 +2,7 @@ databases:
   - name: evolution-postgres
     databaseName: evolution
     user: evolution_user
-    plan: basic-256
+    plan: starter
 
 services:
   - type: redis
