@@ -53,7 +53,8 @@ const PlansSelection = ({ onSelectPlan, currentPlan = null }) => {
   };
 
   const isCurrentPlan = (plan) => {
-    return currentPlan && currentPlan.key === plan.key;
+    // Use backend's is_current flag if available, fallback to prop comparison
+    return plan.is_current || (currentPlan && currentPlan.key === plan.key);
   };
 
   if (loading) {

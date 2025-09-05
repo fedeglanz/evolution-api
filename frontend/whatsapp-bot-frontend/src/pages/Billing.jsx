@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, Calendar, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
+import { CreditCard, Calendar, DollarSign, TrendingUp, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
 import PlansSelection from '../components/PlansSelection';
 import CheckoutModal from '../components/CheckoutModal';
 import billingService from '../services/billing';
@@ -11,8 +11,27 @@ const Billing = () => {
   const [loading, setLoading] = useState(true);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  
+  // Payment result states
+  const [paymentResult, setPaymentResult] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
+    // Check for payment result in URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const sessionId = urlParams.get('session_id');
+    
+    if (status) {
+      console.log('🔍 Payment result detected:', { status, sessionId });
+      setPaymentResult({ status, sessionId });
+      setShowPaymentModal(true);
+      
+      // Clean up URL without triggering navigation
+      const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+    
     fetchSubscriptionStatus();
     if (activeTab === 'history') {
       fetchBillingHistory();
@@ -321,6 +340,77 @@ const Billing = () => {
           </div>
         )}
       </div>
+
+      {/* Payment Result Modal */}
+      {showPaymentModal && paymentResult && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md mx-4">
+            <div className="text-center">
+              {paymentResult.status === 'success' ? (
+                <>
+                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    ¡Pago Exitoso!
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Tu suscripción ha sido activada correctamente.
+                  </p>
+                  {paymentResult.sessionId && (
+                    <p className="text-xs text-gray-400 mb-4">
+                      ID de sesión: {paymentResult.sessionId}
+                    </p>
+                  )}
+                </>
+              ) : paymentResult.status === 'cancelled' ? (
+                <>
+                  <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Pago Cancelado
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    El proceso de pago fue cancelado. Puedes intentar nuevamente cuando desees.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    Estado: {paymentResult.status}
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Procesando el estado de tu pago...
+                  </p>
+                </>
+              )}
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setPaymentResult(null);
+                    fetchSubscriptionStatus(); // Refresh subscription
+                  }}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Continuar
+                </button>
+                {paymentResult.status === 'cancelled' && (
+                  <button
+                    onClick={() => {
+                      setShowPaymentModal(false);
+                      setPaymentResult(null);
+                      setActiveTab('plans');
+                    }}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    Ver Planes
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checkout Modal */}
       <CheckoutModal
