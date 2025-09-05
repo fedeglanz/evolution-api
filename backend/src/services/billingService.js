@@ -494,9 +494,13 @@ class BillingService {
   async handleStripePaymentSucceeded(invoice) {
     try {
       console.log('✅ Stripe payment succeeded:', invoice.id);
+      console.log('📄 Invoice subscription:', invoice.subscription);
       
       const subscription = invoice.subscription;
-      if (!subscription) return;
+      if (!subscription) {
+        console.log('⚠️ No subscription ID in invoice, skipping...');
+        return;
+      }
 
       // Actualizar próxima fecha de facturación
       const updateQuery = `
@@ -507,7 +511,8 @@ class BillingService {
         WHERE stripe_subscription_id = $1
       `;
 
-      await pool.query(updateQuery, [subscription, invoice.period_end]);
+      const result = await pool.query(updateQuery, [subscription, invoice.period_end]);
+      console.log('✅ Updated billing date for', result.rowCount, 'subscriptions');
       
     } catch (error) {
       console.error('❌ Error handling Stripe payment succeeded:', error);
