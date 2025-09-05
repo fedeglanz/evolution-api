@@ -250,10 +250,15 @@ class BillingController {
   async handleStripeWebhook(req, res) {
     try {
       console.log('📨 Stripe webhook received:', req.body.type);
+      console.log('🔍 BillingService available:', !!this.billingService);
+      console.log('🔍 Webhook body keys:', Object.keys(req.body));
 
       if (this.billingService) {
+        console.log('🔄 Calling billingService.handleStripeWebhook...');
         await this.billingService.handleStripeWebhook(req.body);
+        console.log('✅ billingService.handleStripeWebhook completed');
       } else {
+        console.error('❌ Billing service not available');
         throw new Error('Billing service not available');
       }
 
