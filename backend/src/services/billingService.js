@@ -359,8 +359,8 @@ class BillingService {
       });
 
       // Crear Stripe Checkout Session (redirect como MercadoPago)
-      const successUrl = `${process.env.FRONTEND_URL}/dashboard/billing?status=success&session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${process.env.FRONTEND_URL}/dashboard/billing?status=cancelled`;
+      const successUrl = `${process.env.FRONTEND_URL}/billing?status=success&session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${process.env.FRONTEND_URL}/billing?status=cancelled`;
       
       console.log('🔗 Configured success URL:', successUrl);
       console.log('🔗 Configured cancel URL:', cancelUrl);
