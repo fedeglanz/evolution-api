@@ -444,12 +444,18 @@ class BillingService {
   async handleStripeCheckoutCompleted(session) {
     try {
       console.log('✅ Stripe checkout completed:', session.id);
+      console.log('📋 Session metadata:', session.metadata);
+      console.log('🔍 Full session object keys:', Object.keys(session));
       
       const companyId = session.metadata?.company_id;
       const planId = session.metadata?.plan_id;
       
+      console.log('🏢 Company ID:', companyId);
+      console.log('📦 Plan ID:', planId);
+      
       if (!companyId) {
         console.error('❌ No company_id in Stripe session metadata');
+        console.error('❌ Available metadata:', JSON.stringify(session.metadata, null, 2));
         return;
       }
 
@@ -464,7 +470,9 @@ class BillingService {
         WHERE company_id = $1 AND status = 'pending_payment'
       `;
 
-      await pool.query(updateQuery, [companyId, session.subscription]);
+      console.log('🔄 Executing update query...');
+      const updateResult = await pool.query(updateQuery, [companyId, session.subscription]);
+      console.log('✅ Update result - rows affected:', updateResult.rowCount);
       
       // Crear transacción en historial
       const transactionQuery = `
@@ -474,7 +482,8 @@ class BillingService {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `;
       
-      await pool.query(transactionQuery, [
+      console.log('🔄 Creating transaction record...');
+      const transactionResult = await pool.query(transactionQuery, [
         companyId, 
         'subscription', 
         `${planId} subscription payment`,
@@ -484,6 +493,7 @@ class BillingService {
         'stripe',
         session.id
       ]);
+      console.log('✅ Transaction created - ID:', transactionResult.rows[0]?.id);
 
       console.log('✅ Stripe subscription activated for company:', companyId);
     } catch (error) {
