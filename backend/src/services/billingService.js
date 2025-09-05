@@ -411,11 +411,16 @@ class BillingService {
    */
   async handleStripeWebhook(event) {
     try {
-      console.log('🔔 Processing Stripe webhook:', event.type);
-      console.log('🔍 Event data keys:', Object.keys(event.data || {}));
-      console.log('🔍 Event object keys:', Object.keys(event.data?.object || {}));
-      console.log('🔍 Event type exact value:', JSON.stringify(event.type));
-      console.log('🔍 Is checkout.session.completed?', event.type === 'checkout.session.completed');
+      console.log('🔔 Processing Stripe webhook - Version 2.0');
+      console.log('🔍 Event type:', event.type);
+      
+      // Force handle checkout.session.completed
+      if (event.type === 'checkout.session.completed') {
+        console.log('🎯 DETECTED checkout.session.completed - processing...');
+        await this.handleStripeCheckoutCompleted(event.data.object);
+        console.log('✅ Checkout processing completed');
+        return;
+      }
 
       switch (event.type) {
         case 'checkout.session.completed':
@@ -449,50 +454,77 @@ class BillingService {
    */
   async handleStripeCheckoutCompleted(session) {
     try {
-      console.log('✅ Stripe checkout completed:', session.id);
-      console.log('📋 Session metadata:', session.metadata);
-      console.log('🔍 Full session object keys:', Object.keys(session));
+      console.log('✅ Stripe checkout completed - Handler v2.0');
+      console.log('📋 Session ID:', session.id);
+      console.log('📋 Metadata:', JSON.stringify(session.metadata));
       
       const companyId = session.metadata?.company_id;
       const planId = session.metadata?.plan_id;
       
-      console.log('🏢 Company ID:', companyId);
-      console.log('📦 Plan ID:', planId);
-      
       if (!companyId) {
-        console.error('❌ No company_id in Stripe session metadata');
-        console.error('❌ Available metadata:', JSON.stringify(session.metadata, null, 2));
+        console.error('❌ No company_id in metadata');
         return;
       }
+      
+      console.log('🏢 Processing payment for company:', companyId);
 
       // Actualizar suscripción en BD
       const updateQuery = `
         UPDATE whatsapp_bot.subscriptions 
         SET 
           stripe_subscription_id = $2,
+          stripe_customer_id = $3,
           status = 'active',
-          updated_at = NOW(),
-          next_billing_date = NOW() + INTERVAL '1 month'
+          updated_at = NOW()
         WHERE company_id = $1 AND status = 'pending_payment'
       `;
 
       console.log('🔄 Executing update query...');
-      const updateResult = await pool.query(updateQuery, [companyId, session.subscription]);
+      const updateResult = await pool.query(updateQuery, [companyId, session.subscription, session.customer]);
       console.log('✅ Update result - rows affected:', updateResult.rowCount);
+      
+      // Si no se actualizó ninguna fila, intentar con cualquier estado
+      if (updateResult.rowCount === 0) {
+        console.log('⚠️ No rows updated, trying without status filter...');
+        const retryQuery = `
+          UPDATE whatsapp_bot.subscriptions 
+          SET 
+            stripe_subscription_id = $2,
+            stripe_customer_id = $3,
+            status = 'active',
+            updated_at = NOW()
+          WHERE company_id = $1
+        `;
+        const retryResult = await pool.query(retryQuery, [companyId, session.subscription, session.customer]);
+        console.log('✅ Retry result - rows affected:', retryResult.rowCount);
+      }
+      
+      // Obtener subscription_id de la BD
+      const subQuery = 'SELECT id FROM whatsapp_bot.subscriptions WHERE company_id = $1 LIMIT 1';
+      const subResult = await pool.query(subQuery, [companyId]);
+      const subscriptionIdDB = subResult.rows[0]?.id;
+      
+      if (!subscriptionIdDB) {
+        console.error('❌ No subscription found for company');
+        return;
+      }
       
       // Crear transacción en historial
       const transactionQuery = `
         INSERT INTO whatsapp_bot.billing_transactions (
-          company_id, type, description, amount_usd, 
-          currency, payment_status, payment_method, stripe_payment_intent_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          subscription_id, company_id, type, description, amount_usd, 
+          currency, payment_status, payment_method, stripe_payment_intent_id,
+          paid_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        RETURNING id
       `;
       
       console.log('🔄 Creating transaction record...');
       const transactionResult = await pool.query(transactionQuery, [
+        subscriptionIdDB,
         companyId, 
         'subscription', 
-        `${planId} subscription payment`,
+        `Starter Plan subscription payment`,
         session.amount_total / 100, // Stripe usa centavos
         session.currency.toUpperCase(),
         'paid',
