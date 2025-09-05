@@ -653,6 +653,7 @@ module.exports = {
   cancelSubscription: billingControllerInstance.cancelSubscription,
   getAvailablePlans: billingControllerInstance.getAvailablePlans,
   handlePaymentReturn: billingControllerInstance.handlePaymentReturn,
+  getPaymentSuccess: billingControllerInstance.getPaymentSuccess,
   handleMercadoPagoWebhook: billingControllerInstance.handleMercadoPagoWebhook,
   handleStripeWebhook: billingControllerInstance.handleStripeWebhook,
   
