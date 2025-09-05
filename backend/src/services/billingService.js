@@ -407,6 +407,140 @@ class BillingService {
   }
 
   /**
+   * Handle Stripe webhook events
+   */
+  async handleStripeWebhook(event) {
+    try {
+      console.log('🔔 Processing Stripe webhook:', event.type);
+
+      switch (event.type) {
+        case 'checkout.session.completed':
+          await this.handleStripeCheckoutCompleted(event.data.object);
+          break;
+        case 'invoice.payment_succeeded':
+          await this.handleStripePaymentSucceeded(event.data.object);
+          break;
+        case 'invoice.payment_failed':
+          await this.handleStripePaymentFailed(event.data.object);
+          break;
+        case 'customer.subscription.updated':
+          await this.handleStripeSubscriptionUpdated(event.data.object);
+          break;
+        case 'customer.subscription.deleted':
+          await this.handleStripeSubscriptionCanceled(event.data.object);
+          break;
+        default:
+          console.log(`🔔 Unhandled Stripe event: ${event.type}`);
+      }
+    } catch (error) {
+      console.error('❌ Error handling Stripe webhook:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle successful Stripe checkout
+   */
+  async handleStripeCheckoutCompleted(session) {
+    try {
+      console.log('✅ Stripe checkout completed:', session.id);
+      
+      const companyId = session.metadata?.company_id;
+      const planId = session.metadata?.plan_id;
+      
+      if (!companyId) {
+        console.error('❌ No company_id in Stripe session metadata');
+        return;
+      }
+
+      // Actualizar suscripción en BD
+      const updateQuery = `
+        UPDATE whatsapp_bot.subscriptions 
+        SET 
+          stripe_subscription_id = $2,
+          status = 'active',
+          updated_at = NOW(),
+          next_billing_date = NOW() + INTERVAL '1 month'
+        WHERE company_id = $1 AND status = 'pending_payment'
+      `;
+
+      await pool.query(updateQuery, [companyId, session.subscription]);
+      
+      // Crear transacción en historial
+      const transactionQuery = `
+        INSERT INTO whatsapp_bot.billing_transactions (
+          company_id, plan_id, provider, provider_transaction_id, 
+          amount, currency, status, transaction_date
+        ) VALUES ($1, $2, 'stripe', $3, $4, $5, 'completed', NOW())
+      `;
+      
+      await pool.query(transactionQuery, [
+        companyId, 
+        planId, 
+        session.id, 
+        session.amount_total / 100, // Stripe usa centavos
+        session.currency.toUpperCase()
+      ]);
+
+      console.log('✅ Stripe subscription activated for company:', companyId);
+    } catch (error) {
+      console.error('❌ Error handling Stripe checkout completed:', error);
+    }
+  }
+
+  /**
+   * Handle Stripe payment succeeded
+   */
+  async handleStripePaymentSucceeded(invoice) {
+    try {
+      console.log('✅ Stripe payment succeeded:', invoice.id);
+      
+      const subscription = invoice.subscription;
+      if (!subscription) return;
+
+      // Actualizar próxima fecha de facturación
+      const updateQuery = `
+        UPDATE whatsapp_bot.subscriptions 
+        SET 
+          next_billing_date = to_timestamp($2),
+          updated_at = NOW()
+        WHERE stripe_subscription_id = $1
+      `;
+
+      await pool.query(updateQuery, [subscription, invoice.period_end]);
+      
+    } catch (error) {
+      console.error('❌ Error handling Stripe payment succeeded:', error);
+    }
+  }
+
+  /**
+   * Handle Stripe payment failed
+   */
+  async handleStripePaymentFailed(invoice) {
+    try {
+      console.log('❌ Stripe payment failed:', invoice.id);
+      
+      const subscription = invoice.subscription;
+      if (!subscription) return;
+
+      // Marcar como delinquent
+      const updateQuery = `
+        UPDATE whatsapp_bot.subscriptions 
+        SET 
+          status = 'past_due',
+          updated_at = NOW()
+        WHERE stripe_subscription_id = $1
+      `;
+
+      await pool.query(updateQuery, [subscription]);
+      
+    } catch (error) {
+      console.error('❌ Error handling Stripe payment failed:', error);
+    }
+  }
+
+  /**
    * Procesar webhook de MercadoPago
    */
   async handleMercadoPagoWebhook(webhookData) {
