@@ -671,9 +671,9 @@ class BillingService {
   /**
    * Procesar webhook de Stripe
    */
-  async handleStripeWebhook(webhookData) {
+  async handleStripeWebhook_OLD(webhookData) {
     try {
-      console.log('📨 Processing Stripe webhook:', webhookData.type);
+      console.log('📨 Processing OLD Stripe webhook:', webhookData.type);
 
       switch (webhookData.type) {
         case 'customer.subscription.created':
