@@ -488,9 +488,32 @@ class BillingService {
       }
       
       console.log('🏢 Processing payment for company:', companyId);
+      console.log('📋 Processing payment for plan:', planId);
+      
+      // Obtener información del plan
+      let planInfo = null;
+      if (planId) {
+        try {
+          const planQuery = 'SELECT name FROM whatsapp_bot.plans WHERE id = $1';
+          const planResult = await pool.query(planQuery, [planId]);
+          planInfo = planResult.rows[0];
+          console.log('📊 Plan info found:', planInfo);
+        } catch (error) {
+          console.error('⚠️ Error getting plan info:', error.message);
+        }
+      }
 
-      // Actualizar suscripción en BD
-      const updateQuery = `
+      // Actualizar suscripción en BD incluyendo el plan_id si está disponible
+      const updateQuery = planId ? `
+        UPDATE whatsapp_bot.subscriptions 
+        SET 
+          plan_id = $2,
+          stripe_subscription_id = $3,
+          stripe_customer_id = $4,
+          status = 'active',
+          updated_at = NOW()
+        WHERE company_id = $1 AND status = 'pending_payment'
+      ` : `
         UPDATE whatsapp_bot.subscriptions 
         SET 
           stripe_subscription_id = $2,
@@ -501,13 +524,25 @@ class BillingService {
       `;
 
       console.log('🔄 Executing update query...');
-      const updateResult = await pool.query(updateQuery, [companyId, session.subscription, session.customer]);
+      const updateParams = planId ? 
+        [companyId, planId, session.subscription, session.customer] :
+        [companyId, session.subscription, session.customer];
+      const updateResult = await pool.query(updateQuery, updateParams);
       console.log('✅ Update result - rows affected:', updateResult.rowCount);
       
       // Si no se actualizó ninguna fila, intentar con cualquier estado
       if (updateResult.rowCount === 0) {
         console.log('⚠️ No rows updated, trying without status filter...');
-        const retryQuery = `
+        const retryQuery = planId ? `
+          UPDATE whatsapp_bot.subscriptions 
+          SET 
+            plan_id = $2,
+            stripe_subscription_id = $3,
+            stripe_customer_id = $4,
+            status = 'active',
+            updated_at = NOW()
+          WHERE company_id = $1
+        ` : `
           UPDATE whatsapp_bot.subscriptions 
           SET 
             stripe_subscription_id = $2,
@@ -516,7 +551,10 @@ class BillingService {
             updated_at = NOW()
           WHERE company_id = $1
         `;
-        const retryResult = await pool.query(retryQuery, [companyId, session.subscription, session.customer]);
+        const retryParams = planId ? 
+          [companyId, planId, session.subscription, session.customer] :
+          [companyId, session.subscription, session.customer];
+        const retryResult = await pool.query(retryQuery, retryParams);
         console.log('✅ Retry result - rows affected:', retryResult.rowCount);
       }
       
@@ -541,11 +579,15 @@ class BillingService {
       `;
       
       console.log('🔄 Creating transaction record...');
+      const planName = planInfo?.name || 'Plan';
+      const description = `${planName} subscription payment`;
+      console.log('📝 Transaction description:', description);
+      
       const transactionResult = await pool.query(transactionQuery, [
         subscriptionIdDB,
         companyId, 
         'subscription', 
-        `Starter Plan subscription payment`,
+        description,
         session.amount_total / 100, // Stripe usa centavos
         session.currency.toUpperCase(),
         'paid',
