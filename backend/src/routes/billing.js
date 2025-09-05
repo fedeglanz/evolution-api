@@ -22,11 +22,11 @@ router.post('/create-subscription', authenticate, billingController.createSubscr
  */
 router.get('/subscription-status', authenticate, billingController.getSubscriptionStatus);
 
-/**
- * GET /api/billing/payment-success/:sessionId
- * Obtener detalles del pago exitoso para mostrar confirmación
- */
-router.get('/payment-success/:sessionId', authenticate, billingController.getPaymentSuccess);
+// /**
+//  * GET /api/billing/payment-success/:sessionId
+//  * Obtener detalles del pago exitoso para mostrar confirmación
+//  */
+// router.get('/payment-success/:sessionId', authenticate, billingController.getPaymentSuccess);
 
 /**
  * GET /api/billing/history
