@@ -18,6 +18,8 @@ class BillingController {
     try {
       this.billingService = require('../services/billingService');
       console.log('✅ BillingService loaded successfully in controller');
+      console.log('🔍 Service version:', this.billingService.version);
+      console.log('🔍 Service methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(this.billingService)));
     } catch (error) {
       console.error('❌ Failed to load BillingService:', error.message);
       this.billingService = null;
@@ -259,6 +261,10 @@ class BillingController {
         
         // Call the handler
         try {
+          console.log('🔍 About to call handleStripeWebhook method');
+          console.log('🔍 Method exists?', typeof this.billingService.handleStripeWebhook);
+          console.log('🔍 Method toString:', this.billingService.handleStripeWebhook.toString().substring(0, 100));
+          
           const result = await this.billingService.handleStripeWebhook(req.body);
           console.log('✅ billingService.handleStripeWebhook completed');
         } catch (serviceError) {
