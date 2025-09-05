@@ -255,7 +255,10 @@ class BillingController {
 
       if (this.billingService) {
         console.log('🔄 Calling billingService.handleStripeWebhook...');
-        await this.billingService.handleStripeWebhook(req.body);
+        console.log('🔍 Service version check:', this.billingService.version || 'unknown');
+        
+        // Call the handler
+        const result = await this.billingService.handleStripeWebhook(req.body);
         console.log('✅ billingService.handleStripeWebhook completed');
       } else {
         console.error('❌ Billing service not available');

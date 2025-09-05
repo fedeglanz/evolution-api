@@ -3,6 +3,8 @@ const { pool } = require('../database');
 
 class BillingService {
   constructor() {
+    this.version = '2.1-Sept5-webhook-fix';
+    
     // Configurar MercadoPago con la nueva API
     this.mercadopago = null;
     if (process.env.MERCADOPAGO_ACCESS_TOKEN) {
