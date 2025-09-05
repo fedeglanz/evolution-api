@@ -22,8 +22,9 @@ class BillingService {
           preapproval: new PreApproval(client)
         };
         
-        console.log('💳 MercadoPago configurado con nueva API');
+        console.log('💳 MercadoPago configurado con nueva API - v2.1 Sept 5');
         console.log('🔑 Access Token type:', process.env.MERCADOPAGO_ACCESS_TOKEN?.substring(0, 8));
+        console.log('🚀 Webhook fix deployed at:', new Date().toISOString());
       } catch (error) {
         console.log('⚠️ Error configurando MercadoPago:', error.message);
         this.mercadopago = null;
