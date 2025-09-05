@@ -414,6 +414,8 @@ class BillingService {
       console.log('🔔 Processing Stripe webhook:', event.type);
       console.log('🔍 Event data keys:', Object.keys(event.data || {}));
       console.log('🔍 Event object keys:', Object.keys(event.data?.object || {}));
+      console.log('🔍 Event type exact value:', JSON.stringify(event.type));
+      console.log('🔍 Is checkout.session.completed?', event.type === 'checkout.session.completed');
 
       switch (event.type) {
         case 'checkout.session.completed':
