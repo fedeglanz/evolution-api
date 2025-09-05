@@ -11,6 +11,7 @@ class BillingController {
     this.cancelSubscription = this.cancelSubscription.bind(this);
     this.getAvailablePlans = this.getAvailablePlans.bind(this);
     this.handlePaymentReturn = this.handlePaymentReturn.bind(this);
+    this.debugSubscriptionStatus = this.debugSubscriptionStatus.bind(this);
     
     // Load billing service dynamically to avoid circular imports
     this.billingService = null;
