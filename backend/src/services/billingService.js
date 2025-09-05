@@ -413,6 +413,7 @@ class BillingService {
    * Handle Stripe webhook events
    */
   async handleStripeWebhook(event) {
+    console.log('🚀 handleStripeWebhook CALLED - Version 2.0');
     try {
       console.log('🔔 Processing Stripe webhook - Version 2.0');
       console.log('🔍 Event type:', event.type);

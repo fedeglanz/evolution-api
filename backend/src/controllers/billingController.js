@@ -258,8 +258,14 @@ class BillingController {
         console.log('🔍 Service version check:', this.billingService.version || 'unknown');
         
         // Call the handler
-        const result = await this.billingService.handleStripeWebhook(req.body);
-        console.log('✅ billingService.handleStripeWebhook completed');
+        try {
+          const result = await this.billingService.handleStripeWebhook(req.body);
+          console.log('✅ billingService.handleStripeWebhook completed');
+        } catch (serviceError) {
+          console.error('❌ Service error:', serviceError.message);
+          console.error('❌ Stack:', serviceError.stack);
+          throw serviceError;
+        }
       } else {
         console.error('❌ Billing service not available');
         throw new Error('Billing service not available');
