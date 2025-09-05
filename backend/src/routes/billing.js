@@ -70,4 +70,30 @@ router.post('/webhooks/mercadopago', billingController.handleMercadoPagoWebhook)
  */
 router.post('/webhooks/stripe', billingController.handleStripeWebhook);
 
+/**
+ * GET /api/billing/test-webhook
+ * Test webhook manually
+ */
+router.get('/test-webhook', (req, res) => {
+  const testEvent = {
+    type: 'checkout.session.completed',
+    data: {
+      object: {
+        id: 'cs_test_manual',
+        metadata: {
+          company_id: '2ea324e7-7ea7-437e-8e44-14c4002c72eb',
+          plan_id: 'test-plan'
+        },
+        subscription: 'sub_test_123',
+        customer: 'cus_test_123',
+        amount_total: 1500,
+        currency: 'usd'
+      }
+    }
+  };
+  
+  req.body = testEvent;
+  billingController.handleStripeWebhook(req, res);
+});
+
 module.exports = router;
