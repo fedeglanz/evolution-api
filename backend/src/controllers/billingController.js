@@ -268,6 +268,61 @@ class BillingController {
   }
 
   /**
+   * GET /api/billing/debug/subscription-status/:companyId
+   * Debug: Ver estado completo de suscripción
+   */
+  async debugSubscriptionStatus(req, res) {
+    try {
+      const { companyId } = req.params;
+      
+      // Query completa de debug
+      const debugQuery = `
+        SELECT 
+          s.*,
+          p.name as plan_name,
+          p.price_usd,
+          c.name as company_name
+        FROM whatsapp_bot.subscriptions s
+        LEFT JOIN whatsapp_bot.plans p ON s.plan_id = p.id  
+        LEFT JOIN whatsapp_bot.companies c ON s.company_id = c.id
+        WHERE s.company_id = $1
+        ORDER BY s.updated_at DESC
+      `;
+      
+      const result = await pool.query(debugQuery, [companyId]);
+      
+      // También obtener transacciones
+      const transactionsQuery = `
+        SELECT * FROM whatsapp_bot.billing_transactions 
+        WHERE company_id = $1 
+        ORDER BY transaction_date DESC 
+        LIMIT 5
+      `;
+      
+      const transactions = await pool.query(transactionsQuery, [companyId]);
+
+      res.json({
+        success: true,
+        subscription: result.rows[0] || null,
+        all_subscriptions: result.rows,
+        recent_transactions: transactions.rows,
+        debug_info: {
+          company_id: companyId,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error in debug subscription status:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error getting debug info',
+        error: error.message
+      });
+    }
+  }
+
+  /**
    * POST /api/billing/cancel-subscription
    * Cancelar subscripción
    */

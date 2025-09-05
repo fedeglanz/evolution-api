@@ -43,6 +43,12 @@ router.post('/cancel-subscription', authenticate, billingController.cancelSubscr
 router.get('/plans/available', billingController.getAvailablePlans);
 
 /**
+ * GET /api/billing/debug/subscription-status/:companyId
+ * Debug: Ver estado de suscripción (temporal)
+ */
+router.get('/debug/subscription-status/:companyId', billingController.debugSubscriptionStatus);
+
+/**
  * GET /api/billing/payment-return
  * Manejar retorno de pago de MercadoPago/Stripe
  */
