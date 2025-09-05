@@ -3,6 +3,7 @@ const router = express.Router();
 const platformAuthController = require('../controllers/platformAuthController');
 const platformUsersController = require('../controllers/platformUsersController');
 const platformPlanController = require('../controllers/platformPlanController');
+const platformBillingController = require('../controllers/platformBillingController');
 const { 
   authenticatePlatformAdmin, 
   requireSuperAdmin, 
@@ -241,6 +242,42 @@ router.delete('/plans/:id',
   requireSuperAdmin,
   logPlatformActivity('delete_plan'),
   platformPlanController.deletePlan
+);
+
+// ============================================
+// RUTAS DE FACTURACIÓN PLATFORM ADMIN
+// ============================================
+
+// Obtener métricas de facturación
+router.get('/billing/metrics',
+  authenticatePlatformAdmin,
+  requirePlatformViewer,
+  logPlatformActivity('view_billing_metrics'),
+  platformBillingController.getBillingMetrics
+);
+
+// Obtener todas las suscripciones
+router.get('/billing/subscriptions',
+  authenticatePlatformAdmin,
+  requirePlatformViewer,
+  logPlatformActivity('view_all_subscriptions'),
+  platformBillingController.getAllSubscriptions
+);
+
+// Obtener todas las transacciones
+router.get('/billing/transactions',
+  authenticatePlatformAdmin,
+  requirePlatformViewer,
+  logPlatformActivity('view_all_transactions'),
+  platformBillingController.getAllTransactions
+);
+
+// Exportar datos de facturación
+router.get('/billing/export',
+  authenticatePlatformAdmin,
+  requirePlatformStaff,
+  logPlatformActivity('export_billing_data'),
+  platformBillingController.exportData
 );
 
 // ============================================
