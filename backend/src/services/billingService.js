@@ -469,17 +469,20 @@ class BillingService {
       // Crear transacción en historial
       const transactionQuery = `
         INSERT INTO whatsapp_bot.billing_transactions (
-          company_id, plan_id, provider, provider_transaction_id, 
-          amount, currency, status, transaction_date
-        ) VALUES ($1, $2, 'stripe', $3, $4, $5, 'completed', NOW())
+          company_id, type, description, amount_usd, 
+          currency, payment_status, payment_method, stripe_payment_intent_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `;
       
       await pool.query(transactionQuery, [
         companyId, 
-        planId, 
-        session.id, 
+        'subscription', 
+        `${planId} subscription payment`,
         session.amount_total / 100, // Stripe usa centavos
-        session.currency.toUpperCase()
+        session.currency.toUpperCase(),
+        'paid',
+        'stripe',
+        session.id
       ]);
 
       console.log('✅ Stripe subscription activated for company:', companyId);
