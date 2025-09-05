@@ -12,6 +12,7 @@ class BillingController {
     this.getAvailablePlans = this.getAvailablePlans.bind(this);
     this.handlePaymentReturn = this.handlePaymentReturn.bind(this);
     this.debugSubscriptionStatus = this.debugSubscriptionStatus.bind(this);
+    this.getPaymentSuccess = this.getPaymentSuccess.bind(this);
     
     // Load billing service dynamically to avoid circular imports
     this.billingService = null;
@@ -115,11 +116,20 @@ class BillingController {
           s.*,
           p.name as plan_name,
           p.key as plan_key,
+          p.display_name as plan_display_name,
           p.price_usd,
-          p.currency,
+          p.billing_period,
+          p.max_instances,
+          p.max_messages,
+          p.max_contacts,
           p.included_tokens,
-          p.max_overage_usd,
-          p.allow_overage
+          p.overage_enabled,
+          p.overage_rate_per_token,
+          CASE 
+            WHEN s.current_period_end IS NOT NULL 
+            THEN s.current_period_end 
+            ELSE NOW() + INTERVAL '30 days' 
+          END as next_billing_date
         FROM whatsapp_bot.subscriptions s
         JOIN whatsapp_bot.plans p ON s.plan_id = p.id
         WHERE s.company_id = $1 AND s.status != 'cancelled'
@@ -284,6 +294,111 @@ class BillingController {
       res.status(500).json({
         success: false,
         message: 'Error procesando webhook'
+      });
+    }
+  }
+
+  /**
+   * GET /api/billing/payment-success/:sessionId
+   * Obtener detalles del pago exitoso
+   */
+  async getPaymentSuccess(req, res) {
+    try {
+      const { sessionId } = req.params;
+      const { companyId } = req.user;
+
+      console.log(`🎉 Getting payment success details for session ${sessionId}`);
+
+      // Obtener detalles del último pago
+      const query = `
+        SELECT 
+          bt.id,
+          bt.amount_usd,
+          bt.currency,
+          bt.payment_status,
+          bt.paid_at,
+          s.status as subscription_status,
+          s.current_period_start,
+          s.current_period_end,
+          p.name as plan_name,
+          p.display_name as plan_display_name,
+          p.max_instances,
+          p.max_messages,
+          p.max_contacts,
+          p.included_tokens
+        FROM whatsapp_bot.billing_transactions bt
+        JOIN whatsapp_bot.subscriptions s ON bt.subscription_id = s.id
+        JOIN whatsapp_bot.plans p ON s.plan_id = p.id
+        WHERE bt.company_id = $1 
+          AND (bt.stripe_payment_intent_id = $2 OR bt.mercadopago_payment_id = $2)
+          AND bt.payment_status = 'paid'
+        ORDER BY bt.created_at DESC
+        LIMIT 1
+      `;
+
+      const result = await pool.query(query, [companyId, sessionId]);
+
+      if (result.rows.length === 0) {
+        // Si no encuentra por sessionId, buscar el último pago exitoso
+        const lastPaymentQuery = `
+          SELECT 
+            bt.id,
+            bt.amount_usd,
+            bt.currency,
+            bt.payment_status,
+            bt.paid_at,
+            s.status as subscription_status,
+            s.current_period_start,
+            s.current_period_end,
+            p.name as plan_name,
+            p.display_name as plan_display_name,
+            p.max_instances,
+            p.max_messages,
+            p.max_contacts,
+            p.included_tokens
+          FROM whatsapp_bot.billing_transactions bt
+          JOIN whatsapp_bot.subscriptions s ON bt.subscription_id = s.id
+          JOIN whatsapp_bot.plans p ON s.plan_id = p.id
+          WHERE bt.company_id = $1 
+            AND bt.payment_status = 'paid'
+          ORDER BY bt.created_at DESC
+          LIMIT 1
+        `;
+        
+        const lastPaymentResult = await pool.query(lastPaymentQuery, [companyId]);
+        
+        if (lastPaymentResult.rows.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: 'No se encontró información del pago'
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            payment: lastPaymentResult.rows[0],
+            isLatest: true,
+            message: '¡Pago procesado exitosamente!'
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          payment: result.rows[0],
+          isLatest: false,
+          message: '¡Tu suscripción está activa!'
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error getting payment success:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error obteniendo detalles del pago',
+        error: error.message
       });
     }
   }
