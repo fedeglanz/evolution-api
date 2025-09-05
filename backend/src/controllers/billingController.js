@@ -608,7 +608,7 @@ class BillingController {
 
   /**
    * GET /api/billing/plans/available
-   * Obtener planes disponibles (sin autenticación)
+   * Obtener planes disponibles (con/sin autenticación)
    */
   async getAvailablePlans(req, res) {
     try {
@@ -625,10 +625,38 @@ class BillingController {
       `;
 
       const result = await pool.query(query);
+      const plans = result.rows;
+
+      // Si el usuario está autenticado, obtener su plan actual
+      let currentPlanId = null;
+      if (req.user && req.user.companyId) {
+        try {
+          const currentPlanQuery = `
+            SELECT s.plan_id 
+            FROM whatsapp_bot.subscriptions s
+            WHERE s.company_id = $1 AND s.status = 'active'
+            ORDER BY s.created_at DESC
+            LIMIT 1
+          `;
+          const currentPlanResult = await pool.query(currentPlanQuery, [req.user.companyId]);
+          if (currentPlanResult.rows.length > 0) {
+            currentPlanId = currentPlanResult.rows[0].plan_id;
+          }
+        } catch (error) {
+          console.log('⚠️ Error getting current plan (non-critical):', error.message);
+        }
+      }
+
+      // Marcar el plan actual en la respuesta
+      const plansWithCurrentStatus = plans.map(plan => ({
+        ...plan,
+        is_current: currentPlanId && plan.id === currentPlanId
+      }));
 
       res.json({
         success: true,
-        data: result.rows
+        data: plansWithCurrentStatus,
+        current_plan_id: currentPlanId
       });
 
     } catch (error) {

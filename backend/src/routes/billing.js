@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 
 // Load controller methods directly to avoid undefined callback issues
 const billingController = require('../controllers/billingController');
@@ -44,9 +44,9 @@ router.post('/cancel-subscription', authenticate, billingController.cancelSubscr
 
 /**
  * GET /api/billing/plans/available
- * Obtener planes disponibles (sin autenticación para pricing page)
+ * Obtener planes disponibles (con autenticación opcional para detectar plan actual)
  */
-router.get('/plans/available', billingController.getAvailablePlans);
+router.get('/plans/available', optionalAuth, billingController.getAvailablePlans);
 
 // /**
 //  * GET /api/billing/debug/subscription-status/:companyId
