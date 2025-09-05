@@ -116,14 +116,14 @@ class BillingController {
           s.*,
           p.name as plan_name,
           p.key as plan_key,
-          p.display_name as plan_display_name,
+          p.name as plan_display_name,
           p.price_usd,
           p.billing_period,
           p.max_instances,
           p.max_messages,
           p.max_contacts,
           p.included_tokens,
-          p.overage_enabled,
+          p.allow_overage as overage_enabled,
           p.overage_rate_per_token,
           CASE 
             WHEN s.current_period_end IS NOT NULL 
