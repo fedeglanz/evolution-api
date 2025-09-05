@@ -412,10 +412,14 @@ class BillingService {
   async handleStripeWebhook(event) {
     try {
       console.log('🔔 Processing Stripe webhook:', event.type);
+      console.log('🔍 Event data keys:', Object.keys(event.data || {}));
+      console.log('🔍 Event object keys:', Object.keys(event.data?.object || {}));
 
       switch (event.type) {
         case 'checkout.session.completed':
+          console.log('🎯 Calling handleStripeCheckoutCompleted...');
           await this.handleStripeCheckoutCompleted(event.data.object);
+          console.log('✅ handleStripeCheckoutCompleted completed');
           break;
         case 'invoice.payment_succeeded':
           await this.handleStripePaymentSucceeded(event.data.object);
