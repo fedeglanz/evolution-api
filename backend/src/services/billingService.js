@@ -359,6 +359,12 @@ class BillingService {
       });
 
       // Crear Stripe Checkout Session (redirect como MercadoPago)
+      const successUrl = `${process.env.FRONTEND_URL}/dashboard/billing?status=success&session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${process.env.FRONTEND_URL}/dashboard/billing?status=cancelled`;
+      
+      console.log('🔗 Configured success URL:', successUrl);
+      console.log('🔗 Configured cancel URL:', cancelUrl);
+      
       const checkoutSession = await this.stripe.checkout.sessions.create({
         customer: customer.id,
         payment_method_types: ['card'],
@@ -367,8 +373,8 @@ class BillingService {
           price: price.id,
           quantity: 1,
         }],
-        success_url: `${process.env.FRONTEND_URL}/dashboard/billing?status=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.FRONTEND_URL}/dashboard/billing?status=cancelled`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         metadata: {
           company_id: companyId,
           plan_id: planId
@@ -417,6 +423,17 @@ class BillingService {
     try {
       console.log('🔔 Processing Stripe webhook - Version 2.0');
       console.log('🔍 Event type:', event.type);
+      
+      // Log all event types for debugging
+      if (event.type === 'checkout.session.completed') {
+        console.log('🎯 DETECTED checkout.session.completed - processing...');
+        console.log('🔍 Session data:', JSON.stringify(event.data.object, null, 2));
+        await this.handleStripeCheckoutCompleted(event.data.object);
+        console.log('✅ Checkout processing completed');
+        return;
+      } else {
+        console.log('📝 Non-checkout event received:', event.type);
+      }
       
       // Force handle checkout.session.completed
       if (event.type === 'checkout.session.completed') {
