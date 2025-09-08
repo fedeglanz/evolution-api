@@ -52,14 +52,21 @@ class PaymentPlanService {
         throw new Error('Plan no encontrado');
       }
 
-      // Si ya tiene un mercadopago_plan_id y no se forzó recreación, retornar existente
+      // Si ya tiene un mercadopago_plan_id, actualizar en lugar de crear
       if (plan.mercadopago_plan_id && !config.forceRecreate) {
-        console.log(`✅ Plan ya tiene MercadoPago ID: ${plan.mercadopago_plan_id}`);
-        return {
-          success: true,
-          mercadopago_plan_id: plan.mercadopago_plan_id,
-          action: 'existing'
-        };
+        console.log(`📝 Plan ya existe en MercadoPago, actualizando: ${plan.mercadopago_plan_id}`);
+        
+        // Si se solicita solo retornar el existente sin actualizar
+        if (config.skipUpdate) {
+          return {
+            success: true,
+            mercadopago_plan_id: plan.mercadopago_plan_id,
+            action: 'existing'
+          };
+        }
+        
+        // Actualizar el plan existente
+        return await this.updateMercadoPagoPlan(planId, plan.mercadopago_plan_id, config);
       }
 
       // Convertir USD a ARS
@@ -128,6 +135,110 @@ class PaymentPlanService {
 
     } catch (error) {
       console.error('❌ Error creating/syncing MercadoPago plan:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualizar plan existente en MercadoPago
+   */
+  async updateMercadoPagoPlan(planId, mercadoPagoPlanId, config) {
+    try {
+      console.log(`🔄 Updating MercadoPago plan ${mercadoPagoPlanId} for plan ID: ${planId}`);
+      
+      // Obtener información del plan
+      const planQuery = 'SELECT * FROM whatsapp_bot.plans WHERE id = $1';
+      const planResult = await pool.query(planQuery, [planId]);
+      const plan = planResult.rows[0];
+      
+      if (!plan) {
+        throw new Error('Plan no encontrado');
+      }
+
+      // Convertir USD a ARS
+      const usdToArs = config.usd_to_ars_rate || 1000;
+      const priceInARS = Math.round(plan.price_usd * usdToArs);
+      
+      // Preparar datos del plan para actualización
+      const mpPlanData = {
+        reason: `${plan.name} - WhatsApp Bot Platform`,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: plan.billing_period === 'yearly' ? 'years' : 'months',
+          transaction_amount: priceInARS,
+          currency_id: 'ARS',
+          billing_day: config.billing_day || 1,
+          billing_day_proportional: config.billing_day_proportional || false
+        },
+        back_url: config.back_url || `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`
+      };
+
+      // Agregar free trial si está configurado
+      if (config.free_trial && config.free_trial.frequency > 0) {
+        mpPlanData.auto_recurring.free_trial = {
+          frequency: config.free_trial.frequency,
+          frequency_type: config.free_trial.frequency_type || 'days'
+        };
+      }
+
+      // Agregar métodos de pago permitidos
+      if (config.payment_methods_allowed) {
+        mpPlanData.payment_methods_allowed = config.payment_methods_allowed;
+      }
+
+      console.log('📋 Updating MercadoPago plan with data:', JSON.stringify(mpPlanData, null, 2));
+
+      // Actualizar plan en MercadoPago usando PUT
+      // Nota: Si el SDK no tiene método update, usar el cliente HTTP directamente
+      let mpPlan;
+      try {
+        mpPlan = await this.mercadopago.preApprovalPlan.update({
+          id: mercadoPagoPlanId,
+          body: mpPlanData
+        });
+      } catch (sdkError) {
+        console.log('⚠️ SDK update method not available, using direct HTTP request');
+        
+        // Fallback: usar axios directamente
+        const axios = require('axios');
+        const response = await axios.put(
+          `https://api.mercadopago.com/preapproval_plan/${mercadoPagoPlanId}`,
+          mpPlanData,
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        mpPlan = response.data;
+      }
+
+      console.log('✅ MercadoPago plan updated:', mpPlan.id);
+
+      // Actualizar configuración en BD
+      const updateQuery = `
+        UPDATE whatsapp_bot.plans 
+        SET 
+          mercadopago_config = $2,
+          updated_at = NOW()
+        WHERE id = $1
+      `;
+
+      await pool.query(updateQuery, [
+        planId,
+        JSON.stringify(config)
+      ]);
+
+      return {
+        success: true,
+        mercadopago_plan_id: mpPlan.id,
+        action: 'updated',
+        plan_data: mpPlan
+      };
+
+    } catch (error) {
+      console.error('❌ Error updating MercadoPago plan:', error);
       throw error;
     }
   }

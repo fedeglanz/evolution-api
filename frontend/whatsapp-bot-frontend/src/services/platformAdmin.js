@@ -173,6 +173,65 @@ export const platformService = {
   async migrateCompanies() {
     const response = await platformApi.post('/plans/migrate-companies');
     return response.data;
+  },
+
+  // Payment gateway endpoints
+  async getPaymentGateways(planId) {
+    const response = await platformApi.get(`/plans/${planId}/payment-gateways`);
+    return response.data;
+  },
+
+  async configureMercadoPago(planId, config) {
+    const response = await platformApi.post(`/plans/${planId}/payment-gateways/mercadopago`, config);
+    return response.data;
+  },
+
+  async configureStripe(planId, config) {
+    const response = await platformApi.post(`/plans/${planId}/payment-gateways/stripe`, config);
+    return response.data;
+  },
+
+  async togglePaymentGateway(planId, gateway, enabled) {
+    const response = await platformApi.patch(`/plans/${planId}/payment-gateways/${gateway}/toggle`, { enabled });
+    return response.data;
+  },
+
+  async updatePaymentConfig(planId, paymentConfig) {
+    const response = await platformApi.patch(`/plans/${planId}/payment-config`, paymentConfig);
+    return response.data;
+  },
+
+  // Billing endpoints
+  async getBillingMetrics(filters = {}) {
+    const response = await platformApi.get('/billing/metrics', { params: filters });
+    return response.data;
+  },
+
+  async getAllSubscriptions(filters = {}, sortBy = {}) {
+    const params = {
+      ...filters,
+      sortBy: sortBy.field || 'created_at',
+      sortDirection: sortBy.direction || 'desc'
+    };
+    const response = await platformApi.get('/billing/subscriptions', { params });
+    return response.data;
+  },
+
+  async getAllTransactions(filters = {}, sortBy = {}) {
+    const params = {
+      ...filters,
+      sortBy: sortBy.field || 'created_at', 
+      sortDirection: sortBy.direction || 'desc'
+    };
+    const response = await platformApi.get('/billing/transactions', { params });
+    return response.data;
+  },
+
+  async exportBillingData(type = 'subscriptions', format = 'csv') {
+    const response = await platformApi.get('/billing/export', { 
+      params: { type, format }
+    });
+    return response.data;
   }
 };
 

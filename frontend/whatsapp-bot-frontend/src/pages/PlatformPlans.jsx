@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown, DollarSign, Users, BarChart3 } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown, DollarSign, Users, BarChart3, CreditCard } from 'lucide-react';
 import { platformService } from '../services/platformAdmin';
 import PlanModal from '../components/PlanModal';
+import PaymentGatewayModal from '../components/PaymentGatewayModal';
 
 const PlatformPlans = () => {
   const [plans, setPlans] = useState([]);
@@ -9,6 +10,7 @@ const PlatformPlans = () => {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [error, setError] = useState('');
 
@@ -50,6 +52,11 @@ const PlatformPlans = () => {
   const handleEditPlan = (plan) => {
     setSelectedPlan(plan);
     setShowEditModal(true);
+  };
+
+  const handleConfigurePayment = (plan) => {
+    setSelectedPlan(plan);
+    setShowPaymentModal(true);
   };
 
   const handleDeletePlan = async (plan) => {
@@ -335,8 +342,16 @@ const PlatformPlans = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex space-x-2">
                             <button
+                              onClick={() => handleConfigurePayment(plan)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Configurar pasarelas de pago"
+                            >
+                              <CreditCard className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => handleEditPlan(plan)}
                               className="text-indigo-600 hover:text-indigo-900"
+                              title="Editar plan"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
@@ -344,6 +359,7 @@ const PlatformPlans = () => {
                               onClick={() => handleDeletePlan(plan)}
                               className="text-red-600 hover:text-red-900"
                               disabled={planStats?.active_subscriptions > 0}
+                              title="Eliminar plan"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -382,6 +398,18 @@ const PlatformPlans = () => {
             fetchPlans();
             fetchStatistics();
           }}
+        />
+      )}
+
+      {/* Payment Gateway Modal */}
+      {showPaymentModal && selectedPlan && (
+        <PaymentGatewayModal
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedPlan(null);
+          }}
+          plan={selectedPlan}
         />
       )}
     </div>

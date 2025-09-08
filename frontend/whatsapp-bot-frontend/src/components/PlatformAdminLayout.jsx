@@ -12,7 +12,8 @@ import {
   BellIcon,
   UserCircleIcon,
   ChevronDownIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 import usePlatformAuthStore from '../store/platformAuthStore';
 
@@ -52,6 +53,7 @@ const PlatformAdminLayout = () => {
     { name: 'Empresas', href: '/platform-admin/companies', icon: BuildingOfficeIcon, current: location.pathname.startsWith('/platform-admin/companies') },
     { name: 'Usuarios', href: '/platform-admin/users', icon: UsersIcon, current: location.pathname.startsWith('/platform-admin/users') },
     { name: 'Planes', href: '/platform-admin/plans', icon: CreditCardIcon, current: location.pathname.startsWith('/platform-admin/plans') },
+    { name: 'Facturación', href: '/platform-admin/billing', icon: BanknotesIcon, current: location.pathname.startsWith('/platform-admin/billing') },
     { name: 'Configuración', href: '/platform-admin/settings', icon: Cog6ToothIcon, current: location.pathname === '/platform-admin/settings' },
   ];
 

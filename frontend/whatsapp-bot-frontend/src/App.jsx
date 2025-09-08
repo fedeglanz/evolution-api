@@ -32,6 +32,7 @@ import PlatformCompanies from './pages/PlatformCompanies';
 import PlatformCompanyDetails from './pages/PlatformCompanyDetails';
 import PlatformUsers from './pages/PlatformUsers';
 import PlatformPlans from './pages/PlatformPlans';
+import PlatformBilling from './pages/PlatformBilling';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -79,6 +80,7 @@ function App() {
               <Route path="companies/:companyId" element={<PlatformCompanyDetails />} />
               <Route path="users" element={<PlatformUsers />} />
               <Route path="plans" element={<PlatformPlans />} />
+              <Route path="billing" element={<PlatformBilling />} />
               {/* TODO: Add settings route */}
             </Route>
             
