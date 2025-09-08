@@ -23,7 +23,7 @@ async function testMercadoPagoDirectly() {
     const subscriptionData = {
       reason: 'Test Subscription - Sandbox URL Check',
       external_reference: `test-${Date.now()}`,
-      payer_email: 'test_user_1270116819274701081@testuser.com', // Comprador Argentina del MERCADOPAGO.md
+      payer_email: 'fede.lechu@gmail.com', // Email real del comprador (misma cuenta)
       auto_recurring: {
         frequency: 1,
         frequency_type: 'months',

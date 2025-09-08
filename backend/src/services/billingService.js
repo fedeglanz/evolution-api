@@ -1,4 +1,4 @@
-const { MercadoPagoConfig, Payment, Customer, PreApproval } = require('mercadopago');
+const { MercadoPagoConfig, Payment, PreApproval } = require('mercadopago');
 const { pool } = require('../database');
 
 class BillingService {
@@ -20,7 +20,6 @@ class BillingService {
         this.mercadopago = {
           client: client,
           payment: new Payment(client),
-          customer: new Customer(client),
           preapproval: new PreApproval(client)
         };
         
@@ -110,11 +109,11 @@ class BillingService {
   }
 
   /**
-   * Crear subscripción con MercadoPago
+   * Crear subscripción con MercadoPago (SOLO /preapproval - No Customer API)
    */
   async createMercadoPagoSubscription(companyId, planId, customerData) {
     try {
-      console.log(`💳 Creating MercadoPago subscription for company ${companyId}`);
+      console.log(`💳 Creating MercadoPago subscription for company ${companyId} - Preapproval ONLY`);
       
       // Obtener información del plan
       const planQuery = 'SELECT * FROM whatsapp_bot.plans WHERE id = $1';
@@ -129,10 +128,10 @@ class BillingService {
       const usdToArs = 1000; // Actualizar con rate real
       let priceInARS = Math.round(plan.price_usd * usdToArs);
       
-      // Para sandbox, usar montos menores para evitar restricciones
-      if (process.env.MERCADOPAGO_SANDBOX === 'true') {
-        priceInARS = Math.min(priceInARS, 100000); // Máximo 100,000 ARS en sandbox
-        if (priceInARS < 100) priceInARS = 100; // Mínimo 1 ARS
+      // Usar montos de prueba para testing
+      if (process.env.NODE_ENV !== 'production') {
+        priceInARS = Math.min(priceInARS, 100000); // Máximo 100,000 ARS
+        if (priceInARS < 100) priceInARS = 100; // Mínimo 100 ARS
       }
       
       console.log(`💰 Plan price: ${plan.price_usd} USD = ${priceInARS} ARS`);
@@ -145,162 +144,63 @@ class BillingService {
       // Configurar nombre del marketplace
       const marketplaceName = process.env.MARKETPLACE_NAME || 'WhatsApp Bot Platform';
       
-      // Preparar datos del teléfono para MercadoPago
-      let phoneNumber = customerData.phone_number || '';
-      if (phoneNumber.startsWith('+54')) {
-        phoneNumber = phoneNumber.substring(3); // Remove +54
-      }
+      // Generar external reference único
+      const externalReference = `company_${companyId}_plan_${planId}_${Date.now()}`;
       
-      // Para sandbox, usar datos de prueba válidos o reales según configuración
-      const isRealSandboxTest = process.env.MERCADOPAGO_SANDBOX === 'true';
-      
-      // En sandbox, usar datos completamente de prueba para evitar PolicyAgent blocks
-      const testCustomerData = isRealSandboxTest ? {
-        email: 'test_user_' + Date.now() + '@testuser.com',  // Email único de prueba
-        first_name: 'Test',
-        last_name: 'User',
-        phone: {
-          area_code: '11',
-          number: '22223333'  // Número de prueba válido
-        },
-        identification: {
-          type: 'DNI',
-          number: '12345678'
-        },
-        description: `${marketplaceName} - Test Customer`
-      } : {
-        // Producción: usar datos reales
-        email: customerData.email,
-        first_name: customerData.first_name || 'Test',
-        last_name: customerData.last_name || 'User',
-        phone: {
-          area_code: '11',
-          number: phoneNumber.replace(/\D/g, '').substring(-8) || '12345678'
-        },
-        identification: {
-          type: 'DNI',
-          number: customerData.id_number || '12345678'
-        },
-        description: `${marketplaceName} - Cliente: ${customerData.company_name || customerData.first_name}`
-      };
-
-      console.log('📞 Creating/Finding MP customer with data:', JSON.stringify(testCustomerData, null, 2));
-
-      let customer;
-      
-      try {
-        // Intentar buscar cliente existente por email
-        const searchResult = await this.mercadopago.customer.search({
-          email: testCustomerData.email
-        });
-        
-        if (searchResult && searchResult.results && searchResult.results.length > 0) {
-          customer = searchResult.results[0];
-          console.log('✅ MercadoPago customer found:', customer.id);
-        } else {
-          // Si no existe, crear nuevo
-          customer = await this.mercadopago.customer.create({
-            body: testCustomerData
-          });
-          console.log('✅ MercadoPago customer created:', customer.id);
-        }
-      } catch (error) {
-        // Si falla la búsqueda, intentar crear directamente
-        console.log('⚠️ Customer search failed, trying to create:', error.message);
-        try {
-          customer = await this.mercadopago.customer.create({
-            body: testCustomerData
-          });
-          console.log('✅ MercadoPago customer created:', customer.id);
-        } catch (createError) {
-          // Si el error es que ya existe, es un error de race condition
-          if (createError.cause && createError.cause[0]?.code === '101') {
-            console.log('⚠️ Customer already exists, searching again...');
-            const searchRetry = await this.mercadopago.customer.search({
-              email: testCustomerData.email
-            });
-            if (searchRetry && searchRetry.results && searchRetry.results.length > 0) {
-              customer = searchRetry.results[0];
-              console.log('✅ MercadoPago customer found on retry:', customer.id);
-            } else {
-              throw createError;
-            }
-          } else {
-            throw createError;
-          }
-        }
-      }
-
-      // Crear plan de subscripción recurrente
+      // Crear plan de subscripción recurrente directamente (SIN customer)
       const preapprovalData = {
-        reason: `${marketplaceName} - Plan ${plan.name}`,
+        reason: `${plan.name} Plan - ${marketplaceName}`,
+        external_reference: externalReference,
+        payer_email: customerData.email, // Usar email directo
         auto_recurring: {
           frequency: 1,
           frequency_type: 'months',
           transaction_amount: priceInARS,
           currency_id: 'ARS'
         },
-        payment_methods_allowed: {
-          payment_types: [
-            { id: 'credit_card' },
-            { id: 'debit_card' }
-          ],
-          payment_methods: [
-            { id: 'visa' },
-            { id: 'master' },
-            { id: 'amex' }
-          ]
-        },
-        back_url: `${process.env.BACKEND_URL}/api/billing/payment-return`, // Backend captura datos y redirige
-        payer_email: customerData.email,
-        external_reference: `company_${companyId}_plan_${planId}`,
-        notification_url: `${process.env.BACKEND_URL}/api/billing/webhooks/mercadopago`
+        back_url: `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`,
+        status: 'pending'
       };
+
+      console.log('📋 Creating preapproval with data:', JSON.stringify(preapprovalData, null, 2));
 
       const subscription = await this.mercadopago.preapproval.create({
         body: preapprovalData
       });
       
       console.log('✅ MercadoPago preapproval created:', subscription.id);
+      console.log('🔗 Init point:', subscription.init_point);
 
-      // Guardar subscripción en BD
+      // Guardar subscripción en BD (sin customer_id)
       const subscriptionQuery = `
         UPDATE whatsapp_bot.subscriptions 
         SET 
           mercadopago_subscription_id = $2,
-          mercadopago_customer_id = $3,
           status = 'pending_payment',
           updated_at = NOW()
         WHERE company_id = $1 AND status = 'active'
       `;
 
-      await pool.query(subscriptionQuery, [
+      const updateResult = await pool.query(subscriptionQuery, [
         companyId,
-        subscription.id,
-        customer.id
+        subscription.id
       ]);
-
-      // La URL es correcta tal cual viene de MercadoPago
-      // El testing se hace con usuarios de prueba, NO con subdominios sandbox
-      let checkoutUrl = subscription.init_point;
       
-      if (process.env.MERCADOPAGO_SANDBOX === 'true') {
-        console.log('🧪 Modo TEST: Usar usuarios de prueba para completar el pago');
-        console.log('👤 Comprador test: TESTUSER1270116819274701081 / gBSjW2Xpgu');
-      }
+      console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
 
       return {
         success: true,
         subscription_id: subscription.id,
-        checkout_url: checkoutUrl,
-        sandbox_url: subscription.sandbox_init_point,
-        customer_id: customer.id,
+        checkout_url: subscription.init_point, // URL directa de MercadoPago
+        payer_id: subscription.payer_id,
         amount: priceInARS,
-        currency: 'ARS'
+        currency: 'ARS',
+        external_reference: externalReference
       };
 
     } catch (error) {
       console.error('❌ Error creating MercadoPago subscription:', error);
+      console.error('❌ Error details:', error.cause || error.message);
       throw error;
     }
   }
