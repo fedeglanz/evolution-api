@@ -280,11 +280,13 @@ class BillingService {
         customer.id
       ]);
 
-      // Fix: Forzar URL sandbox si estamos en sandbox mode
+      // La URL es correcta tal cual viene de MercadoPago
+      // El testing se hace con usuarios de prueba, NO con subdominios sandbox
       let checkoutUrl = subscription.init_point;
-      if (process.env.MERCADOPAGO_SANDBOX === 'true' && checkoutUrl.includes('www.mercadopago.com')) {
-        checkoutUrl = checkoutUrl.replace('www.mercadopago.com', 'sandbox.mercadopago.com');
-        console.log('🧪 URL convertida a sandbox:', checkoutUrl);
+      
+      if (process.env.MERCADOPAGO_SANDBOX === 'true') {
+        console.log('🧪 Modo TEST: Usar usuarios de prueba para completar el pago');
+        console.log('👤 Comprador test: TESTUSER1270116819274701081 / gBSjW2Xpgu');
       }
 
       return {
