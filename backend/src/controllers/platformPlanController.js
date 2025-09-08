@@ -11,6 +11,11 @@ class PlatformPlanController {
     this.reorderPlans = this.reorderPlans.bind(this);
     this.getPlanStatistics = this.getPlanStatistics.bind(this);
     this.migrateExistingCompanies = this.migrateExistingCompanies.bind(this);
+    this.getPaymentGateways = this.getPaymentGateways.bind(this);
+    this.configureMercadoPago = this.configureMercadoPago.bind(this);
+    this.configureStripe = this.configureStripe.bind(this);
+    this.togglePaymentGateway = this.togglePaymentGateway.bind(this);
+    this.updatePaymentConfig = this.updatePaymentConfig.bind(this);
   }
 
   /**
@@ -297,6 +302,161 @@ class PlatformPlanController {
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * GET /api/platform-admin/plans/:id/payment-gateways
+   * Obtener configuración de pasarelas de pago de un plan
+   */
+  async getPaymentGateways(req, res) {
+    try {
+      const { id } = req.params;
+      console.log(`🔍 Platform Admin: Getting payment gateways for plan ${id}`);
+      
+      const gateways = await platformPlanService.getPaymentGateways(id);
+      
+      res.status(200).json({
+        success: true,
+        data: gateways
+      });
+
+    } catch (error) {
+      console.error('❌ Error getting payment gateways:', error);
+      res.status(500).json({
+        success: false,
+        message: error.message.includes('no encontrado') ? 'Plan no encontrado' : 'Error interno del servidor',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * POST /api/platform-admin/plans/:id/payment-gateways/mercadopago
+   * Configurar MercadoPago para un plan
+   */
+  async configureMercadoPago(req, res) {
+    try {
+      const { id } = req.params;
+      const config = req.body;
+      
+      console.log(`💳 Platform Admin: Configuring MercadoPago for plan ${id}`);
+      console.log('📋 Config:', JSON.stringify(config, null, 2));
+      
+      const result = await platformPlanService.configureMercadoPago(id, config);
+      
+      console.log(`✅ MercadoPago configured for plan ${id} by admin ${req.platformAdmin.email}`);
+      
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: result.action === 'created' ? 
+          'Plan creado exitosamente en MercadoPago' : 
+          'Plan asociado exitosamente con MercadoPago'
+      });
+
+    } catch (error) {
+      console.error('❌ Error configuring MercadoPago:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error configurando MercadoPago',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * POST /api/platform-admin/plans/:id/payment-gateways/stripe
+   * Configurar Stripe para un plan
+   */
+  async configureStripe(req, res) {
+    try {
+      const { id } = req.params;
+      const config = req.body;
+      
+      console.log(`💳 Platform Admin: Configuring Stripe for plan ${id}`);
+      
+      const result = await platformPlanService.configureStripe(id, config);
+      
+      console.log(`✅ Stripe configured for plan ${id} by admin ${req.platformAdmin.email}`);
+      
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: result.action === 'created' ? 
+          'Plan creado exitosamente en Stripe' : 
+          'Plan actualizado exitosamente en Stripe'
+      });
+
+    } catch (error) {
+      console.error('❌ Error configuring Stripe:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error configurando Stripe',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * PATCH /api/platform-admin/plans/:id/payment-gateways/:gateway/toggle
+   * Habilitar/deshabilitar pasarela de pago
+   */
+  async togglePaymentGateway(req, res) {
+    try {
+      const { id, gateway } = req.params;
+      const { enabled } = req.body;
+      
+      console.log(`🔄 Platform Admin: Toggling ${gateway} for plan ${id} to ${enabled}`);
+      
+      const result = await platformPlanService.togglePaymentGateway(id, gateway, enabled);
+      
+      console.log(`✅ ${gateway} ${enabled ? 'enabled' : 'disabled'} for plan ${id} by admin ${req.platformAdmin.email}`);
+      
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: `${gateway} ${enabled ? 'habilitado' : 'deshabilitado'} exitosamente`
+      });
+
+    } catch (error) {
+      console.error('❌ Error toggling payment gateway:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error actualizando pasarela de pago',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * PATCH /api/platform-admin/plans/:id/payment-config
+   * Actualizar configuración general de pagos
+   */
+  async updatePaymentConfig(req, res) {
+    try {
+      const { id } = req.params;
+      const paymentConfig = req.body;
+      
+      console.log(`🔧 Platform Admin: Updating payment config for plan ${id}`);
+      
+      const result = await platformPlanService.updatePaymentConfig(id, paymentConfig);
+      
+      console.log(`✅ Payment config updated for plan ${id} by admin ${req.platformAdmin.email}`);
+      
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: 'Configuración de pagos actualizada exitosamente'
+      });
+
+    } catch (error) {
+      console.error('❌ Error updating payment config:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error actualizando configuración de pagos',
         error: error.message
       });
     }

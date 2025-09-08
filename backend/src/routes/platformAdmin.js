@@ -245,6 +245,50 @@ router.delete('/plans/:id',
 );
 
 // ============================================
+// RUTAS DE PASARELAS DE PAGO EN PLANES
+// ============================================
+
+// Obtener configuración de pasarelas de pago de un plan
+router.get('/plans/:id/payment-gateways',
+  authenticatePlatformAdmin,
+  requirePlatformViewer,
+  logPlatformActivity('view_payment_gateways'),
+  platformPlanController.getPaymentGateways
+);
+
+// Configurar MercadoPago para un plan
+router.post('/plans/:id/payment-gateways/mercadopago',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('configure_mercadopago'),
+  platformPlanController.configureMercadoPago
+);
+
+// Configurar Stripe para un plan
+router.post('/plans/:id/payment-gateways/stripe',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('configure_stripe'),
+  platformPlanController.configureStripe
+);
+
+// Habilitar/deshabilitar pasarela de pago
+router.patch('/plans/:id/payment-gateways/:gateway/toggle',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('toggle_payment_gateway'),
+  platformPlanController.togglePaymentGateway
+);
+
+// Actualizar configuración general de pagos
+router.patch('/plans/:id/payment-config',
+  authenticatePlatformAdmin,
+  requireSuperAdmin,
+  logPlatformActivity('update_payment_config'),
+  platformPlanController.updatePaymentConfig
+);
+
+// ============================================
 // RUTAS DE FACTURACIÓN PLATFORM ADMIN
 // ============================================
 

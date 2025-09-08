@@ -1,4 +1,5 @@
 const { pool } = require('../database');
+const paymentPlanService = require('./paymentPlanService');
 
 class PlatformPlanService {
 
@@ -285,6 +286,114 @@ class PlatformPlanService {
     }
 
     return migrated;
+  }
+
+  /**
+   * Configurar MercadoPago para un plan
+   */
+  async configureMercadoPago(planId, config) {
+    try {
+      // Validar que el plan existe
+      const plan = await this.getPlanById(planId);
+      if (!plan) {
+        throw new Error('Plan no encontrado');
+      }
+
+      // Si se proporciona un mercadopago_plan_id existente, solo asociarlo
+      if (config.mercadopago_plan_id && config.action === 'associate') {
+        return await paymentPlanService.associateExistingMercadoPagoPlan(
+          planId, 
+          config.mercadopago_plan_id,
+          config
+        );
+      }
+
+      // Crear o recrear plan en MercadoPago
+      return await paymentPlanService.createOrSyncMercadoPagoPlan(planId, config);
+      
+    } catch (error) {
+      console.error('Error configuring MercadoPago:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Configurar Stripe para un plan
+   */
+  async configureStripe(planId, config) {
+    try {
+      // Validar que el plan existe
+      const plan = await this.getPlanById(planId);
+      if (!plan) {
+        throw new Error('Plan no encontrado');
+      }
+
+      // Crear o actualizar plan en Stripe
+      return await paymentPlanService.createOrUpdateStripePlan(planId, config);
+      
+    } catch (error) {
+      console.error('Error configuring Stripe:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtener configuración de pasarelas de pago de un plan
+   */
+  async getPaymentGateways(planId) {
+    try {
+      return await paymentPlanService.getPlanPaymentGateways(planId);
+    } catch (error) {
+      console.error('Error getting payment gateways:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Habilitar/deshabilitar pasarela de pago
+   */
+  async togglePaymentGateway(planId, gateway, enabled) {
+    try {
+      const validGateways = ['mercadopago', 'stripe'];
+      if (!validGateways.includes(gateway)) {
+        throw new Error('Pasarela de pago no válida');
+      }
+
+      const query = `
+        UPDATE whatsapp_bot.plans 
+        SET ${gateway}_enabled = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, name, ${gateway}_enabled as enabled
+      `;
+
+      const result = await pool.query(query, [planId, enabled]);
+      return result.rows[0];
+      
+    } catch (error) {
+      console.error('Error toggling payment gateway:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualizar configuración general de pagos
+   */
+  async updatePaymentConfig(planId, paymentConfig) {
+    try {
+      const query = `
+        UPDATE whatsapp_bot.plans 
+        SET payment_config = $2, updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, name, payment_config
+      `;
+
+      const result = await pool.query(query, [planId, JSON.stringify(paymentConfig)]);
+      return result.rows[0];
+      
+    } catch (error) {
+      console.error('Error updating payment config:', error);
+      throw error;
+    }
   }
 }
 
