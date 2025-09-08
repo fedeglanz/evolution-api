@@ -83,13 +83,11 @@ class BillingService {
       console.log(`🌍 Detecting region with phone: ${phoneNumber}, email: ${email}`);
       
       // Detectar Argentina por código de área o dominio
-      // TEMP: Forzar Stripe para testing (cambiar back después)
-      const isArgentina = false; // Forzar internacional para probar Stripe
-      // const isArgentina = 
-      //   phoneNumber.startsWith('+54') ||
-      //   phoneNumber.startsWith('54') ||
-      //   email.includes('.com.ar') ||
-      //   email.includes('.ar');
+      const isArgentina = 
+        phoneNumber.startsWith('+54') ||
+        phoneNumber.startsWith('54') ||
+        email.includes('.com.ar') ||
+        email.includes('.ar');
         
       console.log(`🇦🇷 Argentina detected: ${isArgentina}`);
 

@@ -1,0 +1,308 @@
+{
+  "info": {
+    "_postman_id": "billing-testing-collection",
+    "name": "WhatsApp Bot API - Complete Testing",
+    "description": "Colección completa para testing de todas las integraciones del proyecto Evolution API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "baseUrlProd",
+      "value": "https://whatsapp-bot-backend-fnte.onrender.com",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "platformAdminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "mercadopagoAccessToken",
+      "value": "TEST-4614107882901246-013023-1c51dcbdfa2b29ef8c24b0f03a16a37f-1591892623",
+      "type": "string"
+    },
+    {
+      "key": "mercadopagoPublicKey",
+      "value": "TEST-dc52ae27-4b87-4b48-9d8e-8aed1a01c5b9",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "MercadoPago Testing",
+      "description": "Testing completo de la integración con MercadoPago sandbox",
+      "item": [
+        {
+          "name": "1. Direct API - Get User Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mercadopagoAccessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://api.mercadopago.com/users/me",
+              "protocol": "https",
+              "host": ["api", "mercadopago", "com"],
+              "path": ["users", "me"]
+            },
+            "description": "Verifica que las credenciales de MercadoPago funcionen correctamente"
+          }
+        },
+        {
+          "name": "2. Direct API - Create Test Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mercadopagoAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test_user_{{$timestamp}}@testuser.com\",\n  \"first_name\": \"Test\",\n  \"last_name\": \"User\",\n  \"phone\": {\n    \"area_code\": \"11\",\n    \"number\": \"987654321\"\n  },\n  \"identification\": {\n    \"type\": \"DNI\",\n    \"number\": \"12345678\"\n  },\n  \"description\": \"Cliente de prueba sandbox\"\n}"
+            },
+            "url": {
+              "raw": "https://api.mercadopago.com/v1/customers",
+              "protocol": "https",
+              "host": ["api", "mercadopago", "com"],
+              "path": ["v1", "customers"]
+            },
+            "description": "Crea un cliente de prueba en MercadoPago sandbox"
+          }
+        },
+        {
+          "name": "3. Direct API - Create Subscription (Preapproval)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mercadopagoAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Starter Plan - WhatsApp Bot\",\n  \"external_reference\": \"test-{{$timestamp}}\",\n  \"payer_email\": \"test_user_123456@testuser.com\",\n  \"auto_recurring\": {\n    \"frequency\": 1,\n    \"frequency_type\": \"months\",\n    \"start_date\": \"{{$isoTimestamp}}\",\n    \"transaction_amount\": 100,\n    \"currency_id\": \"ARS\"\n  },\n  \"back_url\": \"http://localhost:5173/billing?status=success\",\n  \"status\": \"pending\"\n}"
+            },
+            "url": {
+              "raw": "https://api.mercadopago.com/preapproval",
+              "protocol": "https",
+              "host": ["api", "mercadopago", "com"],
+              "path": ["preapproval"]
+            },
+            "description": "Crea una suscripción recurrente (preapproval) en MercadoPago - NOTA: Este endpoint devuelve init_point que puede ser www.mercadopago.com (prod) en lugar de sandbox.mercadopago.com"
+          }
+        },
+        {
+          "name": "4. Direct API - Check Sandbox Mode",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mercadopagoAccessToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "https://api.mercadopago.com/users/test_user",
+              "protocol": "https",
+              "host": ["api", "mercadopago", "com"],
+              "path": ["users", "test_user"]
+            },
+            "description": "Verifica si estamos en modo sandbox - debería devolver información del test user"
+          }
+        },
+        {
+          "name": "5. Backend - Get Available Plans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/plans/available",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "billing", "plans", "available"]
+            },
+            "description": "Obtiene los planes disponibles desde nuestro backend"
+          }
+        },
+        {
+          "name": "6. Backend - Create MP Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": \"{{planId}}\",\n  \"customerData\": {\n    \"email\": \"usuario.argentino@gmail.com\",\n    \"phone_number\": \"+541162839297\",\n    \"name\": \"Usuario Argentino\",\n    \"company_name\": \"Mi Empresa ARG\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/create-subscription",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "billing", "create-subscription"]
+            },
+            "description": "Crea una suscripción a través de nuestro backend - debería detectar Argentina y usar MercadoPago"
+          }
+        },
+        {
+          "name": "7. Backend - Process MP Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"payment.created\",\n  \"api_version\": \"v1\",\n  \"data\": {\n    \"id\": \"123456789\"\n  },\n  \"date_created\": \"{{$isoTimestamp}}\",\n  \"id\": \"webhook-{{$timestamp}}\",\n  \"live_mode\": false,\n  \"type\": \"payment\",\n  \"user_id\": \"1591892623\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/webhooks/mercadopago",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "billing", "webhooks", "mercadopago"]
+            },
+            "description": "Simula un webhook de MercadoPago para procesar pagos"
+          }
+        },
+        {
+          "name": "8. Backend - Get Subscription Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/billing/subscription-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "billing", "subscription-status"]
+            },
+            "description": "Verifica el estado actual de la suscripción del usuario"
+          }
+        },
+        {
+          "name": "9. Direct API - Test Sandbox URL Fix",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mercadopagoAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Test Sandbox URL\",\n  \"external_reference\": \"sandbox-test-{{$timestamp}}\",\n  \"payer_email\": \"test_user_123456@testuser.com\",\n  \"auto_recurring\": {\n    \"frequency\": 1,\n    \"frequency_type\": \"months\",\n    \"transaction_amount\": 100,\n    \"currency_id\": \"ARS\"\n  },\n  \"back_url\": \"http://localhost:5173/billing?status=success\",\n  \"status\": \"pending\",\n  \"application_id\": \"4614107882901246\"\n}"
+            },
+            "url": {
+              "raw": "https://api.mercadopago.com/preapproval",
+              "protocol": "https",
+              "host": ["api", "mercadopago", "com"],
+              "path": ["preapproval"]
+            },
+            "description": "Test específico para verificar si podemos forzar URLs sandbox"
+          }
+        },
+        {
+          "name": "10. Direct API - Create Test Users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mercadopagoAccessToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"site_id\": \"MLA\"\n}"
+            },
+            "url": {
+              "raw": "https://api.mercadopago.com/users/test_user",
+              "protocol": "https",
+              "host": ["api", "mercadopago", "com"],
+              "path": ["users", "test_user"]
+            },
+            "description": "Crea usuarios de prueba para testing en sandbox - IMPORTANTE para simular el flujo completo"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stripe Testing",
+      "description": "Testing de la integración con Stripe",
+      "item": []
+    },
+    {
+      "name": "Evolution API Testing",
+      "description": "Testing de la integración con Evolution API (WhatsApp)",
+      "item": []
+    },
+    {
+      "name": "Platform Admin Testing",
+      "description": "Testing del panel de administración de plataforma",
+      "item": []
+    }
+  ]
+}
