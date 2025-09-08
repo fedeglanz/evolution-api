@@ -95,6 +95,35 @@ class BillingController {
 
     } catch (error) {
       console.error('❌ Error creating subscription:', error);
+      
+      // Manejar errores específicos de configuración
+      if (error.message.includes('no está habilitado para este plan')) {
+        return res.status(400).json({
+          success: false,
+          message: 'El plan seleccionado no tiene habilitado el método de pago para tu región',
+          error: error.message,
+          errorType: 'payment_not_enabled'
+        });
+      }
+      
+      if (error.message.includes('no tiene configuración de MercadoPago')) {
+        return res.status(400).json({
+          success: false,
+          message: 'El plan seleccionado no está configurado para pagos en Argentina. Contacta al administrador.',
+          error: error.message,
+          errorType: 'plan_not_configured'
+        });
+      }
+      
+      if (error.message.includes('no está configurado en el sistema')) {
+        return res.status(503).json({
+          success: false,
+          message: 'El sistema de pagos no está disponible temporalmente. Intenta más tarde.',
+          error: 'Payment system unavailable',
+          errorType: 'service_unavailable'
+        });
+      }
+      
       res.status(500).json({
         success: false,
         message: 'Error interno del servidor',

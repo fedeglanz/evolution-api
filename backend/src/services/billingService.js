@@ -90,11 +90,16 @@ class BillingService {
         
       console.log(`🇦🇷 Argentina detected: ${isArgentina}`);
 
+      // Determinar proveedor de pago y validar disponibilidad  
+      const paymentProvider = isArgentina ? 'mercadopago' : 'stripe';
+      console.log(`💳 Recommended payment provider: ${paymentProvider}`);
+
       return {
         company,
         region: isArgentina ? 'argentina' : 'international',
         currency: isArgentina ? 'ARS' : 'USD',
-        paymentProvider: isArgentina ? 'mercadopago' : 'stripe'
+        paymentProvider: paymentProvider,
+        countryCode: isArgentina ? 'AR' : 'INTL'
       };
 
     } catch (error) {
@@ -103,20 +108,29 @@ class BillingService {
       return {
         region: 'international',
         currency: 'USD',
-        paymentProvider: 'stripe'
+        paymentProvider: 'stripe',
+        countryCode: 'INTL'
       };
     }
   }
 
   /**
-   * Crear subscripción con MercadoPago (SOLO /preapproval - No Customer API)
+   * Crear subscripción con MercadoPago usando planes configurados
    */
   async createMercadoPagoSubscription(companyId, planId, customerData) {
     try {
-      console.log(`💳 Creating MercadoPago subscription for company ${companyId} - Preapproval ONLY`);
+      console.log(`💳 Creating MercadoPago subscription for company ${companyId} - Using configured plan`);
       
-      // Obtener información del plan
-      const planQuery = 'SELECT * FROM whatsapp_bot.plans WHERE id = $1';
+      // Obtener información del plan con configuración de MercadoPago
+      const planQuery = `
+        SELECT 
+          p.*,
+          p.mercadopago_plan_id,
+          p.mercadopago_config,
+          p.mercadopago_enabled
+        FROM whatsapp_bot.plans p 
+        WHERE p.id = $1
+      `;
       const planResult = await pool.query(planQuery, [planId]);
       const plan = planResult.rows[0];
       
@@ -124,54 +138,47 @@ class BillingService {
         throw new Error('Plan no encontrado');
       }
 
-      // Convertir USD a ARS (rate aproximado, mejor usar API de conversión)
-      const usdToArs = 1000; // Actualizar con rate real
-      let priceInARS = Math.round(plan.price_usd * usdToArs);
-      
-      // Usar montos de prueba para testing
-      if (process.env.NODE_ENV !== 'production') {
-        priceInARS = Math.min(priceInARS, 100000); // Máximo 100,000 ARS
-        if (priceInARS < 100) priceInARS = 100; // Mínimo 100 ARS
+      // Verificar que el plan tenga MercadoPago configurado
+      if (!plan.mercadopago_enabled) {
+        throw new Error('MercadoPago no está habilitado para este plan');
       }
-      
-      console.log(`💰 Plan price: ${plan.price_usd} USD = ${priceInARS} ARS`);
 
-      // Verificar que MercadoPago esté configurado
+      if (!plan.mercadopago_plan_id) {
+        throw new Error('El plan no tiene configuración de MercadoPago. Configure el plan primero desde Platform Admin.');
+      }
+
+      // Verificar que MercadoPago esté configurado en el servicio
       if (!this.mercadopago) {
-        throw new Error('MercadoPago no está configurado');
+        throw new Error('MercadoPago no está configurado en el sistema');
       }
 
-      // Configurar nombre del marketplace
-      const marketplaceName = process.env.MARKETPLACE_NAME || 'WhatsApp Bot Platform';
-      
+      console.log(`📋 Using MercadoPago plan: ${plan.mercadopago_plan_id}`);
+      console.log(`💰 Plan: ${plan.name} (${plan.key})`);
+
       // Generar external reference único
       const externalReference = `company_${companyId}_plan_${planId}_${Date.now()}`;
       
-      // Crear plan de subscripción recurrente directamente (SIN customer)
+      // Crear subscripción usando el plan configurado
       const preapprovalData = {
-        reason: `${plan.name} Plan - ${marketplaceName}`,
+        preapproval_plan_id: plan.mercadopago_plan_id, // ¡Esta es la clave!
+        reason: `${plan.name} - WhatsApp Bot Platform`,
         external_reference: externalReference,
-        payer_email: customerData.email, // Usar email directo
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: 'months',
-          transaction_amount: priceInARS,
-          currency_id: 'ARS'
-        },
+        payer_email: customerData.email,
         back_url: `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`,
         status: 'pending'
       };
 
-      console.log('📋 Creating preapproval with data:', JSON.stringify(preapprovalData, null, 2));
+      console.log('📋 Creating preapproval with plan data:', JSON.stringify(preapprovalData, null, 2));
 
       const subscription = await this.mercadopago.preapproval.create({
         body: preapprovalData
       });
       
-      console.log('✅ MercadoPago preapproval created:', subscription.id);
+      console.log('✅ MercadoPago subscription created:', subscription.id);
       console.log('🔗 Init point:', subscription.init_point);
+      console.log('💳 Using plan config:', plan.mercadopago_config);
 
-      // Guardar subscripción en BD (sin customer_id)
+      // Guardar subscripción en BD
       const subscriptionQuery = `
         UPDATE whatsapp_bot.subscriptions 
         SET 
@@ -188,14 +195,25 @@ class BillingService {
       
       console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
 
+      // Extraer información del plan para el response
+      const mpConfig = plan.mercadopago_config || {};
+      const usdToArs = mpConfig.usd_to_ars_rate || 1000;
+      const estimatedPriceARS = Math.round(plan.price_usd * usdToArs);
+
       return {
         success: true,
         subscription_id: subscription.id,
-        checkout_url: subscription.init_point, // URL directa de MercadoPago
+        checkout_url: subscription.init_point,
         payer_id: subscription.payer_id,
-        amount: priceInARS,
+        plan_id: plan.mercadopago_plan_id,
+        amount: estimatedPriceARS,
         currency: 'ARS',
-        external_reference: externalReference
+        external_reference: externalReference,
+        billing_config: {
+          billing_day: mpConfig.billing_day,
+          free_trial: mpConfig.free_trial,
+          proportional: mpConfig.billing_day_proportional
+        }
       };
 
     } catch (error) {
