@@ -117,7 +117,7 @@ class BillingService {
   /**
    * Crear subscripción con MercadoPago usando planes configurados
    */
-  async createMercadoPagoSubscription(companyId, planId, customerData) {
+  async createMercadoPagoSubscription(companyId, planId, customerData, cardTokenId = null) {
     try {
       console.log(`💳 Creating MercadoPago subscription for company ${companyId} - Using configured plan`);
       
@@ -165,42 +165,37 @@ class BillingService {
 
       // Crear subscripción usando configuración del plan (sin preapproval_plan_id)
       // Esto fuerza el flujo de checkout para tokenización
-      const preapprovalData = {
-        reason: `${plan.name} - WhatsApp Bot Platform`,
-        external_reference: externalReference,
-        payer_email: customerData.email,
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: plan.billing_period === 'yearly' ? 'years' : 'months',
-          transaction_amount: priceInARS,
-          currency_id: 'ARS',
-          // Usar configuración del plan
-          ...(mpConfig.billing_day && { billing_day: mpConfig.billing_day }),
-          ...(mpConfig.billing_day_proportional !== undefined && { billing_day_proportional: mpConfig.billing_day_proportional })
-        },
-        // Agregar free trial si está configurado
-        ...(mpConfig.free_trial && mpConfig.free_trial.frequency > 0 && {
-          auto_recurring: {
-            ...preapprovalData?.auto_recurring,
-            free_trial: {
-              frequency: mpConfig.free_trial.frequency,
-              frequency_type: mpConfig.free_trial.frequency_type || 'days'
-            }
-          }
-        }),
-        // Agregar métodos de pago si están configurados
-        ...(mpConfig.payment_methods_allowed && { payment_methods_allowed: mpConfig.payment_methods_allowed }),
-        back_url: `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`,
-        status: 'pending'
+      const autoRecurringBase = {
+        frequency: 1,
+        frequency_type: plan.billing_period === 'yearly' ? 'years' : 'months',
+        transaction_amount: priceInARS,
+        currency_id: 'ARS',
+        // Usar configuración del plan
+        ...(mpConfig.billing_day && { billing_day: mpConfig.billing_day }),
+        ...(mpConfig.billing_day_proportional !== undefined && { billing_day_proportional: mpConfig.billing_day_proportional })
       };
 
-      // Fix para free_trial
+      // Agregar free trial si está configurado
       if (mpConfig.free_trial && mpConfig.free_trial.frequency > 0) {
-        preapprovalData.auto_recurring.free_trial = {
+        autoRecurringBase.free_trial = {
           frequency: mpConfig.free_trial.frequency,
           frequency_type: mpConfig.free_trial.frequency_type || 'days'
         };
       }
+
+      const preapprovalData = {
+        reason: `${plan.name} - WhatsApp Bot Platform`,
+        external_reference: externalReference,
+        payer_email: customerData.email,
+        auto_recurring: autoRecurringBase,
+        // Agregar métodos de pago si están configurados
+        ...(mpConfig.payment_methods_allowed && { payment_methods_allowed: mpConfig.payment_methods_allowed }),
+        // Agregar card_token_id si está disponible (tarjeta tokenizada)
+        ...(cardTokenId && { card_token_id: cardTokenId }),
+        back_url: `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`,
+        status: 'pending'
+      };
+
 
       console.log('📋 Creating preapproval with plan data:', JSON.stringify(preapprovalData, null, 2));
 

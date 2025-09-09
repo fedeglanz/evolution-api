@@ -20,6 +20,7 @@ const groupSyncRoutes = require('./groupSync');
 const massMessagingRoutes = require('./massMessaging');
 const platformAdminRoutes = require('./platformAdmin');
 const billingRoutes = require('./billing');
+const mercadopagoCardRoutes = require('./mercadopagoCards');
 
 // Middleware de autenticación
 const { authenticateToken } = require('../middleware/auth');
@@ -247,7 +248,8 @@ router.get('/info', (req, res) => {
         groupSync: '/api/group-sync (sincronización de grupos)',
         massMessaging: '/api/mass-messaging (mensajería masiva unificada)',
         platformAdmin: '/api/platform-admin (administración de plataforma - SUPER ADMIN)',
-        billing: '/api/billing (sistema de facturación y pagos)'
+        billing: '/api/billing (sistema de facturación y pagos)',
+        mercadopago: '/api/mercadopago (tokenización de tarjetas MercadoPago)'
       }
     }
   });
@@ -276,5 +278,6 @@ router.use('/group-sync', groupSyncRoutes); // Group synchronization
 router.use('/mass-messaging', massMessagingRoutes); // Mass messaging system
 router.use('/platform-admin', platformAdminRoutes); // Platform admin routes (Super Admin)
 router.use('/billing', billingRoutes); // Billing and payment system
+router.use('/mercadopago', mercadopagoCardRoutes); // MercadoPago card tokenization
 
 module.exports = router;

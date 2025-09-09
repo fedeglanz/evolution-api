@@ -34,7 +34,7 @@ class BillingController {
   async createSubscription(req, res) {
     try {
       const { companyId } = req.user;
-      const { planId, customerData } = req.body;
+      const { planId, customerData, card_token_id } = req.body;
 
       console.log(`💳 Creating subscription for company ${companyId} with plan ${planId}`);
 
@@ -68,7 +68,8 @@ class BillingController {
           {
             ...customerData,
             company_name: paymentRegion.company?.name
-          }
+          },
+          card_token_id // Pasar card_token_id si está disponible
         );
       } else {
         // Crear subscripción con Stripe

@@ -610,6 +610,24 @@ postgresql://evolution_user:VWXYDFfvsik7aQvRWn88PBrnSb9H0dz9@dpg-d1n3kumr433s73b
 - `/backend/postman/MERCADOPAGO_TESTING_GUIDE.md`
 - `/backend/test-mercadopago-direct.js`
 
+## 🗂️ Registro de Cambios
+
+Los cambios diarios se registran en `/changes/YYYY/MM-mes/YYYY-MM-DD.md`
+
+### Formato de registro:
+```markdown
+## [HH:mm] - Título de la Tarea
+
+**Descripción**: Qué se hizo y por qué
+**Archivos modificados**:
+- `archivo1.ts` - Cambio específico
+- `archivo2.ts` - Cambio específico
+
+**Decisiones importantes**: Si las hay
+**TODOs**: Pendientes relacionados
+```
+
+
 **Para retomar:**
 - Necesitamos credenciales válidas de MercadoPago sandbox
 - Dashboard: https://www.mercadopago.com.ar/developers/panel/app
