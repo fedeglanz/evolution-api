@@ -2,11 +2,18 @@ import api from './api';
 
 class BillingService {
   // Crear subscripción
-  async createSubscription(planId, customerData) {
-    const response = await api.post('/billing/create-subscription', {
+  async createSubscription(planId, customerData, cardTokenId = null) {
+    const requestData = {
       planId,
       customerData
-    });
+    };
+    
+    // Agregar card_token_id si está disponible (para MercadoPago)
+    if (cardTokenId) {
+      requestData.card_token_id = cardTokenId;
+    }
+    
+    const response = await api.post('/billing/create-subscription', requestData);
     return response.data;
   }
 

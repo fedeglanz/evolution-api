@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, CreditCard, User, Mail, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 import billingService from '../services/billing';
+import CardSelectionModal from './CardSelectionModal';
 
 const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -17,7 +18,9 @@ const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentRegion, setPaymentRegion] = useState(null);
-  const [step, setStep] = useState('form'); // form, processing, success
+  const [step, setStep] = useState('form'); // form, processing, success, card_selection
+  const [showCardSelection, setShowCardSelection] = useState(false);
+  const [selectedCardToken, setSelectedCardToken] = useState(null);
 
   useEffect(() => {
     if (isOpen && plan) {
@@ -120,9 +123,21 @@ const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
     
     if (!validateForm()) return;
 
+    // Para MercadoPago, mostrar selección de tarjetas primero
+    if (paymentRegion?.provider === 'mercadopago') {
+      setShowCardSelection(true);
+      return;
+    }
+
+    // Para Stripe, proceder directamente
+    await processSubscription();
+  };
+
+  const processSubscription = async (cardTokenId = null) => {
     setLoading(true);
     setError('');
     setStep('processing');
+    setShowCardSelection(false);
 
     try {
       // Format phone number
@@ -137,21 +152,41 @@ const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
         company_name: formData.company_name || `${formData.first_name} ${formData.last_name}`
       };
 
-      const response = await billingService.createSubscription(plan.id, customerData);
+      // Agregar card_token_id si está disponible (MercadoPago con tarjeta)
+      const subscriptionData = {
+        planId: plan.id,
+        customerData,
+        ...(cardTokenId && { card_token_id: cardTokenId })
+      };
+
+      console.log('🔄 Creating subscription with data:', subscriptionData);
+
+      const response = await billingService.createSubscription(subscriptionData.planId, subscriptionData.customerData, subscriptionData.card_token_id);
 
       if (response.success) {
         if (paymentRegion.provider === 'mercadopago') {
-          // Redirect to MercadoPago checkout
+          // Si hay card_token_id, el pago debería procesarse directamente
+          // Si no hay card_token_id, redirigir a checkout
           const checkoutUrl = response.data.sandbox_url || response.data.checkout_url;
-          window.location.href = checkoutUrl;
+          
+          if (cardTokenId) {
+            // Pago con tarjeta tokenizada - puede procesar automáticamente
+            console.log('✅ Subscription created with tokenized card');
+            setStep('success');
+          } else {
+            // Pago sin tarjeta - redirigir a checkout
+            window.location.href = checkoutUrl;
+          }
         } else {
-          // Handle Stripe checkout (would require Stripe Elements)
-          setStep('success');
-          setTimeout(() => {
-            onSuccess(response.data);
-            onClose();
-          }, 2000);
+          // Stripe checkout
+          const checkoutUrl = response.data.checkout_url;
+          window.location.href = checkoutUrl;
         }
+        
+        setTimeout(() => {
+          onSuccess(response.data);
+          onClose();
+        }, 2000);
       }
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -160,6 +195,19 @@ const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCardSelected = async (cardData) => {
+    console.log('💳 Card selected:', cardData);
+    setSelectedCardToken(cardData);
+    
+    // Procesar suscripción con el token de la tarjeta
+    await processSubscription(cardData.card_token_id);
+  };
+
+  const handleCardSelectionClose = () => {
+    setShowCardSelection(false);
+    setStep('form');
   };
 
   if (!isOpen || !plan) return null;
@@ -393,6 +441,25 @@ const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
           )}
         </div>
       </div>
+      
+      {/* Card Selection Modal for MercadoPago */}
+      <CardSelectionModal
+        isOpen={showCardSelection}
+        onClose={handleCardSelectionClose}
+        onCardSelected={handleCardSelected}
+        customerData={{
+          email: formData.email,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+          phone_number: formData.phone_number,
+          phone_area_code: formData.phone_area,
+          identification: formData.id_number ? {
+            type: formData.id_type || 'DNI',
+            number: formData.id_number
+          } : undefined
+        }}
+        plan={plan}
+      />
     </div>
   );
 };
