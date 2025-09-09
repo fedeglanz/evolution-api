@@ -582,66 +582,272 @@ class BillingService {
    */
   async handleMercadoPagoWebhook(webhookData) {
     try {
-      console.log('📨 Processing MercadoPago webhook:', webhookData.type);
+      console.log('📨 Processing MercadoPago webhook v2.0:', JSON.stringify(webhookData, null, 2));
 
-      if (webhookData.type === 'preapproval') {
-        const preapprovalId = webhookData.data.id;
-        
-        // Obtener información de la preapproval
-        const preapproval = await this.mercadopago.preapproval.get({
-          id: preapprovalId
-        });
-        const status = preapproval.status;
-        const externalRef = preapproval.external_reference;
+      // MercadoPago webhook structure: { type, action, data: { id } }
+      const eventType = webhookData.type;
+      const action = webhookData.action;
+      const resourceId = webhookData.data?.id;
 
-        console.log(`📨 MercadoPago preapproval ${preapprovalId} status: ${status}`);
+      if (!resourceId) {
+        console.log('⚠️ No resource ID in webhook data, skipping...');
+        return;
+      }
 
-        // Actualizar estado en BD
-        const updateQuery = `
-          UPDATE whatsapp_bot.subscriptions 
-          SET 
-            status = $2,
-            current_period_start = CASE WHEN $2 = 'active' THEN NOW() ELSE current_period_start END,
-            current_period_end = CASE WHEN $2 = 'active' THEN NOW() + INTERVAL '1 month' ELSE current_period_end END,
-            updated_at = NOW()
-          WHERE mercadopago_subscription_id = $1
-        `;
+      console.log(`📋 Processing ${eventType} event with action ${action} for resource ${resourceId}`);
 
-        let dbStatus;
-        switch (status) {
-          case 'authorized':
-            dbStatus = 'active';
-            break;
-          case 'paused':
-            dbStatus = 'paused';
-            break;
-          case 'cancelled':
-            dbStatus = 'cancelled';
-            break;
-          case 'pending':
-            dbStatus = 'pending_payment';
-            break;
-          default:
-            dbStatus = 'expired';
-        }
-
-        await pool.query(updateQuery, [preapprovalId, dbStatus]);
-
-        // Registrar transacción si es pago exitoso
-        if (status === 'authorized') {
-          await this.recordPayment(preapprovalId, 'mercadopago', {
-            amount: preapproval.auto_recurring.transaction_amount,
-            currency: 'ARS',
-            external_reference: externalRef
-          });
-        }
-
-        console.log(`✅ Subscription status updated to: ${dbStatus}`);
+      // Manejar eventos de suscripciones (preapproval)
+      if (eventType === 'subscription_preapproval' || eventType === 'subscription') {
+        await this.handleSubscriptionWebhook(resourceId, action);
+      }
+      
+      // Manejar eventos de pagos
+      else if (eventType === 'payment') {
+        await this.handlePaymentWebhook(resourceId, action);
+      }
+      
+      // Manejar otros eventos de preapproval
+      else if (eventType === 'preapproval') {
+        await this.handlePreapprovalWebhook(resourceId, action);
+      }
+      
+      else {
+        console.log(`ℹ️ Unhandled webhook type: ${eventType}`);
       }
 
     } catch (error) {
       console.error('❌ Error processing MercadoPago webhook:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Manejar webhook de subscription preapproval
+   */
+  async handleSubscriptionWebhook(subscriptionId, action) {
+    try {
+      console.log(`🔄 Processing subscription webhook: ${subscriptionId} - ${action}`);
+      
+      // Obtener información de la subscripción desde MP
+      const subscription = await this.mercadopago.preapproval.get({
+        id: subscriptionId
+      });
+      
+      console.log(`📋 Subscription status: ${subscription.status}`);
+      console.log(`📋 External reference: ${subscription.external_reference}`);
+
+      // Mapear estado de MercadoPago a nuestro sistema
+      let dbStatus;
+      switch (subscription.status) {
+        case 'authorized':
+          dbStatus = 'active';
+          break;
+        case 'paused':
+          dbStatus = 'paused';
+          break;
+        case 'cancelled':
+          dbStatus = 'cancelled';
+          break;
+        case 'pending':
+          dbStatus = 'pending_payment';
+          break;
+        default:
+          dbStatus = 'expired';
+      }
+
+      // Actualizar estado en BD
+      const updateQuery = `
+        UPDATE whatsapp_bot.subscriptions 
+        SET 
+          status = $2,
+          current_period_start = CASE 
+            WHEN $2 = 'active' AND current_period_start IS NULL THEN NOW() 
+            ELSE current_period_start 
+          END,
+          current_period_end = CASE 
+            WHEN $2 = 'active' AND current_period_end IS NULL THEN NOW() + INTERVAL '1 month'
+            ELSE current_period_end 
+          END,
+          updated_at = NOW()
+        WHERE mercadopago_subscription_id = $1
+      `;
+
+      const updateResult = await pool.query(updateQuery, [subscriptionId, dbStatus]);
+      console.log(`✅ Updated ${updateResult.rowCount} subscriptions to status: ${dbStatus}`);
+
+      // Si es autorizada, registrar la transacción inicial
+      if (subscription.status === 'authorized' && action === 'updated') {
+        await this.recordMercadoPagoPayment(subscriptionId, subscription);
+      }
+
+    } catch (error) {
+      console.error('❌ Error handling subscription webhook:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Manejar webhook de payment
+   */
+  async handlePaymentWebhook(paymentId, action) {
+    try {
+      console.log(`💳 Processing payment webhook: ${paymentId} - ${action}`);
+      
+      // Obtener información del pago desde MP
+      const payment = await this.mercadopago.payment.get({
+        id: paymentId
+      });
+      
+      console.log(`💳 Payment status: ${payment.status}`);
+      console.log(`💳 Preapproval ID: ${payment.metadata?.preapproval_id}`);
+
+      // Solo procesar pagos aprobados de suscripciones
+      if (payment.status === 'approved' && payment.metadata?.preapproval_id) {
+        await this.recordMercadoPagoPaymentTransaction(payment);
+      }
+
+    } catch (error) {
+      console.error('❌ Error handling payment webhook:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Manejar webhook de preapproval (método legacy)
+   */
+  async handlePreapprovalWebhook(preapprovalId, action) {
+    try {
+      console.log(`📋 Processing preapproval webhook: ${preapprovalId} - ${action}`);
+      
+      // Redirigir al handler de subscription
+      await this.handleSubscriptionWebhook(preapprovalId, action);
+
+    } catch (error) {
+      console.error('❌ Error handling preapproval webhook:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Registrar pago de MercadoPago
+   */
+  async recordMercadoPagoPayment(subscriptionId, subscription) {
+    try {
+      // Obtener información de la subscripción en BD
+      const subscriptionQuery = `
+        SELECT s.*, c.id as company_id, p.name as plan_name
+        FROM whatsapp_bot.subscriptions s
+        JOIN whatsapp_bot.companies c ON s.company_id = c.id  
+        LEFT JOIN whatsapp_bot.plans p ON s.plan_id = p.id
+        WHERE s.mercadopago_subscription_id = $1
+      `;
+
+      const result = await pool.query(subscriptionQuery, [subscriptionId]);
+      const dbSubscription = result.rows[0];
+
+      if (!dbSubscription) {
+        console.log(`⚠️ Subscription not found in DB: ${subscriptionId}`);
+        return;
+      }
+
+      // Registrar transacción
+      const amount = subscription.auto_recurring?.transaction_amount || subscription.transaction_amount || 0;
+      const currency = subscription.auto_recurring?.currency_id || 'ARS';
+      
+      const transactionQuery = `
+        INSERT INTO whatsapp_bot.billing_transactions (
+          subscription_id, company_id, type, description,
+          amount_usd, currency, base_fee,
+          payment_status, payment_method,
+          mercadopago_payment_id,
+          paid_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+        RETURNING id
+      `;
+
+      // Convertir ARS a USD para almacenamiento
+      const arsToUsd = amount / 1000; // Usar tasa configurable después
+      
+      const transactionResult = await pool.query(transactionQuery, [
+        dbSubscription.id,
+        dbSubscription.company_id,
+        'subscription',
+        `${dbSubscription.plan_name || 'Plan'} - Pago mensual`,
+        arsToUsd,
+        currency,
+        amount,
+        'paid',
+        'mercadopago',
+        subscriptionId
+      ]);
+
+      console.log(`✅ Payment recorded: ${amount} ${currency} - Transaction ID: ${transactionResult.rows[0]?.id}`);
+
+    } catch (error) {
+      console.error('❌ Error recording MercadoPago payment:', error);
+    }
+  }
+
+  /**
+   * Registrar transacción de pago individual
+   */
+  async recordMercadoPagoPaymentTransaction(payment) {
+    try {
+      const preapprovalId = payment.metadata?.preapproval_id;
+      if (!preapprovalId) {
+        console.log('⚠️ No preapproval_id in payment metadata');
+        return;
+      }
+
+      // Obtener información de la subscripción
+      const subscriptionQuery = `
+        SELECT s.*, c.id as company_id, p.name as plan_name
+        FROM whatsapp_bot.subscriptions s
+        JOIN whatsapp_bot.companies c ON s.company_id = c.id  
+        LEFT JOIN whatsapp_bot.plans p ON s.plan_id = p.id
+        WHERE s.mercadopago_subscription_id = $1
+      `;
+
+      const result = await pool.query(subscriptionQuery, [preapprovalId]);
+      const subscription = result.rows[0];
+
+      if (!subscription) {
+        console.log(`⚠️ Subscription not found for preapproval: ${preapprovalId}`);
+        return;
+      }
+
+      // Registrar transacción del pago
+      const transactionQuery = `
+        INSERT INTO whatsapp_bot.billing_transactions (
+          subscription_id, company_id, type, description,
+          amount_usd, currency, base_fee,
+          payment_status, payment_method,
+          mercadopago_payment_id,
+          paid_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING id
+      `;
+
+      const arsToUsd = payment.transaction_amount / 1000;
+      
+      const transactionResult = await pool.query(transactionQuery, [
+        subscription.id,
+        subscription.company_id,
+        'payment',
+        `${subscription.plan_name || 'Plan'} - Pago recurrente`,
+        arsToUsd,
+        payment.currency_id,
+        payment.transaction_amount,
+        'paid',
+        'mercadopago',
+        payment.id,
+        new Date(payment.date_created)
+      ]);
+
+      console.log(`✅ Payment transaction recorded: ${payment.transaction_amount} ${payment.currency_id} - Transaction ID: ${transactionResult.rows[0]?.id}`);
+
+    } catch (error) {
+      console.error('❌ Error recording payment transaction:', error);
     }
   }
 
