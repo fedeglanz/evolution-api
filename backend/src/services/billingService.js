@@ -158,15 +158,49 @@ class BillingService {
       // Generar external reference único
       const externalReference = `company_${companyId}_plan_${planId}_${Date.now()}`;
       
-      // Crear subscripción usando el plan configurado
+      // Extraer configuración del plan
+      const mpConfig = plan.mercadopago_config || {};
+      const usdToArs = mpConfig.usd_to_ars_rate || 1000;
+      const priceInARS = Math.round(plan.price_usd * usdToArs);
+
+      // Crear subscripción usando configuración del plan (sin preapproval_plan_id)
+      // Esto fuerza el flujo de checkout para tokenización
       const preapprovalData = {
-        preapproval_plan_id: plan.mercadopago_plan_id, // ¡Esta es la clave!
         reason: `${plan.name} - WhatsApp Bot Platform`,
         external_reference: externalReference,
         payer_email: customerData.email,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: plan.billing_period === 'yearly' ? 'years' : 'months',
+          transaction_amount: priceInARS,
+          currency_id: 'ARS',
+          // Usar configuración del plan
+          ...(mpConfig.billing_day && { billing_day: mpConfig.billing_day }),
+          ...(mpConfig.billing_day_proportional !== undefined && { billing_day_proportional: mpConfig.billing_day_proportional })
+        },
+        // Agregar free trial si está configurado
+        ...(mpConfig.free_trial && mpConfig.free_trial.frequency > 0 && {
+          auto_recurring: {
+            ...preapprovalData?.auto_recurring,
+            free_trial: {
+              frequency: mpConfig.free_trial.frequency,
+              frequency_type: mpConfig.free_trial.frequency_type || 'days'
+            }
+          }
+        }),
+        // Agregar métodos de pago si están configurados
+        ...(mpConfig.payment_methods_allowed && { payment_methods_allowed: mpConfig.payment_methods_allowed }),
         back_url: `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`,
         status: 'pending'
       };
+
+      // Fix para free_trial
+      if (mpConfig.free_trial && mpConfig.free_trial.frequency > 0) {
+        preapprovalData.auto_recurring.free_trial = {
+          frequency: mpConfig.free_trial.frequency,
+          frequency_type: mpConfig.free_trial.frequency_type || 'days'
+        };
+      }
 
       console.log('📋 Creating preapproval with plan data:', JSON.stringify(preapprovalData, null, 2));
 
@@ -195,24 +229,20 @@ class BillingService {
       
       console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
 
-      // Extraer información del plan para el response
-      const mpConfig = plan.mercadopago_config || {};
-      const usdToArs = mpConfig.usd_to_ars_rate || 1000;
-      const estimatedPriceARS = Math.round(plan.price_usd * usdToArs);
-
       return {
         success: true,
         subscription_id: subscription.id,
         checkout_url: subscription.init_point,
         payer_id: subscription.payer_id,
-        plan_id: plan.mercadopago_plan_id,
-        amount: estimatedPriceARS,
+        plan_id: plan.mercadopago_plan_id, // Plan configurado (para referencia)
+        amount: priceInARS,
         currency: 'ARS',
         external_reference: externalReference,
         billing_config: {
           billing_day: mpConfig.billing_day,
           free_trial: mpConfig.free_trial,
-          proportional: mpConfig.billing_day_proportional
+          proportional: mpConfig.billing_day_proportional,
+          used_plan_config: true // Indica que se usó configuración del plan
         }
       };
 
