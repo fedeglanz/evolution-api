@@ -71,6 +71,39 @@ class MercadoPagoCardService {
         }
       }
 
+      // Buscar customer existente por email antes de crear
+      try {
+        console.log(`🔍 Buscando customer existente con email: ${customerData.email}`);
+        
+        const searchResponse = await this.mercadopago.customer.search({
+          email: customerData.email
+        });
+
+        if (searchResponse.data && searchResponse.data.length > 0) {
+          const existingCustomer = searchResponse.data[0];
+          console.log(`✅ Customer existente encontrado por email: ${existingCustomer.id}`);
+          
+          // Guardar customer_id en BD si no lo tenemos
+          const updateQuery = `
+            UPDATE whatsapp_bot.companies 
+            SET 
+              mercadopago_customer_id = $2,
+              updated_at = NOW()
+            WHERE id = $1 AND (mercadopago_customer_id IS NULL OR mercadopago_customer_id != $2)
+          `;
+          await pool.query(updateQuery, [companyId, existingCustomer.id]);
+          
+          return {
+            customer_id: existingCustomer.id,
+            customer_data: existingCustomer,
+            action: 'found_by_email'
+          };
+        }
+      } catch (searchError) {
+        console.log(`⚠️ Error buscando customer por email: ${searchError.message}`);
+        // Continuar para crear nuevo customer
+      }
+
       // Crear nuevo customer en MercadoPago
       const customerPayload = {
         email: customerData.email,
@@ -92,27 +125,66 @@ class MercadoPagoCardService {
 
       console.log('📋 Creating customer with data:', JSON.stringify(customerPayload, null, 2));
       
-      const customer = await this.mercadopago.customer.create({
-        body: customerPayload
-      });
+      try {
+        const customer = await this.mercadopago.customer.create({
+          body: customerPayload
+        });
 
-      console.log(`✅ Customer creado: ${customer.id}`);
+        console.log(`✅ Customer creado: ${customer.id}`);
 
-      // Guardar customer_id en BD
-      const updateQuery = `
-        UPDATE whatsapp_bot.companies 
-        SET 
-          mercadopago_customer_id = $2,
-          updated_at = NOW()
-        WHERE id = $1
-      `;
-      await pool.query(updateQuery, [companyId, customer.id]);
+        // Guardar customer_id en BD
+        const updateQuery = `
+          UPDATE whatsapp_bot.companies 
+          SET 
+            mercadopago_customer_id = $2,
+            updated_at = NOW()
+          WHERE id = $1
+        `;
+        await pool.query(updateQuery, [companyId, customer.id]);
 
-      return {
-        customer_id: customer.id,
-        customer_data: customer,
-        action: 'created'
-      };
+        return {
+          customer_id: customer.id,
+          customer_data: customer,
+          action: 'created'
+        };
+      } catch (createError) {
+        // Si el error es "customer already exist", buscar por email una vez más
+        if (createError.cause && createError.cause.some(c => c.code === '101')) {
+          console.log(`⚠️ Customer ya existe, buscando por email como fallback...`);
+          
+          try {
+            const fallbackSearchResponse = await this.mercadopago.customer.search({
+              email: customerData.email
+            });
+
+            if (fallbackSearchResponse.data && fallbackSearchResponse.data.length > 0) {
+              const existingCustomer = fallbackSearchResponse.data[0];
+              console.log(`✅ Customer encontrado en fallback: ${existingCustomer.id}`);
+              
+              // Guardar customer_id en BD
+              const updateQuery = `
+                UPDATE whatsapp_bot.companies 
+                SET 
+                  mercadopago_customer_id = $2,
+                  updated_at = NOW()
+                WHERE id = $1
+              `;
+              await pool.query(updateQuery, [companyId, existingCustomer.id]);
+              
+              return {
+                customer_id: existingCustomer.id,
+                customer_data: existingCustomer,
+                action: 'found_after_create_failed'
+              };
+            }
+          } catch (fallbackError) {
+            console.log(`❌ Error en fallback search: ${fallbackError.message}`);
+          }
+        }
+        
+        // Re-throw el error original si no pudimos resolverlo
+        throw createError;
+      }
 
     } catch (error) {
       console.error('❌ Error creating/getting customer:', error);
