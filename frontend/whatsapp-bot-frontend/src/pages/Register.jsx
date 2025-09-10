@@ -3,11 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { ErrorMessage } from '../components/common/ErrorMessage';
-import { PlansSelection } from '../components/PlansSelection';
-import { CheckoutModal } from '../components/CheckoutModal';
-import { api } from '../services/api';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import ErrorMessage from '../components/common/ErrorMessage';
+import PlansSelection from '../components/PlansSelection';
+import CheckoutModal from '../components/CheckoutModal';
 import { authService } from '../services/auth';
 import { billingService } from '../services/billing';
 

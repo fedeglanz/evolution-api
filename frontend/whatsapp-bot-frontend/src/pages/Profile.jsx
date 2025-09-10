@@ -4,8 +4,8 @@ import { toast } from 'react-hot-toast';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
-import { LoadingSpinner } from '../components/common/LoadingSpinner';
-import { ErrorMessage } from '../components/common/ErrorMessage';
+import LoadingSpinner from '../components/common/LoadingSpinner';
+import ErrorMessage from '../components/common/ErrorMessage';
 import { authService } from '../services/auth';
 import { billingService } from '../services/billing';
 import { 
