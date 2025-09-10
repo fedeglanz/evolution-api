@@ -76,10 +76,14 @@ class MercadoPagoCardService {
         console.log(`🔍 Buscando customer existente con email: ${customerData.email}`);
         
         const searchResponse = await this.mercadopago.customer.search({
-          email: customerData.email
+          qs: {
+            email: customerData.email
+          }
         });
 
-        if (searchResponse.data && searchResponse.data.length > 0) {
+        console.log(`📝 Search response:`, JSON.stringify(searchResponse, null, 2));
+
+        if (searchResponse && searchResponse.data && searchResponse.data.length > 0) {
           const existingCustomer = searchResponse.data[0];
           console.log(`✅ Customer existente encontrado por email: ${existingCustomer.id}`);
           
@@ -98,9 +102,11 @@ class MercadoPagoCardService {
             customer_data: existingCustomer,
             action: 'found_by_email'
           };
+        } else {
+          console.log(`📋 No existing customers found for email: ${customerData.email}`);
         }
       } catch (searchError) {
-        console.log(`⚠️ Error buscando customer por email: ${searchError.message}`);
+        console.log(`⚠️ Error buscando customer por email:`, JSON.stringify(searchError, null, 2));
         // Continuar para crear nuevo customer
       }
 
@@ -124,6 +130,11 @@ class MercadoPagoCardService {
       };
 
       console.log('📋 Creating customer with data:', JSON.stringify(customerPayload, null, 2));
+      
+      // Debug: Check if we have valid MercadoPago configuration
+      if (!this.mercadopago.customer) {
+        throw new Error('MercadoPago customer service not initialized');
+      }
       
       try {
         const customer = await this.mercadopago.customer.create({
@@ -154,10 +165,14 @@ class MercadoPagoCardService {
           
           try {
             const fallbackSearchResponse = await this.mercadopago.customer.search({
-              email: customerData.email
+              qs: {
+                email: customerData.email
+              }
             });
 
-            if (fallbackSearchResponse.data && fallbackSearchResponse.data.length > 0) {
+            console.log(`📝 Fallback search response:`, JSON.stringify(fallbackSearchResponse, null, 2));
+
+            if (fallbackSearchResponse && fallbackSearchResponse.data && fallbackSearchResponse.data.length > 0) {
               const existingCustomer = fallbackSearchResponse.data[0];
               console.log(`✅ Customer encontrado en fallback: ${existingCustomer.id}`);
               
@@ -176,9 +191,11 @@ class MercadoPagoCardService {
                 customer_data: existingCustomer,
                 action: 'found_after_create_failed'
               };
+            } else {
+              console.log(`📋 No customers found in fallback search for email: ${customerData.email}`);
             }
           } catch (fallbackError) {
-            console.log(`❌ Error en fallback search: ${fallbackError.message}`);
+            console.log(`❌ Error en fallback search:`, JSON.stringify(fallbackError, null, 2));
           }
         }
         
