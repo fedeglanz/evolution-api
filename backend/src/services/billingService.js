@@ -190,10 +190,11 @@ class BillingService {
         auto_recurring: autoRecurringBase,
         // Agregar métodos de pago si están configurados
         ...(mpConfig.payment_methods_allowed && { payment_methods_allowed: mpConfig.payment_methods_allowed }),
-        // Agregar card_token_id si está disponible (tarjeta tokenizada)
+        // Configurar card_token_id si está disponible (flujo directo)
         ...(cardTokenId && { card_token_id: cardTokenId }),
         back_url: `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`,
-        status: 'pending'
+        // Para tokenized cards, usar status authorized en lugar de pending
+        status: cardTokenId ? 'authorized' : 'pending'
       };
 
 
