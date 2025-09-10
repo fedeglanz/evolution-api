@@ -783,7 +783,8 @@ class BillingService {
       console.log(`✅ Updated ${updateResult.rowCount} subscriptions to status: ${dbStatus}`);
 
       // Si es autorizada, registrar la transacción inicial
-      if (subscription.status === 'authorized' && action === 'updated') {
+      if (subscription.status === 'authorized' && (action === 'updated' || action === 'created')) {
+        console.log(`💰 Recording MercadoPago payment for subscription: ${subscriptionId}`);
         await this.recordMercadoPagoPayment(subscriptionId, subscription);
       }
 
