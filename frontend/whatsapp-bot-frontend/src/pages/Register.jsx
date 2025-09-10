@@ -41,19 +41,7 @@ const Register = () => {
   
   // Plan selection
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [plans, setPlans] = useState([]);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  
-  // Load plans when reaching step 2
-  const loadPlans = async () => {
-    try {
-      const response = await billingService.getAvailablePlans();
-      setPlans(response.data);
-    } catch (error) {
-      console.error('Error loading plans:', error);
-      setError('Error cargando planes disponibles');
-    }
-  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -100,7 +88,6 @@ const Register = () => {
     if (validateStep1()) {
       setError('');
       setCurrentStep(2);
-      loadPlans();
     }
   };
 
@@ -373,9 +360,8 @@ const Register = () => {
             {error && <ErrorMessage message={error} className="mb-6 max-w-2xl mx-auto" />}
             
             <PlansSelection
-              plans={plans}
-              onPlanSelect={handlePlanSelection}
-              showCurrentPlan={false}
+              onSelectPlan={handlePlanSelection}
+              currentPlan={null}
             />
 
             <div className="mt-8 flex justify-center">
