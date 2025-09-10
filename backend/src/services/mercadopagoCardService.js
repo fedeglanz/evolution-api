@@ -1,4 +1,4 @@
-const { MercadoPagoConfig, Customer, Card, CardToken } = require('mercadopago');
+const { MercadoPagoConfig, Customer, CustomerCard, CardToken } = require('mercadopago');
 const { pool } = require('../database');
 
 class MercadoPagoCardService {
@@ -17,7 +17,7 @@ class MercadoPagoCardService {
         this.mercadopago = {
           client: client,
           customer: new Customer(client),
-          card: new Card(client),
+          customerCard: new CustomerCard(client),
           cardToken: new CardToken(client)
         };
         
@@ -131,11 +131,11 @@ class MercadoPagoCardService {
         throw new Error('MercadoPago no está configurado');
       }
 
-      const response = await this.mercadopago.customer.listCards({
-        id: customerId
+      const response = await this.mercadopago.customerCard.search({
+        customer_id: customerId
       });
 
-      const cards = response.body || [];
+      const cards = response.data || [];
       
       console.log(`✅ Found ${cards.length} cards for customer ${customerId}`);
       
@@ -276,7 +276,7 @@ class MercadoPagoCardService {
         throw new Error('MercadoPago no está configurado');
       }
 
-      const card = await this.mercadopago.card.create({
+      const card = await this.mercadopago.customerCard.create({
         body: {
           token: cardTokenId
         },
@@ -308,7 +308,7 @@ class MercadoPagoCardService {
         throw new Error('MercadoPago no está configurado');
       }
 
-      await this.mercadopago.card.remove({
+      await this.mercadopago.customerCard.remove({
         customer_id: customerId,
         id: cardId
       });

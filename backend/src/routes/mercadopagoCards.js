@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const cardController = require('../controllers/mercadopagoCardController');
 
 // Todas las rutas requieren autenticación
-router.use(authenticateToken);
+router.use(authenticate);
 
 /**
  * @route POST /api/mercadopago/customer
