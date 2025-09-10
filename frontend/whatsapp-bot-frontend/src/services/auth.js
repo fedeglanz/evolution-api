@@ -44,16 +44,19 @@ export const authService = {
 
   // Registro con plan (onboarding)
   async registerWithPlan(userData) {
-    // Mapear campos del frontend a lo que espera el backend
+    // NO mapear campos - registerWithPlan espera los campos tal como están
     const mappedData = {
+      companyName: userData.companyName,
+      companyDescription: userData.companyDescription,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
       email: userData.email,
-      password: userData.password,
-      full_name: `${userData.firstName} ${userData.lastName}`.trim(),
-      company_name: userData.companyName,
       phone: userData.phone,
-      // Datos adicionales del plan y pago
+      password: userData.password,
+      country: userData.country,
       planId: userData.planId,
       paymentReference: userData.paymentReference,
+      // Datos adicionales del pago
       paymentProvider: userData.paymentProvider,
       paymentRegion: userData.paymentRegion,
       cardTokenId: userData.cardTokenId,
