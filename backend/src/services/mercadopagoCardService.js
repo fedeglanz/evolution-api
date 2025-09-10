@@ -83,28 +83,34 @@ class MercadoPagoCardService {
 
         console.log(`📝 Search response:`, JSON.stringify(searchResponse, null, 2));
 
-        if (searchResponse && searchResponse.data && searchResponse.data.length > 0) {
-          const existingCustomer = searchResponse.data[0];
-          console.log(`✅ Customer existente encontrado por email: ${existingCustomer.id}`);
+        // Buscar el customer específico por email en los resultados
+        if (searchResponse && searchResponse.results && searchResponse.results.length > 0) {
+          const existingCustomer = searchResponse.results.find(customer => 
+            customer.email === customerData.email
+          );
           
-          // Guardar customer_id en BD si no lo tenemos
-          const updateQuery = `
-            UPDATE whatsapp_bot.companies 
-            SET 
-              mercadopago_customer_id = $2,
-              updated_at = NOW()
-            WHERE id = $1 AND (mercadopago_customer_id IS NULL OR mercadopago_customer_id != $2)
-          `;
-          await pool.query(updateQuery, [companyId, existingCustomer.id]);
-          
-          return {
-            customer_id: existingCustomer.id,
-            customer_data: existingCustomer,
-            action: 'found_by_email'
-          };
-        } else {
-          console.log(`📋 No existing customers found for email: ${customerData.email}`);
+          if (existingCustomer) {
+            console.log(`✅ Customer existente encontrado por email: ${existingCustomer.id}`);
+            
+            // Guardar customer_id en BD si no lo tenemos
+            const updateQuery = `
+              UPDATE whatsapp_bot.companies 
+              SET 
+                mercadopago_customer_id = $2,
+                updated_at = NOW()
+              WHERE id = $1 AND (mercadopago_customer_id IS NULL OR mercadopago_customer_id != $2)
+            `;
+            await pool.query(updateQuery, [companyId, existingCustomer.id]);
+            
+            return {
+              customer_id: existingCustomer.id,
+              customer_data: existingCustomer,
+              action: 'found_by_email'
+            };
+          }
         }
+        
+        console.log(`📋 No existing customers found for email: ${customerData.email}`);
       } catch (searchError) {
         console.log(`⚠️ Error buscando customer por email:`, JSON.stringify(searchError, null, 2));
         // Continuar para crear nuevo customer
@@ -172,28 +178,34 @@ class MercadoPagoCardService {
 
             console.log(`📝 Fallback search response:`, JSON.stringify(fallbackSearchResponse, null, 2));
 
-            if (fallbackSearchResponse && fallbackSearchResponse.data && fallbackSearchResponse.data.length > 0) {
-              const existingCustomer = fallbackSearchResponse.data[0];
-              console.log(`✅ Customer encontrado en fallback: ${existingCustomer.id}`);
+            // Buscar el customer específico por email en los resultados del fallback
+            if (fallbackSearchResponse && fallbackSearchResponse.results && fallbackSearchResponse.results.length > 0) {
+              const existingCustomer = fallbackSearchResponse.results.find(customer => 
+                customer.email === customerData.email
+              );
               
-              // Guardar customer_id en BD
-              const updateQuery = `
-                UPDATE whatsapp_bot.companies 
-                SET 
-                  mercadopago_customer_id = $2,
-                  updated_at = NOW()
-                WHERE id = $1
-              `;
-              await pool.query(updateQuery, [companyId, existingCustomer.id]);
-              
-              return {
-                customer_id: existingCustomer.id,
-                customer_data: existingCustomer,
-                action: 'found_after_create_failed'
-              };
-            } else {
-              console.log(`📋 No customers found in fallback search for email: ${customerData.email}`);
+              if (existingCustomer) {
+                console.log(`✅ Customer encontrado en fallback: ${existingCustomer.id}`);
+                
+                // Guardar customer_id en BD
+                const updateQuery = `
+                  UPDATE whatsapp_bot.companies 
+                  SET 
+                    mercadopago_customer_id = $2,
+                    updated_at = NOW()
+                  WHERE id = $1
+                `;
+                await pool.query(updateQuery, [companyId, existingCustomer.id]);
+                
+                return {
+                  customer_id: existingCustomer.id,
+                  customer_data: existingCustomer,
+                  action: 'found_after_create_failed'
+                };
+              }
             }
+            
+            console.log(`📋 No customers found in fallback search for email: ${customerData.email}`);
           } catch (fallbackError) {
             console.log(`❌ Error en fallback search:`, JSON.stringify(fallbackError, null, 2));
           }
