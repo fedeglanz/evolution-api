@@ -382,9 +382,9 @@ const registerWithPlan = asyncHandler(async (req, res) => {
     // Create company
     const companyId = uuidv4();
     const companyResult = await client.query(
-      `INSERT INTO whatsapp_bot.companies (id, name, description, email, phone, country, created_at, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
-      [companyId, companyName, companyDescription || '', email, phone, country || 'Argentina']
+      `INSERT INTO whatsapp_bot.companies (id, name, email, created_at, updated_at) 
+       VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`,
+      [companyId, companyName, email]
     );
 
     // Hash password
@@ -393,9 +393,9 @@ const registerWithPlan = asyncHandler(async (req, res) => {
     // Create admin user
     const userId = uuidv4();
     const userResult = await client.query(
-      `INSERT INTO whatsapp_bot.users (id, company_id, email, password_hash, first_name, last_name, phone, role, created_at, updated_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'admin', NOW(), NOW()) RETURNING id, company_id, email, first_name, last_name, role, created_at`,
-      [userId, companyId, email, hashedPassword, firstName, lastName, phone]
+      `INSERT INTO whatsapp_bot.users (id, company_id, email, password_hash, first_name, last_name, role, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, 'admin', NOW(), NOW()) RETURNING id, company_id, email, first_name, last_name, role, created_at`,
+      [userId, companyId, email, hashedPassword, firstName, lastName]
     );
 
     // Create subscription record (should already exist from payment, but ensure it's linked)
