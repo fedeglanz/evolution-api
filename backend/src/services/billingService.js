@@ -817,6 +817,13 @@ class BillingService {
       const updateResult = await pool.query(updateQuery, [subscriptionId.toString(), dbStatus, isActive]);
       console.log(`✅ Updated ${updateResult.rowCount} subscriptions to status: ${dbStatus}`);
 
+      // Verificar si encontramos la suscripción
+      if (updateResult.rowCount === 0) {
+        console.log(`⚠️ Subscription not found in DB: ${subscriptionId}`);
+        console.log(`⚠️ This might be a webhook for a subscription created outside this system`);
+        return; // No continuar si no encontramos la suscripción
+      }
+
       // Si es autorizada, registrar la transacción inicial
       if (subscription.status === 'authorized' && (action === 'updated' || action === 'created')) {
         console.log(`💰 Recording MercadoPago payment for subscription: ${subscriptionId}`);
