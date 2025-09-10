@@ -208,23 +208,42 @@ class BillingService {
       console.log('🔗 Init point:', subscription.init_point);
       console.log('💳 Using plan config:', plan.mercadopago_config);
 
-      // Primero intentar actualizar suscripción existente
+      // Primero intentar actualizar suscripción existente de la company
       let updateResult = await pool.query(`
         UPDATE whatsapp_bot.subscriptions 
         SET 
+          plan_id = $2,
           mercadopago_subscription_id = $3,
           status = 'pending_payment',
           updated_at = NOW()
-        WHERE company_id = $1 AND plan_id = $2
+        WHERE company_id = $1
       `, [companyId, planId, subscription.id]);
 
       // Si no existe, crear nueva
       if (updateResult.rowCount === 0) {
-        updateResult = await pool.query(`
-          INSERT INTO whatsapp_bot.subscriptions 
-          (company_id, plan_id, mercadopago_subscription_id, status, created_at, updated_at)
-          VALUES ($1, $2, $3, 'pending_payment', NOW(), NOW())
-        `, [companyId, planId, subscription.id]);
+        try {
+          updateResult = await pool.query(`
+            INSERT INTO whatsapp_bot.subscriptions 
+            (company_id, plan_id, mercadopago_subscription_id, status, created_at, updated_at)
+            VALUES ($1, $2, $3, 'pending_payment', NOW(), NOW())
+          `, [companyId, planId, subscription.id]);
+        } catch (insertError) {
+          // Si falla el insert por duplicate key, intentar update sin plan_id check
+          if (insertError.code === '23505') {
+            console.log('⚠️ Subscription exists, updating existing one');
+            updateResult = await pool.query(`
+              UPDATE whatsapp_bot.subscriptions 
+              SET 
+                plan_id = $2,
+                mercadopago_subscription_id = $3,
+                status = 'pending_payment',
+                updated_at = NOW()
+              WHERE company_id = $1
+            `, [companyId, planId, subscription.id]);
+          } else {
+            throw insertError;
+          }
+        }
       }
       
       console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
