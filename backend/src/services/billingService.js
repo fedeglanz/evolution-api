@@ -613,16 +613,48 @@ class BillingService {
         return true;
       }
 
+      if (!xSignature) {
+        console.log('⚠️ No x-signature header found, skipping validation');
+        return true;
+      }
+
       const crypto = require('crypto');
       const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
       
-      // MercadoPago envía la signature en el header 'x-signature'
+      // MercadoPago signature format: ts=timestamp,v1=hash
+      console.log('🔐 Raw signature:', xSignature);
+      
+      // Extract timestamp and hash from signature
+      const signatureParts = xSignature.split(',');
+      let timestamp = null;
+      let hash = null;
+      
+      signatureParts.forEach(part => {
+        if (part.startsWith('ts=')) {
+          timestamp = part.substring(3);
+        } else if (part.startsWith('v1=')) {
+          hash = part.substring(3);
+        }
+      });
+      
+      if (!timestamp || !hash) {
+        console.log('⚠️ Invalid signature format, expected ts= and v1=');
+        return false;
+      }
+      
+      // Create payload for validation: timestamp + "." + body
+      const payload = `${timestamp}.${webhookBody}`;
+      console.log('🔐 Validation payload:', payload);
+      
+      // Calculate expected signature
       const expectedSignature = crypto
         .createHmac('sha256', secret)
-        .update(webhookBody)
+        .update(payload, 'utf8')
         .digest('hex');
       
-      const isValid = expectedSignature === xSignature;
+      const isValid = expectedSignature === hash;
+      console.log(`🔐 Expected signature: ${expectedSignature}`);
+      console.log(`🔐 Received signature: ${hash}`);
       console.log(`🔐 Webhook signature validation: ${isValid ? 'VALID' : 'INVALID'}`);
       
       return isValid;
