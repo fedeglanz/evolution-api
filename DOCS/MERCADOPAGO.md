@@ -1,120 +1,118 @@
-# 🏦 MercadoPago - Credenciales y Configuración
+# MercadoPago Integration - Credentials & Configuration
 
-## 🔑 Credenciales de Sandbox
+## 🔐 Production Credentials (Real - Fede's Account)
 
-### ⚠️ **IMPORTANTE: Crear Cuenta de Vendedor de Prueba**
+**⚠️ IMPORTANT: These are REAL production credentials. Handle with care!**
 
-Las credenciales actuales son de cuenta real (aunque sean TEST-xxx). 
-Necesitamos crear una **Cuenta de Vendedor de Prueba** desde Developers Panel.
-
-### API Keys (A actualizar con Vendedor de Prueba)
-```
-Public Key: TEST-45ba234b-45f2-45ce-b1dd-037623495123
-Access Token: TEST-6905559224909465-090406-7377ba8aec1ccc0fee8fa4bcc5cf8038-62226130
-```
-
-### 🛠️ **Pasos para crear Vendedor de Prueba:**
-1. Ir a: https://www.mercadopago.com.ar/developers/panel/app
-2. Crear nueva cuenta de prueba
-3. Tipo: **Vendedor**
-4. País: **Argentina**
-5. Obtener nuevas credenciales TEST-xxx
-
-### 👥 Cuentas de Prueba
-
-#### 🏪 Vendedor Argentina (Para Backend/API)
-- **Name:** Vendedor Argentina
-- **UserID:** 2671570710
-- **Usuario:** TESTUSER4162553309539174936
-- **Password:** q2sdHB4u5V
-
-**App de Suscripciones:**
-- **Número de aplicación:** 8936514952268223
-- **Integración:** Suscripciones específica
-- **Modelo:** Suscripciones con/sin plan asociado
-- **Public Key:** APP_USR-308ad61d-03c0-4c12-a0af-bda2492a141b
-- **Access Token:** APP_USR-8936514952268223-090410-71902efa0f7aa0eb3bf067ae61cfd6c8-2671570710
-- **Client ID:** 8936514952268223
-- **Client Secret:** FX1Ap6qnavcx2pRGmIlfoEeOPASIPuTK
-
-#### 🛒 Comprador Argentina (Para Testing)
-- **Name:** Comprador Argentina
-- **UserID:** 2671265984
-- **Usuario:** TESTUSER1270116819274701081
-- **Password:** gBSjW2Xpgu
-
-#### 🇧🇷 Comprador Brasil
-- **Name:** Comprador Brasil
-- **UserID:** 2671266306
-- **Usuario:** TESTUSER922571630689643721
-- **Password:** sdaOeW7xiL
-
-## 📱 Tarjetas de Prueba para Sandbox
-
-### ✅ Tarjetas Aprobadas
-| Tarjeta | Número | CVV | Vencimiento | DNI |
-|---------|---------|-----|-------------|-----|
-| Mastercard | 5031 7557 3453 0604 | 123 | 11/25 | 12345678 |
-| Visa | 4509 9535 6623 3704 | 123 | 11/25 | 12345678 |
-| American Express | 3711 803032 57522 | 1234 | 11/25 | 12345678 |
-
-### ❌ Tarjetas Rechazadas (para testing)
-| Tarjeta | Número | CVV | Vencimiento | DNI |
-|---------|---------|-----|-------------|-----|
-| Mastercard | 5031 7557 3453 0604 | 123 | 11/25 | 12345678 |
-
-## 🔧 Configuración en el Proyecto
-
-### Variables de Entorno (Render)
+### Production Keys
 ```env
-MERCADOPAGO_ACCESS_TOKEN=TEST-6905559224909465-090406-7377ba8aec1ccc0fee8fa4bcc5cf8038-62226130
-MERCADOPAGO_PUBLIC_KEY=TEST-45ba234b-45f2-45ce-b1dd-037623495123
+# MercadoPago Production (Real Account)
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-6905559224909465-090406-2f088b3762d8fb2ab0553568c4670fe8-62226130
+MERCADOPAGO_PUBLIC_KEY=APP_USR-e7f907fb-c64a-4292-a619-b08ca641ef38
+MERCADOPAGO_CLIENT_ID=6905559224909465
+MERCADOPAGO_CLIENT_SECRET=brizIOPC1Gs8M3g7Wd7egHlNh77MXQd9
+MERCADOPAGO_SANDBOX=false
+```
+
+### Test/Sandbox Keys (For Development)
+```env
+# MercadoPago Test (Sandbox)
+MERCADOPAGO_ACCESS_TOKEN=TEST-4614107882901246-013023-1c51dcbdfa2b29ef8c24b0f03a16a37f-1591892623
+MERCADOPAGO_PUBLIC_KEY=TEST-dc52ae27-4b87-4b48-9d8e-8aed1a01c5b9
 MERCADOPAGO_SANDBOX=true
 ```
 
-### Endpoints de Webhook
+## 🔗 Webhook Configuration
+
+### Webhook URL
 ```
-Sandbox: https://whatsapp-bot-backend-fnte.onrender.com/api/billing/webhooks/mercadopago
+https://whatsapp-bot-backend-fnte.onrender.com/api/billing/webhooks/mercadopago
 ```
 
-## 📋 Notas Importantes
+### Webhook Secret Key
+```env
+MERCADOPAGO_WEBHOOK_SECRET=31f209310ddc7bd86e9922c4fc0898db48e1eddc23bfa9c4ce0c4bf1cc58fad8
+```
 
-1. **Sandbox vs Producción**: Siempre usar credenciales TEST- para desarrollo
-2. **Compradores de Prueba**: Solo funcionan en sandbox, no mezclar con cuentas reales
-3. **Montos**: En sandbox hay límites de montos (máx 100,000 ARS)
-4. **DNI**: Usar DNI de prueba (12345678) o DNIs válidos argentinos
+### Events to Subscribe
+- `preapproval` → created, updated, cancelled
+- `payment` → created, updated
 
-## 🧪 Testing Flow
+## 🧪 Testing Strategy
 
-### ⚠️ **IMPORTANTE: Usar browser limpio o cuenta de test**
+### Phase 1: Production Testing (Current)
+- ✅ Use real production credentials
+- ✅ Create low-price plan ($1 USD)  
+- ✅ Test with real credit card
+- ✅ Validate complete flow end-to-end
 
-**El problema común**: Si estás logueado en MercadoPago con tu cuenta personal, el sandbox no funcionará correctamente.
+### Phase 2: Sandbox Implementation (Future)
+- 🔄 Get proper sandbox credentials from MP dashboard
+- 🔄 Create test users (buyer/seller)
+- 🔄 Implement environment switching
 
-### ✅ **Solución - Opción 1: Browser Incógnito**
-1. **Abrir browser incógnito/privado**
-2. **No loguearse** en MercadoPago
-3. **Proceder como guest** en el checkout
-4. **Usar tarjeta de test** para pagar
+## 🔧 Configuration Notes
 
-### ✅ **Solución - Opción 2: Cuenta de Test**
-1. **Logout** de cuenta personal en MercadoPago
-2. **Login** con usuario de test: `TESTUSER1270116819274701081` / `gBSjW2Xpgu`
-3. **Proceder** con el flujo normal
+### Current Issues Resolved
+- ✅ Customer search API format fixed (qs parameter)
+- ✅ Customer cards API method fixed (list instead of search)
+- ✅ Preapproval status fixed (authorized for tokens)
+- ✅ Webhook signature validation implemented
 
-### 📋 **Pasos del Testing**
-1. Crear subscripción con API desde frontend
-2. Seguir redirect a MercadoPago (en browser limpio)
-3. Completar pago con tarjeta de prueba aprobada
-4. Verificar redirect de vuelta al frontend
-5. Verificar webhook de confirmación en logs
-6. Validar actualización de estado en BD
+### Production vs Test Environment
+- **Production**: Real cards, real payments, full validation
+- **Sandbox**: Test cards, simulated payments, but API inconsistencies
 
-## 🔗 Links Útiles
+### Card Token Flow
+1. Frontend creates token with card data
+2. Backend uses token in preapproval creation
+3. Status must be 'authorized' for direct token usage
+4. MercadoPago processes payment immediately
 
-- [MercadoPago Developers](https://www.mercadopago.com.ar/developers)
-- [Testing con Tarjetas](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/additional-content/test-cards)
-- [API Reference](https://www.mercadopago.com.ar/developers/es/reference)
+## 📱 Dashboard Configuration
+
+### MercadoPago Panel URLs
+- **Main Panel**: https://www.mercadopago.com.ar/developers/panel/app
+- **Webhooks**: Configure in application settings
+- **Test Users**: https://www.mercadopago.com.ar/developers/panel/test-users
+
+### Application Configuration
+- Application ID: 6905559224909465
+- Webhook URL configured ✅
+- Secret key generated ✅
+- Events subscribed ✅
+
+## 🚀 Deployment Checklist
+
+### Environment Variables (Render)
+```env
+# For Production Testing
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-6905559224909465-090406-2f088b3762d8fb2ab0553568c4670fe8-62226130
+MERCADOPAGO_PUBLIC_KEY=APP_USR-e7f907fb-c64a-4292-a619-b08ca641ef38
+MERCADOPAGO_SANDBOX=false
+MERCADOPAGO_WEBHOOK_SECRET=31f209310ddc7bd86e9922c4fc0898db48e1eddc23bfa9c4ce0c4bf1cc58fad8
+
+# Optional
+MERCADOPAGO_CLIENT_ID=6905559224909465
+MERCADOPAGO_CLIENT_SECRET=brizIOPC1Gs8M3g7Wd7egHlNh77MXQd9
+```
+
+### Switch to Sandbox (Future)
+```env
+# For Sandbox Testing
+MERCADOPAGO_ACCESS_TOKEN=TEST-[NEW-VALID-TOKEN]
+MERCADOPAGO_PUBLIC_KEY=TEST-[NEW-VALID-KEY]  
+MERCADOPAGO_SANDBOX=true
+```
+
+## 🎯 Next Steps
+
+1. **✅ Configure production credentials in Render**
+2. **🔄 Test complete flow with real card + low price**
+3. **🔄 Validate webhook processing**
+4. **📋 Create proper sandbox setup later**
 
 ---
 
-**Última actualización**: 2025-09-04
+**Last Updated**: 2025-09-10
+**Status**: Production credentials ready for testing
