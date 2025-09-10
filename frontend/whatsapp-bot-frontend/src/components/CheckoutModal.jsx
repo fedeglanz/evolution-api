@@ -187,46 +187,74 @@ const CheckoutModal = ({
 
       let response;
       if (isRegistration) {
-        // Durante el registro, usar el callback onSuccess directamente
-        // El onSuccess manejará la creación completa de cuenta + pago
-        console.log('🔄 Processing registration subscription...');
-        response = {
-          success: true,
-          data: {
-            subscription_id: 'pending_registration',
-            card_token_id: cardTokenId,
-            customer_data: customerData
-          }
-        };
+        // Durante el registro, usar servicios públicos de onboarding
+        console.log('🔄 Processing registration subscription with public endpoints...');
+        
+        if (paymentRegion.provider === 'mercadopago') {
+          // Para MercadoPago en registro, solo retornamos los datos para que el onSuccess maneje el resto
+          // El token ya fue creado en CardSelectionModal con endpoints públicos
+          response = {
+            success: true,
+            data: {
+              subscription_id: 'pending_registration',
+              card_token_id: cardTokenId,
+              customer_data: customerData,
+              provider: 'mercadopago',
+              region: paymentRegion.region
+            }
+          };
+        } else {
+          // Para Stripe en registro, también manejamos vía onSuccess
+          response = {
+            success: true,
+            data: {
+              subscription_id: 'pending_registration',
+              customer_data: customerData,
+              provider: 'stripe',
+              region: paymentRegion.region
+            }
+          };
+        }
       } else {
         // Flujo normal para usuarios autenticados
         response = await billingService.createSubscription(subscriptionData.planId, subscriptionData.customerData, subscriptionData.card_token_id);
       }
 
       if (response.success) {
-        if (paymentRegion.provider === 'mercadopago') {
-          // Si hay card_token_id, el pago debería procesarse directamente
-          // Si no hay card_token_id, redirigir a checkout
-          const checkoutUrl = response.data.sandbox_url || response.data.checkout_url;
-          
-          if (cardTokenId) {
-            // Pago con tarjeta tokenizada - puede procesar automáticamente
-            console.log('✅ Subscription created with tokenized card');
-            setStep('success');
+        if (isRegistration) {
+          // Durante el registro, siempre pasar al onSuccess sin redirecciones
+          console.log('✅ Registration data ready, passing to onSuccess');
+          setStep('success');
+          setTimeout(() => {
+            onSuccess(response.data);
+            onClose();
+          }, 2000);
+        } else {
+          // Flujo normal (usuarios autenticados) - usar redirecciones
+          if (paymentRegion.provider === 'mercadopago') {
+            // Si hay card_token_id, el pago debería procesarse directamente
+            // Si no hay card_token_id, redirigir a checkout
+            const checkoutUrl = response.data.sandbox_url || response.data.checkout_url;
+            
+            if (cardTokenId) {
+              // Pago con tarjeta tokenizada - puede procesar automáticamente
+              console.log('✅ Subscription created with tokenized card');
+              setStep('success');
+            } else {
+              // Pago sin tarjeta - redirigir a checkout
+              window.location.href = checkoutUrl;
+            }
           } else {
-            // Pago sin tarjeta - redirigir a checkout
+            // Stripe checkout
+            const checkoutUrl = response.data.checkout_url;
             window.location.href = checkoutUrl;
           }
-        } else {
-          // Stripe checkout
-          const checkoutUrl = response.data.checkout_url;
-          window.location.href = checkoutUrl;
+          
+          setTimeout(() => {
+            onSuccess(response.data);
+            onClose();
+          }, 2000);
         }
-        
-        setTimeout(() => {
-          onSuccess(response.data);
-          onClose();
-        }, 2000);
       }
     } catch (error) {
       console.error('Error creating subscription:', error);

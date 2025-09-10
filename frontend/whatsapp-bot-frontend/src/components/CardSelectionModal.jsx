@@ -72,7 +72,18 @@ export default function CardSelectionModal({
       console.log('✅ Customer result:', customerResponse.data);
 
       // Obtener tarjetas del customer
-      const cardsResponse = await mercadopagoService.getCustomerCards();
+      let cardsResponse;
+      if (isRegistration) {
+        // Durante registro, usuario nuevo no tiene tarjetas guardadas
+        console.log('📱 Registration mode: skipping cards load (new user)');
+        cardsResponse = {
+          success: true,
+          data: { cards: [], total: 0 }
+        };
+      } else {
+        // Usuario autenticado puede tener tarjetas guardadas
+        cardsResponse = await mercadopagoService.getCustomerCards();
+      }
       
       if (cardsResponse.success) {
         setCards(cardsResponse.data.cards || []);

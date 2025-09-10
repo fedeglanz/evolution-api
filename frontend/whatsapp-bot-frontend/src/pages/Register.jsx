@@ -103,6 +103,8 @@ const Register = () => {
   const handlePaymentSuccess = async (paymentData) => {
     setLoading(true);
     try {
+      console.log('🔄 Processing registration with payment data:', paymentData);
+      
       // Create company and user account after successful payment
       const userData = {
         companyName: formData.companyName,
@@ -114,7 +116,12 @@ const Register = () => {
         password: formData.password,
         country: formData.country,
         planId: selectedPlan.id,
-        paymentReference: paymentData.subscription_id || paymentData.payment_id
+        paymentReference: paymentData.subscription_id || paymentData.payment_id,
+        // Incluir datos de pago para crear la suscripción real
+        paymentProvider: paymentData.provider || 'stripe',
+        paymentRegion: paymentData.region || 'international',
+        cardTokenId: paymentData.card_token_id || null,
+        customerData: paymentData.customer_data || null
       };
 
       // Register user and company

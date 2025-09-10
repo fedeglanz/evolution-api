@@ -1,4 +1,39 @@
-import apiClient from './api';
+import axios from 'axios';
+
+// Cliente HTTP sin interceptores para endpoints públicos (sin auth)
+const publicApiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'https://whatsapp-bot-backend-fnte.onrender.com/api',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Log básico para debugging (sin interceptores que redirijan a login)
+publicApiClient.interceptors.request.use(
+  (config) => {
+    if (import.meta.env.DEV) {
+      console.log(`🌐 Public API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    }
+    return config;
+  }
+);
+
+publicApiClient.interceptors.response.use(
+  (response) => {
+    if (import.meta.env.DEV) {
+      console.log(`✅ Public API Response: ${response.status} ${response.config.url}`);
+    }
+    return response;
+  },
+  (error) => {
+    if (import.meta.env.DEV) {
+      console.error(`❌ Public API Error: ${error.response?.status || 'Network'} ${error.config?.url}`);
+    }
+    // NO redirigir a login en errores 401 (endpoints públicos)
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Servicio de pagos para el onboarding/registro
@@ -15,7 +50,7 @@ class OnboardingPaymentsService {
     try {
       console.log('🔄 Creating MP customer (onboarding):', customerData);
       
-      const response = await apiClient.post('/public/mercadopago/customer', customerData);
+      const response = await publicApiClient.post('/public/mercadopago/customer', customerData);
       
       console.log('✅ MP Customer response:', response.data);
       return response.data;
@@ -35,7 +70,7 @@ class OnboardingPaymentsService {
         card_number: '****' + (cardData.card_number || '').slice(-4) 
       });
       
-      const response = await apiClient.post('/public/mercadopago/card-token/new', cardData);
+      const response = await publicApiClient.post('/public/mercadopago/card-token/new', cardData);
       
       console.log('✅ MP Card token response:', response.data);
       return response.data;
@@ -54,7 +89,7 @@ class OnboardingPaymentsService {
     try {
       console.log('🔄 Creating Stripe customer (onboarding):', customerData);
       
-      const response = await apiClient.post('/public/stripe/customer', customerData);
+      const response = await publicApiClient.post('/public/stripe/customer', customerData);
       
       console.log('✅ Stripe Customer response:', response.data);
       return response.data;
@@ -71,7 +106,7 @@ class OnboardingPaymentsService {
     try {
       console.log('🔄 Creating Stripe payment method (onboarding):', { customerId, paymentMethodData });
       
-      const response = await apiClient.post('/public/stripe/payment-method', {
+      const response = await publicApiClient.post('/public/stripe/payment-method', {
         customer_id: customerId,
         payment_method_data: paymentMethodData
       });
