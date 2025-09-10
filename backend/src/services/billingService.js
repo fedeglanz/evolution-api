@@ -208,19 +208,24 @@ class BillingService {
       console.log('🔗 Init point:', subscription.init_point);
       console.log('💳 Using plan config:', plan.mercadopago_config);
 
-      // Guardar subscripción en BD
+      // Insertar nueva subscripción en BD
       const subscriptionQuery = `
-        UPDATE whatsapp_bot.subscriptions 
-        SET 
-          mercadopago_subscription_id = $2,
+        INSERT INTO whatsapp_bot.subscriptions 
+        (company_id, plan_id, mercadopago_subscription_id, status, external_reference, created_at, updated_at)
+        VALUES ($1, $2, $3, 'pending_payment', $4, NOW(), NOW())
+        ON CONFLICT (company_id, plan_id) 
+        DO UPDATE SET 
+          mercadopago_subscription_id = $3,
           status = 'pending_payment',
+          external_reference = $4,
           updated_at = NOW()
-        WHERE company_id = $1 AND status = 'active'
       `;
 
       const updateResult = await pool.query(subscriptionQuery, [
         companyId,
-        subscription.id
+        planId,
+        subscription.id,
+        externalReference
       ]);
       
       console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
