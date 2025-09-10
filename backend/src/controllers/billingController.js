@@ -267,9 +267,14 @@ class BillingController {
   async handleMercadoPagoWebhook(req, res) {
     try {
       console.log('📨 MercadoPago webhook received:', req.body);
-
+      console.log('🔐 Headers:', req.headers);
+      
       if (this.billingService) {
-        await this.billingService.handleMercadoPagoWebhook(req.body);
+        // Extraer signature del header para validación
+        const xSignature = req.headers['x-signature'];
+        const rawBody = JSON.stringify(req.body);
+        
+        await this.billingService.handleMercadoPagoWebhook(req.body, xSignature, rawBody);
       } else {
         throw new Error('Billing service not available');
       }

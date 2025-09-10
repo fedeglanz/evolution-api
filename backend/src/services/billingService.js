@@ -604,11 +604,48 @@ class BillingService {
   }
 
   /**
+   * Validar webhook de MercadoPago con clave secreta
+   */
+  validateMercadoPagoWebhook(xSignature, webhookBody) {
+    try {
+      if (!process.env.MERCADOPAGO_WEBHOOK_SECRET) {
+        console.log('⚠️ MERCADOPAGO_WEBHOOK_SECRET not configured, skipping validation');
+        return true;
+      }
+
+      const crypto = require('crypto');
+      const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+      
+      // MercadoPago envía la signature en el header 'x-signature'
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(webhookBody)
+        .digest('hex');
+      
+      const isValid = expectedSignature === xSignature;
+      console.log(`🔐 Webhook signature validation: ${isValid ? 'VALID' : 'INVALID'}`);
+      
+      return isValid;
+    } catch (error) {
+      console.error('❌ Error validating webhook signature:', error);
+      return false;
+    }
+  }
+
+  /**
    * Procesar webhook de MercadoPago
    */
-  async handleMercadoPagoWebhook(webhookData) {
+  async handleMercadoPagoWebhook(webhookData, xSignature = null, rawBody = null) {
     try {
       console.log('📨 Processing MercadoPago webhook v2.0:', JSON.stringify(webhookData, null, 2));
+      
+      // Validar autenticidad del webhook si tenemos la signature
+      if (xSignature && rawBody) {
+        const isValid = this.validateMercadoPagoWebhook(xSignature, rawBody);
+        if (!isValid) {
+          throw new Error('Invalid webhook signature - possible fraud attempt');
+        }
+      }
 
       // MercadoPago webhook structure: { type, action, data: { id } }
       const eventType = webhookData.type;
