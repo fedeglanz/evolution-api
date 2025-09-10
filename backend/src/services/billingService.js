@@ -211,21 +211,19 @@ class BillingService {
       // Insertar nueva subscripción en BD
       const subscriptionQuery = `
         INSERT INTO whatsapp_bot.subscriptions 
-        (company_id, plan_id, mercadopago_subscription_id, status, external_reference, created_at, updated_at)
-        VALUES ($1, $2, $3, 'pending_payment', $4, NOW(), NOW())
+        (company_id, plan_id, mercadopago_subscription_id, status, created_at, updated_at)
+        VALUES ($1, $2, $3, 'pending_payment', NOW(), NOW())
         ON CONFLICT (company_id, plan_id) 
         DO UPDATE SET 
           mercadopago_subscription_id = $3,
           status = 'pending_payment',
-          external_reference = $4,
           updated_at = NOW()
       `;
 
       const updateResult = await pool.query(subscriptionQuery, [
         companyId,
         planId,
-        subscription.id,
-        externalReference
+        subscription.id
       ]);
       
       console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
