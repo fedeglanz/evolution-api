@@ -229,6 +229,22 @@ class BillingService {
       
       console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
 
+      // Si se usó un card_token_id y tenemos payer_id, guardar la tarjeta
+      if (cardTokenId && subscription.payer_id) {
+        try {
+          console.log(`💳 Saving card for customer: ${subscription.payer_id}`);
+          const mercadopagoCardService = require('./mercadopagoCardService');
+          const saveResult = await mercadopagoCardService.saveCardToCustomer(
+            subscription.payer_id.toString(),
+            cardTokenId
+          );
+          console.log(`✅ Card saved successfully:`, saveResult);
+        } catch (cardError) {
+          // No fallar la suscripción si el guardado de tarjeta falla
+          console.error(`⚠️ Failed to save card (non-critical):`, cardError.message);
+        }
+      }
+
       return {
         success: true,
         subscription_id: subscription.id,
@@ -786,6 +802,18 @@ class BillingService {
       if (subscription.status === 'authorized' && (action === 'updated' || action === 'created')) {
         console.log(`💰 Recording MercadoPago payment for subscription: ${subscriptionId}`);
         await this.recordMercadoPagoPayment(subscriptionId, subscription);
+        
+        // También guardar la tarjeta si es nueva suscripción
+        if (action === 'created' && subscription.card_id && subscription.payer_id) {
+          try {
+            console.log(`💳 Saving card from webhook for customer: ${subscription.payer_id}`);
+            const mercadopagoCardService = require('./mercadopagoCardService');
+            // Note: card_id ya existe, no necesitamos token
+            console.log(`✅ Card ${subscription.card_id} already associated with customer ${subscription.payer_id}`);
+          } catch (cardError) {
+            console.error(`⚠️ Failed to process card save:`, cardError.message);
+          }
+        }
       }
 
     } catch (error) {
