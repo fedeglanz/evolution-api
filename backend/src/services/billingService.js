@@ -732,6 +732,7 @@ class BillingService {
       
       console.log(`📋 Subscription status: ${subscription.status}`);
       console.log(`📋 External reference: ${subscription.external_reference}`);
+      console.log(`📋 Subscription ID type: ${typeof subscriptionId}, value: ${subscriptionId}`);
 
       // Mapear estado de MercadoPago a nuestro sistema
       let dbStatus;
@@ -752,6 +753,8 @@ class BillingService {
           dbStatus = 'expired';
       }
 
+      console.log(`📋 Mapped dbStatus: ${dbStatus} (type: ${typeof dbStatus})`);
+
       // Actualizar estado en BD
       const updateQuery = `
         UPDATE whatsapp_bot.subscriptions 
@@ -769,7 +772,8 @@ class BillingService {
         WHERE mercadopago_subscription_id = $1
       `;
 
-      const updateResult = await pool.query(updateQuery, [subscriptionId, dbStatus]);
+      // Cast explícito para evitar problemas de tipos en PostgreSQL
+      const updateResult = await pool.query(updateQuery, [subscriptionId.toString(), dbStatus.toString()]);
       console.log(`✅ Updated ${updateResult.rowCount} subscriptions to status: ${dbStatus}`);
 
       // Si es autorizada, registrar la transacción inicial
