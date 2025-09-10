@@ -18,19 +18,49 @@ export const authService = {
 
   // Registro
   async register(userData) {
-    const response = await apiClient.post('/auth/register', userData);
+    // Mapear campos del frontend a lo que espera el backend
+    const mappedData = {
+      email: userData.email,
+      password: userData.password,
+      full_name: `${userData.firstName} ${userData.lastName}`.trim(),
+      company_name: userData.companyName,
+      phone: userData.phone
+    };
+    
+    const response = await apiClient.post('/auth/register', mappedData);
     
     const { token, user, company } = response.data.data;
     
     // Guardar token en localStorage
     localStorage.setItem('auth-token', token);
     
-    return { token, user, company };
+    return { 
+      success: true,
+      token, 
+      user, 
+      company 
+    };
   },
 
   // Registro con plan (onboarding)
   async registerWithPlan(userData) {
-    const response = await apiClient.post('/auth/register-with-plan', userData);
+    // Mapear campos del frontend a lo que espera el backend
+    const mappedData = {
+      email: userData.email,
+      password: userData.password,
+      full_name: `${userData.firstName} ${userData.lastName}`.trim(),
+      company_name: userData.companyName,
+      phone: userData.phone,
+      // Datos adicionales del plan y pago
+      planId: userData.planId,
+      paymentReference: userData.paymentReference,
+      paymentProvider: userData.paymentProvider,
+      paymentRegion: userData.paymentRegion,
+      cardTokenId: userData.cardTokenId,
+      customerData: userData.customerData
+    };
+    
+    const response = await apiClient.post('/auth/register-with-plan', mappedData);
     
     if (response.data.success) {
       const { token, user, company } = response.data.data;

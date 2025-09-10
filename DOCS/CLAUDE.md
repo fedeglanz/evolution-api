@@ -5,10 +5,12 @@
 ### 🔄 Workflow de Trabajo
 1. **Siempre leer este archivo completo** al iniciar una sesión
 2. **Backend pushes:** Solo hacer push cuando esté listo, avisar al usuario y esperar confirmación de deploy en Render
-3. **Frontend:** No hacer push, todo es desarrollo local en `http://localhost:5173`
+3. **Frontend:** Ahora también hacer push - se prueba en `https://whatsapp-bot-frontend-i9g0.onrender.com` además de local
 4. **Documentación:** Agregar progreso al final en "Session History" cuando se termine cada sesión
 5. **Base de datos:** Usar schema `whatsapp_bot` NUNCA `public`
-6. **URLs:** `https://whatsapp-bot-backend-fnte.onrender.com` para backend en producción
+6. **URLs:** 
+   - Backend: `https://whatsapp-bot-backend-fnte.onrender.com`
+   - Frontend: `https://whatsapp-bot-frontend-i9g0.onrender.com`
 
 ### 🚨 Errores Comunes a Evitar
 - ❌ Usar schema `public` en lugar de `whatsapp_bot`
@@ -33,7 +35,8 @@
 
 ### Frontend
 - Local development: `http://localhost:5173`
-- No se pushea por ahora (todo local)
+- Producción: `https://whatsapp-bot-frontend-i9g0.onrender.com`
+- Ahora SÍ se pushea para testing en producción
 
 ## Current Project Status
 

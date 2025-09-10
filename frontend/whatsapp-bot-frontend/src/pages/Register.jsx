@@ -64,8 +64,16 @@ const Register = () => {
       return false;
     }
     
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    // Validar requisitos de contraseña según backend
+    if (password.length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres');
+      return false;
+    }
+    
+    // Validar pattern de contraseña: 1 minúscula, 1 mayúscula, 1 número, 1 carácter especial
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+    if (!passwordRegex.test(password)) {
+      setError('La contraseña debe contener al menos: 1 letra minúscula, 1 letra mayúscula, 1 número y 1 carácter especial (@$!%*?&)');
       return false;
     }
     
@@ -78,6 +86,14 @@ const Register = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError('Por favor ingresa un email válido');
+      return false;
+    }
+    
+    // Validate phone format
+    const phoneRegex = /^\+?[1-9]\d{8,14}$/;
+    const cleanPhone = phone.replace(/\s/g, '');
+    if (!phoneRegex.test(cleanPhone)) {
+      setError('Por favor ingresa un número de teléfono válido');
       return false;
     }
     
@@ -124,8 +140,8 @@ const Register = () => {
         customerData: paymentData.customer_data || null
       };
 
-      // Register user and company
-      const response = await authService.register(userData);
+      // Register user and company with plan
+      const response = await authService.registerWithPlan(userData);
       
       if (response.success) {
         // Auto-login after successful registration
@@ -294,15 +310,20 @@ const Register = () => {
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Contraseña</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                      label="Contraseña *"
-                      name="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="Mínimo 6 caracteres"
-                      required
-                    />
+                    <div>
+                      <Input
+                        label="Contraseña *"
+                        name="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        placeholder="Mínimo 8 caracteres"
+                        required
+                      />
+                      <div className="mt-1 text-xs text-gray-500">
+                        Debe contener: mayúscula, minúscula, número y carácter especial (@$!%*?&)
+                      </div>
+                    </div>
                     <Input
                       label="Confirmar contraseña *"
                       name="confirmPassword"
