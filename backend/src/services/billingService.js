@@ -163,6 +163,33 @@ class BillingService {
       const usdToArs = mpConfig.usd_to_ars_rate || 1000;
       const priceInARS = Math.round(plan.price_usd * usdToArs);
 
+      // Si tenemos card_token_id, primero crear/obtener customer y guardar la tarjeta
+      let customerId = null;
+      if (cardTokenId) {
+        try {
+          console.log('💳 Processing card token - getting/creating customer first...');
+          
+          // Crear o obtener customer
+          const mercadopagoCardService = require('./mercadopagoCardService');
+          const customerResult = await mercadopagoCardService.createOrGetCustomer(customerData);
+          customerId = customerResult.customer_id;
+          
+          console.log(`👤 Customer ID: ${customerId}`);
+          
+          // Guardar tarjeta ANTES de crear suscripción
+          console.log(`💾 Saving card to customer ${customerId} using token ${cardTokenId}`);
+          const saveResult = await mercadopagoCardService.saveCardToCustomer(
+            customerId.toString(),
+            cardTokenId
+          );
+          console.log(`✅ Card saved before subscription:`, saveResult);
+          
+        } catch (cardError) {
+          console.error(`⚠️ Failed to save card before subscription:`, cardError.message);
+          // Continuar sin customer ID - usará el flujo normal
+        }
+      }
+
       // Crear subscripción usando configuración del plan (sin preapproval_plan_id)
       // Esto fuerza el flujo de checkout para tokenización
       const autoRecurringBase = {
@@ -192,6 +219,8 @@ class BillingService {
         ...(mpConfig.payment_methods_allowed && { payment_methods_allowed: mpConfig.payment_methods_allowed }),
         // Configurar card_token_id si está disponible (flujo directo)
         ...(cardTokenId && { card_token_id: cardTokenId }),
+        // Si obtuvimos customer ID, agregarlo también
+        ...(customerId && { payer_id: customerId }),
         back_url: `${process.env.FRONTEND_URL}/billing?status=success&provider=mercadopago`,
         // Para tokenized cards, usar status authorized en lugar de pending
         status: cardTokenId ? 'authorized' : 'pending'
@@ -248,21 +277,7 @@ class BillingService {
       
       console.log('📊 BD update result:', updateResult.rowCount, 'rows affected');
 
-      // Si se usó un card_token_id y tenemos payer_id, guardar la tarjeta
-      if (cardTokenId && subscription.payer_id) {
-        try {
-          console.log(`💳 Saving card for customer: ${subscription.payer_id}`);
-          const mercadopagoCardService = require('./mercadopagoCardService');
-          const saveResult = await mercadopagoCardService.saveCardToCustomer(
-            subscription.payer_id.toString(),
-            cardTokenId
-          );
-          console.log(`✅ Card saved successfully:`, saveResult);
-        } catch (cardError) {
-          // No fallar la suscripción si el guardado de tarjeta falla
-          console.error(`⚠️ Failed to save card (non-critical):`, cardError.message);
-        }
-      }
+      // Nota: La tarjeta ya se guardó antes de crear la suscripción si se proporcionó cardTokenId
 
       return {
         success: true,
