@@ -756,24 +756,26 @@ class BillingService {
       console.log(`📋 Mapped dbStatus: ${dbStatus} (type: ${typeof dbStatus})`);
 
       // Actualizar estado en BD
+      // Usar variables separadas para evitar problemas de tipos en PostgreSQL
+      const isActive = dbStatus === 'active';
       const updateQuery = `
         UPDATE whatsapp_bot.subscriptions 
         SET 
           status = $2,
           current_period_start = CASE 
-            WHEN $2 = 'active' AND current_period_start IS NULL THEN NOW() 
+            WHEN $3 = true AND current_period_start IS NULL THEN NOW() 
             ELSE current_period_start 
           END,
           current_period_end = CASE 
-            WHEN $2 = 'active' AND current_period_end IS NULL THEN NOW() + INTERVAL '1 month'
+            WHEN $3 = true AND current_period_end IS NULL THEN NOW() + INTERVAL '1 month'
             ELSE current_period_end 
           END,
           updated_at = NOW()
         WHERE mercadopago_subscription_id = $1
       `;
 
-      // Cast explícito para evitar problemas de tipos en PostgreSQL
-      const updateResult = await pool.query(updateQuery, [subscriptionId.toString(), dbStatus.toString()]);
+      // Pasar parámetros con tipos explícitos
+      const updateResult = await pool.query(updateQuery, [subscriptionId.toString(), dbStatus, isActive]);
       console.log(`✅ Updated ${updateResult.rowCount} subscriptions to status: ${dbStatus}`);
 
       // Si es autorizada, registrar la transacción inicial
