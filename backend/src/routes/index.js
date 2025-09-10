@@ -21,6 +21,8 @@ const massMessagingRoutes = require('./massMessaging');
 const platformAdminRoutes = require('./platformAdmin');
 const billingRoutes = require('./billing');
 const mercadopagoCardRoutes = require('./mercadopagoCards');
+const publicMercadopagoRoutes = require('./publicMercadopago');
+const publicStripeRoutes = require('./publicStripe');
 
 // Middleware de autenticación
 const { authenticateToken } = require('../middleware/auth');
@@ -279,5 +281,7 @@ router.use('/mass-messaging', massMessagingRoutes); // Mass messaging system
 router.use('/platform-admin', platformAdminRoutes); // Platform admin routes (Super Admin)
 router.use('/billing', billingRoutes); // Billing and payment system
 router.use('/mercadopago', mercadopagoCardRoutes); // MercadoPago card tokenization
+router.use('/public/mercadopago', publicMercadopagoRoutes); // Public MercadoPago for onboarding
+router.use('/public/stripe', publicStripeRoutes); // Public Stripe for onboarding
 
 module.exports = router;

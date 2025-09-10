@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { X, CreditCard, User, Mail, Phone, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 import billingService from '../services/billing';
+import { onboardingPayments } from '../services/onboardingPayments';
 import CardSelectionModal from './CardSelectionModal';
 
-const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
+const CheckoutModal = ({ 
+  plan, 
+  isOpen, 
+  onClose, 
+  onSuccess, 
+  customerData = null, // Para pre-llenar en onboarding
+  isRegistration = false // Nuevo prop para indicar si es registro
+}) => {
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -27,6 +35,22 @@ const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
       detectRegion();
     }
   }, [isOpen, plan]);
+
+  // Pre-llenar formulario con customerData (para onboarding)
+  useEffect(() => {
+    if (customerData && isRegistration) {
+      setFormData(prev => ({
+        ...prev,
+        first_name: customerData.first_name || '',
+        last_name: customerData.last_name || '',
+        email: customerData.email || '',
+        phone_number: customerData.phone_number || '',
+        id_type: customerData.identification?.type || 'DNI',
+        id_number: customerData.identification?.number || '',
+        company_name: customerData.company_name || ''
+      }));
+    }
+  }, [customerData, isRegistration]);
 
   const detectRegion = () => {
     // Simple detection based on browser/user preferences
@@ -161,7 +185,23 @@ const CheckoutModal = ({ plan, isOpen, onClose, onSuccess }) => {
 
       console.log('🔄 Creating subscription with data:', subscriptionData);
 
-      const response = await billingService.createSubscription(subscriptionData.planId, subscriptionData.customerData, subscriptionData.card_token_id);
+      let response;
+      if (isRegistration) {
+        // Durante el registro, usar el callback onSuccess directamente
+        // El onSuccess manejará la creación completa de cuenta + pago
+        console.log('🔄 Processing registration subscription...');
+        response = {
+          success: true,
+          data: {
+            subscription_id: 'pending_registration',
+            card_token_id: cardTokenId,
+            customer_data: customerData
+          }
+        };
+      } else {
+        // Flujo normal para usuarios autenticados
+        response = await billingService.createSubscription(subscriptionData.planId, subscriptionData.customerData, subscriptionData.card_token_id);
+      }
 
       if (response.success) {
         if (paymentRegion.provider === 'mercadopago') {
