@@ -437,7 +437,7 @@ const Register = () => {
             onClose={() => setShowCheckoutModal(false)}
             plan={selectedPlan}
             customerData={getCustomerData()}
-            onPaymentSuccess={handlePaymentSuccess}
+            onSuccess={handlePaymentSuccess}
             isRegistration={true}
           />
         )}

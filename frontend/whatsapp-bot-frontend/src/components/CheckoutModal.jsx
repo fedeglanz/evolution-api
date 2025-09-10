@@ -499,6 +499,7 @@ const CheckoutModal = ({
           } : undefined
         }}
         plan={plan}
+        isRegistration={isRegistration}
       />
     </div>
   );

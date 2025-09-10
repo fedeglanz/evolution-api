@@ -10,13 +10,15 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import { mercadopagoService } from '../services/mercadopago';
+import { onboardingPayments } from '../services/onboardingPayments';
 
 export default function CardSelectionModal({ 
   isOpen, 
   onClose, 
   onCardSelected, 
   customerData,
-  plan 
+  plan,
+  isRegistration = false // Nuevo prop para indicar si es registro
 }) {
   const [loading, setLoading] = useState(false);
   const [cards, setCards] = useState([]);
@@ -53,7 +55,15 @@ export default function CardSelectionModal({
     try {
       // Crear o obtener customer
       console.log('📋 Creating/getting customer with data:', customerData);
-      const customerResponse = await mercadopagoService.createOrGetCustomer(customerData);
+      let customerResponse;
+      
+      if (isRegistration) {
+        // Usar endpoint público para onboarding
+        customerResponse = await onboardingPayments.createMercadoPagoCustomer(customerData);
+      } else {
+        // Usar endpoint autenticado para usuarios logueados
+        customerResponse = await mercadopagoService.createOrGetCustomer(customerData);
+      }
       
       if (!customerResponse.success) {
         throw new Error(customerResponse.message);
@@ -136,7 +146,14 @@ export default function CardSelectionModal({
 
       console.log('🆕 Creating card token for new card');
       
-      const tokenResponse = await mercadopagoService.createCardTokenFromForm(newCard);
+      let tokenResponse;
+      if (isRegistration) {
+        // Usar endpoint público para onboarding
+        tokenResponse = await onboardingPayments.createMercadoPagoCardToken(newCard);
+      } else {
+        // Usar endpoint autenticado para usuarios logueados
+        tokenResponse = await mercadopagoService.createCardTokenFromForm(newCard);
+      }
       
       if (!tokenResponse.success) {
         throw new Error(tokenResponse.message);
