@@ -44,4 +44,8 @@ class BillingService {
   }
 }
 
+// Export singleton instance
+export const billingService = new BillingService();
+
+// Also export class for flexibility
 export default new BillingService();
