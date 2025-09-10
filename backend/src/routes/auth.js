@@ -14,6 +14,7 @@ const {
 
 // Public routes (no authentication required)
 router.post('/register', validateRegister, authController.register);
+router.post('/register-with-plan', authController.registerWithPlan);
 router.post('/login', validateLogin, authController.login);
 router.post('/forgot-password', validateForgotPassword, authController.forgotPassword);
 router.post('/reset-password', validateResetPassword, authController.resetPassword);

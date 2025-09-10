@@ -333,8 +333,149 @@ const changePassword = asyncHandler(async (req, res) => {
   });
 });
 
+// Register with plan and payment (for onboarding)
+const registerWithPlan = asyncHandler(async (req, res) => {
+  const { 
+    companyName, 
+    companyDescription, 
+    firstName, 
+    lastName, 
+    email, 
+    phone, 
+    password, 
+    country, 
+    planId, 
+    paymentReference 
+  } = req.body;
+
+  // Validate required fields
+  if (!companyName || !firstName || !lastName || !email || !password || !planId) {
+    throw new AppError('Todos los campos obligatorios deben estar completos', 400, 'MISSING_FIELDS');
+  }
+
+  // Check if user already exists
+  const { pool } = require('../database');
+  const existingUser = await pool.query('SELECT id FROM whatsapp_bot.users WHERE email = $1', [email]);
+  if (existingUser.rows.length > 0) {
+    throw new AppError('El email ya está registrado', 400, 'EMAIL_ALREADY_EXISTS');
+  }
+
+  // Check if company name is already taken
+  const existingCompany = await pool.query('SELECT id FROM whatsapp_bot.companies WHERE name = $1', [companyName]);
+  if (existingCompany.rows.length > 0) {
+    throw new AppError('El nombre de la empresa ya está en uso', 400, 'COMPANY_NAME_EXISTS');
+  }
+
+  // Get plan details
+  const planQuery = await pool.query('SELECT * FROM whatsapp_bot.plans WHERE id = $1', [planId]);
+  if (planQuery.rows.length === 0) {
+    throw new AppError('Plan no encontrado', 400, 'PLAN_NOT_FOUND');
+  }
+  const plan = planQuery.rows[0];
+
+  // Start transaction
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+
+    // Create company
+    const companyId = uuidv4();
+    const companyResult = await client.query(
+      `INSERT INTO whatsapp_bot.companies (id, name, description, email, phone, country, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+      [companyId, companyName, companyDescription || '', email, phone, country || 'Argentina']
+    );
+
+    // Hash password
+    const hashedPassword = await hashPassword(password);
+
+    // Create admin user
+    const userId = uuidv4();
+    const userResult = await client.query(
+      `INSERT INTO whatsapp_bot.users (id, company_id, email, password_hash, first_name, last_name, phone, role, created_at, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'admin', NOW(), NOW()) RETURNING id, company_id, email, first_name, last_name, role, created_at`,
+      [userId, companyId, email, hashedPassword, firstName, lastName, phone]
+    );
+
+    // Create subscription record (should already exist from payment, but ensure it's linked)
+    let subscriptionResult = await pool.query(
+      'SELECT * FROM whatsapp_bot.subscriptions WHERE company_id = $1',
+      [companyId]
+    );
+
+    if (subscriptionResult.rows.length === 0) {
+      // Create subscription if it doesn't exist
+      await client.query(
+        `INSERT INTO whatsapp_bot.subscriptions (company_id, plan_id, status, created_at, updated_at)
+         VALUES ($1, $2, 'active', NOW(), NOW())`,
+        [companyId, planId]
+      );
+    } else {
+      // Update existing subscription to link to this company
+      await client.query(
+        `UPDATE whatsapp_bot.subscriptions 
+         SET company_id = $1, plan_id = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [companyId, planId, subscriptionResult.rows[0].id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Generate JWT token
+    const token = generateToken({
+      userId: userResult.rows[0].id,
+      companyId: companyId,
+      email: email,
+      role: 'admin'
+    });
+
+    const refreshToken = generateToken(
+      { userId: userResult.rows[0].id, companyId: companyId, type: 'refresh' }
+    );
+
+    console.log(`✅ New company registered: ${companyName} (${companyId}) with plan ${plan.name}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Registro completado exitosamente',
+      data: {
+        token,
+        refreshToken,
+        user: {
+          id: userResult.rows[0].id,
+          email: userResult.rows[0].email,
+          firstName: userResult.rows[0].first_name,
+          lastName: userResult.rows[0].last_name,
+          role: userResult.rows[0].role,
+          companyId: companyId
+        },
+        company: {
+          id: companyId,
+          name: companyName,
+          email: email
+        },
+        plan: {
+          id: plan.id,
+          name: plan.name,
+          price: plan.price_usd
+        }
+      }
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Registration error:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = {
   register,
+  registerWithPlan,
   login,
   me,
   logout,
