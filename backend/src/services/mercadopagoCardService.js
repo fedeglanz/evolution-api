@@ -222,6 +222,132 @@ class MercadoPagoCardService {
   }
 
   /**
+   * Crear customer MercadoPago para onboarding (sin companyId)
+   */
+  async createCustomerForOnboarding(customerData) {
+    try {
+      console.log(`🔍 Creating MercadoPago customer for onboarding`);
+      
+      if (!this.mercadopago) {
+        throw new Error('MercadoPago no está configurado');
+      }
+
+      // Buscar customer existente por email antes de crear
+      try {
+        console.log(`🔍 Searching for existing customer with email: ${customerData.email}`);
+        
+        const searchResponse = await this.mercadopago.customer.search({
+          qs: {
+            email: customerData.email
+          }
+        });
+
+        console.log(`📝 Search response:`, JSON.stringify(searchResponse, null, 2));
+
+        // Buscar el customer específico por email en los resultados
+        if (searchResponse && searchResponse.results && searchResponse.results.length > 0) {
+          const existingCustomer = searchResponse.results.find(customer => 
+            customer.email === customerData.email
+          );
+          
+          if (existingCustomer) {
+            console.log(`✅ Existing customer found by email: ${existingCustomer.id}`);
+            
+            return {
+              customer_id: existingCustomer.id,
+              customer_data: existingCustomer,
+              action: 'found_by_email'
+            };
+          }
+        }
+        
+        console.log(`📋 No existing customers found for email: ${customerData.email}`);
+      } catch (searchError) {
+        console.log(`⚠️ Error searching customer by email:`, JSON.stringify(searchError, null, 2));
+        // Continue to create new customer
+      }
+
+      // Crear nuevo customer en MercadoPago
+      const customerPayload = {
+        email: customerData.email,
+        first_name: customerData.first_name,
+        last_name: customerData.last_name,
+        phone: {
+          area_code: customerData.phone_area_code || '',
+          number: customerData.phone_number?.replace(/[^\d]/g, '') || ''
+        },
+        identification: customerData.identification ? {
+          type: customerData.identification.type,
+          number: customerData.identification.number
+        } : undefined,
+        description: `Onboarding customer - ${customerData.email}`,
+        metadata: {
+          source: 'onboarding'
+        }
+      };
+
+      console.log('📋 Creating customer for onboarding with data:', JSON.stringify(customerPayload, null, 2));
+      
+      try {
+        const customer = await this.mercadopago.customer.create({
+          body: customerPayload
+        });
+
+        console.log(`✅ Customer created for onboarding: ${customer.id}`);
+
+        return {
+          customer_id: customer.id,
+          customer_data: customer,
+          action: 'created'
+        };
+      } catch (createError) {
+        // Si el error es "customer already exist", buscar por email una vez más
+        if (createError.cause && createError.cause.some(c => c.code === '101')) {
+          console.log(`⚠️ Customer already exists, searching by email as fallback...`);
+          
+          try {
+            const fallbackSearchResponse = await this.mercadopago.customer.search({
+              qs: {
+                email: customerData.email
+              }
+            });
+
+            console.log(`📝 Fallback search response:`, JSON.stringify(fallbackSearchResponse, null, 2));
+
+            // Buscar el customer específico por email en los resultados del fallback
+            if (fallbackSearchResponse && fallbackSearchResponse.results && fallbackSearchResponse.results.length > 0) {
+              const existingCustomer = fallbackSearchResponse.results.find(customer => 
+                customer.email === customerData.email
+              );
+              
+              if (existingCustomer) {
+                console.log(`✅ Customer found in fallback: ${existingCustomer.id}`);
+                
+                return {
+                  customer_id: existingCustomer.id,
+                  customer_data: existingCustomer,
+                  action: 'found_after_create_failed'
+                };
+              }
+            }
+            
+            console.log(`📋 No customers found in fallback search for email: ${customerData.email}`);
+          } catch (fallbackError) {
+            console.log(`❌ Error in fallback search:`, JSON.stringify(fallbackError, null, 2));
+          }
+        }
+        
+        // Re-throw el error original si no pudimos resolverlo
+        throw createError;
+      }
+
+    } catch (error) {
+      console.error('❌ Error creating customer for onboarding:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Obtener tarjetas guardadas de un customer
    */
   async getCustomerCards(customerId) {

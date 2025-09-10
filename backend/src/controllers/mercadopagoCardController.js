@@ -8,11 +8,12 @@ class MercadoPagoCardController {
     this.createCardTokenFromForm = this.createCardTokenFromForm.bind(this);
     this.deleteCard = this.deleteCard.bind(this);
     this.getOrCreateCustomer = this.getOrCreateCustomer.bind(this);
+    this.getOrCreateCustomerPublic = this.getOrCreateCustomerPublic.bind(this);
   }
 
   /**
    * GET /api/mercadopago/customer
-   * Crear o obtener customer MercadoPago
+   * Crear o obtener customer MercadoPago (autenticado)
    */
   async getOrCreateCustomer(req, res) {
     try {
@@ -42,6 +43,43 @@ class MercadoPagoCardController {
       res.status(500).json({
         success: false,
         message: 'Error creando customer',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * POST /api/public/mercadopago/customer
+   * Crear customer MercadoPago para onboarding (sin autenticación)
+   */
+  async getOrCreateCustomerPublic(req, res) {
+    try {
+      const customerData = req.body;
+
+      console.log(`💳 Creating MP customer for onboarding (public)`);
+
+      // Validar datos requeridos
+      if (!customerData?.email) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email es requerido'
+        });
+      }
+
+      // Para onboarding, crear customer sin associar a compañía todavía
+      const result = await mercadopagoCardService.createCustomerForOnboarding(customerData);
+
+      res.json({
+        success: true,
+        data: result,
+        message: 'Customer creado exitosamente para onboarding'
+      });
+
+    } catch (error) {
+      console.error('❌ Error creating customer for onboarding:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Error creando customer para onboarding',
         error: error.message
       });
     }
@@ -249,6 +287,7 @@ const cardControllerInstance = new MercadoPagoCardController();
 
 module.exports = {
   getOrCreateCustomer: cardControllerInstance.getOrCreateCustomer,
+  getOrCreateCustomerPublic: cardControllerInstance.getOrCreateCustomerPublic,
   getCustomerCards: cardControllerInstance.getCustomerCards,
   createCardToken: cardControllerInstance.createCardToken,
   createCardTokenFromForm: cardControllerInstance.createCardTokenFromForm,

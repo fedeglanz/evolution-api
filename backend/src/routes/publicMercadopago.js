@@ -14,7 +14,7 @@ const cardController = require('../controllers/mercadopagoCardController');
  * @access Public
  * @body { email, first_name, last_name, phone_number, identification }
  */
-router.post('/customer', cardController.getOrCreateCustomer);
+router.post('/customer', cardController.getOrCreateCustomerPublic);
 
 /**
  * @route POST /api/public/mercadopago/card-token/new
