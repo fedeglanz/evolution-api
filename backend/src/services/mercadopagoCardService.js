@@ -232,9 +232,11 @@ class MercadoPagoCardService {
         throw new Error('MercadoPago no está configurado');
       }
 
-      const response = await this.mercadopago.customerCard.search({
-        customer_id: customerId
+      const response = await this.mercadopago.customerCard.list({
+        customerId: customerId
       });
+
+      console.log(`📝 Cards response:`, JSON.stringify(response, null, 2));
 
       const cards = response.data || [];
       
