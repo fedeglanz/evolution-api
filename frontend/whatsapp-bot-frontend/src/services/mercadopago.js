@@ -1,4 +1,4 @@
-import axiosConfig from '../config/axios';
+import api from './api';
 
 class MercadoPagoService {
   constructor() {
@@ -12,7 +12,7 @@ class MercadoPagoService {
     try {
       console.log('🔄 Creating/getting MP customer:', customerData);
       
-      const response = await axiosConfig.post(`${this.baseUrl}/customer`, customerData);
+      const response = await api.post(`${this.baseUrl}/customer`, customerData);
       
       console.log('✅ Customer response:', response.data);
       return response.data;
@@ -29,7 +29,7 @@ class MercadoPagoService {
     try {
       console.log('🔄 Getting customer cards');
       
-      const response = await axiosConfig.get(`${this.baseUrl}/cards`);
+      const response = await api.get(`${this.baseUrl}/cards`);
       
       console.log('✅ Cards response:', response.data);
       return response.data;
@@ -46,7 +46,7 @@ class MercadoPagoService {
     try {
       console.log('🔄 Creating card token for card:', cardId);
       
-      const response = await axiosConfig.post(`${this.baseUrl}/card-token`, {
+      const response = await api.post(`${this.baseUrl}/card-token`, {
         card_id: cardId,
         security_code: securityCode
       });
@@ -66,7 +66,7 @@ class MercadoPagoService {
     try {
       console.log('🔄 Creating card token from form');
       
-      const response = await axiosConfig.post(`${this.baseUrl}/card-token/new`, cardData);
+      const response = await api.post(`${this.baseUrl}/card-token/new`, cardData);
       
       console.log('✅ New card token response:', response.data);
       return response.data;
@@ -83,7 +83,7 @@ class MercadoPagoService {
     try {
       console.log('🔄 Deleting card:', cardId);
       
-      const response = await axiosConfig.delete(`${this.baseUrl}/cards/${cardId}`);
+      const response = await api.delete(`${this.baseUrl}/cards/${cardId}`);
       
       console.log('✅ Delete card response:', response.data);
       return response.data;
