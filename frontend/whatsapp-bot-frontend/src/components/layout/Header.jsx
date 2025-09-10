@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { Link } from 'react-router-dom';
 import { Menu, Transition } from '@headlessui/react';
 import { 
   Menu as MenuIcon, 
@@ -82,8 +83,8 @@ const Header = ({ setSidebarOpen }) => {
                 
                 <Menu.Item>
                   {({ active }) => (
-                    <a
-                      href="#"
+                    <Link
+                      to="/profile"
                       className={clsx(
                         active ? 'bg-gray-50' : '',
                         'flex items-center px-3 py-2 text-sm text-gray-700'
@@ -91,7 +92,7 @@ const Header = ({ setSidebarOpen }) => {
                     >
                       <User className="mr-3 h-4 w-4" />
                       Mi Perfil
-                    </a>
+                    </Link>
                   )}
                 </Menu.Item>
                 

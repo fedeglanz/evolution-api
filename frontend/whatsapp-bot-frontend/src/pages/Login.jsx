@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -258,16 +258,17 @@ const Login = () => {
                 </div>
 
                 <div className="mt-6">
-                  <Button
-                    type="button"
-                    variant="glass"
-                    size="lg"
-                    className="w-full"
-                    onClick={() => toast.info('Contacta al administrador para crear una cuenta empresarial')}
-                  >
-                    Solicitar Acceso Empresarial
-                    <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </Button>
+                  <Link to="/register">
+                    <Button
+                      type="button"
+                      variant="glass"
+                      size="lg"
+                      className="w-full"
+                    >
+                      Crear Cuenta Empresarial
+                      <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>

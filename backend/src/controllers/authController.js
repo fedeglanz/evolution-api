@@ -473,6 +473,86 @@ const registerWithPlan = asyncHandler(async (req, res) => {
   }
 });
 
+// Update user profile
+const updateProfile = asyncHandler(async (req, res) => {
+  const { userId } = req.user;
+  const { firstName, lastName, phone } = req.body;
+
+  if (!firstName || !lastName) {
+    throw new AppError('Nombre y apellido son obligatorios', 400, 'MISSING_FIELDS');
+  }
+
+  const { pool } = require('../database');
+  
+  try {
+    const result = await pool.query(
+      `UPDATE whatsapp_bot.users 
+       SET first_name = $1, last_name = $2, phone = $3, updated_at = NOW()
+       WHERE id = $4 
+       RETURNING id, email, first_name, last_name, phone, role, created_at`,
+      [firstName, lastName, phone, userId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new AppError('Usuario no encontrado', 404, 'USER_NOT_FOUND');
+    }
+
+    res.json({
+      success: true,
+      message: 'Perfil actualizado exitosamente',
+      data: {
+        user: result.rows[0]
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Update profile error:', error);
+    throw error;
+  }
+});
+
+// Update company information (admin only)
+const updateCompany = asyncHandler(async (req, res) => {
+  const { companyId, role } = req.user;
+  const { name, description, email, phone, country } = req.body;
+
+  if (role !== 'admin') {
+    throw new AppError('Solo los administradores pueden editar la información de la empresa', 403, 'ACCESS_DENIED');
+  }
+
+  if (!name) {
+    throw new AppError('El nombre de la empresa es obligatorio', 400, 'MISSING_FIELDS');
+  }
+
+  const { pool } = require('../database');
+  
+  try {
+    const result = await pool.query(
+      `UPDATE whatsapp_bot.companies 
+       SET name = $1, description = $2, email = $3, phone = $4, country = $5, updated_at = NOW()
+       WHERE id = $6 
+       RETURNING *`,
+      [name, description, email, phone, country, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new AppError('Empresa no encontrada', 404, 'COMPANY_NOT_FOUND');
+    }
+
+    res.json({
+      success: true,
+      message: 'Información de la empresa actualizada exitosamente',
+      data: {
+        company: result.rows[0]
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Update company error:', error);
+    throw error;
+  }
+});
+
 module.exports = {
   register,
   registerWithPlan,
@@ -482,5 +562,7 @@ module.exports = {
   refreshToken,
   forgotPassword,
   resetPassword,
-  changePassword
+  changePassword,
+  updateProfile,
+  updateCompany
 };

@@ -24,6 +24,8 @@ router.get('/me', authenticate, authController.me);
 router.post('/logout', authenticate, authController.logout);
 router.post('/refresh', authenticate, authController.refreshToken);
 router.post('/change-password', authenticate, validateChangePassword, authController.changePassword);
+router.put('/profile', authenticate, authController.updateProfile);
+router.put('/company', authenticate, authController.updateCompany);
 
 // Route info (for development)
 router.get('/', (req, res) => {

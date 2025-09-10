@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Instances from './pages/Instances';
 import Bots from './pages/Bots';
@@ -22,6 +23,7 @@ import MassMessaging from './pages/MassMessaging';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Billing from './pages/Billing';
+import Profile from './pages/Profile';
 
 // Platform Admin imports
 import PlatformAdminLogin from './pages/PlatformAdminLogin';
@@ -92,6 +94,13 @@ function App() {
             />
             
             <Route 
+              path="/register" 
+              element={
+                !isAuthenticated ? <Register /> : <Navigate to="/" replace />
+              } 
+            />
+            
+            <Route 
               path="/" 
               element={
                 isAuthenticated ? <Layout /> : <Navigate to="/login" replace />
@@ -111,6 +120,7 @@ function App() {
               <Route path="campaigns" element={<Campaigns />} />
               <Route path="mass-messaging" element={<MassMessaging />} />
               <Route path="billing" element={<Billing />} />
+              <Route path="profile" element={<Profile />} />
               <Route path="settings" element={<Settings />} />
             </Route>
             
